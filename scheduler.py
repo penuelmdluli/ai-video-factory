@@ -1,13 +1,13 @@
 """
 AI Video Factory — Two-Phase Smart Scheduler
 
-Two-phase scheduling: BUILD videos 2 hours before UPLOAD time.
+Two-phase scheduling: BUILD videos 3 hours before UPLOAD time.
 This ensures videos are ready and uploaded exactly at optimal posting times.
 
 Schedule (daily, all 6 niches):
-    BUILD 6:00 AM  -> UPLOAD 8:00 AM   (shorts)
-    BUILD 12:00 PM -> UPLOAD 2:00 PM   (podcast)
-    BUILD 6:00 PM  -> UPLOAD 8:00 PM   (long-form)
+    BUILD 5:00 AM  -> UPLOAD 8:00 AM   (shorts)
+    BUILD 11:00 AM -> UPLOAD 2:00 PM   (podcast)
+    BUILD 5:00 PM  -> UPLOAD 8:00 PM   (long-form)
 
 Features:
 - Build phase: Generate video content (script, voice, visuals, assembly)
@@ -43,7 +43,7 @@ SCHEDULE_LOG = LOG_DIR / "schedule_log.json"
 # Videos are BUILT 2 hours before their UPLOAD time.
 # Each slot handles one format type for ALL 6 niches.
 
-BUILD_LEAD_HOURS = 2
+BUILD_LEAD_HOURS = 3
 
 # Upload slots: 3 per day (morning, afternoon, evening)
 UPLOAD_HOURS = [8, 14, 20]
@@ -53,9 +53,9 @@ BUILD_HOURS = [h - BUILD_LEAD_HOURS for h in UPLOAD_HOURS]
 
 # Map each slot index to a video format
 SLOT_FORMATS = {
-    0: "short",    # 6 AM build -> 8 AM upload (shorts = fast morning engagement)
-    1: "podcast",  # 12 PM build -> 2 PM upload (podcast debates = afternoon)
-    2: "long",     # 6 PM build -> 8 PM upload (long-form = evening deep content)
+    0: "short",    # 5 AM build -> 8 AM upload (shorts = fast morning engagement)
+    1: "podcast",  # 11 AM build -> 2 PM upload (podcast debates = afternoon)
+    2: "long",     # 5 PM build -> 8 PM upload (long-form = evening deep content)
 }
 
 # Readable slot names for logging
@@ -378,17 +378,17 @@ async def scheduler_loop():
     """
     Main scheduler daemon — two-phase scheduling.
 
-    BUILD phase runs 2 hours before UPLOAD phase:
-        6:00 AM  BUILD shorts      ->  8:00 AM  UPLOAD shorts
-        12:00 PM BUILD podcasts    ->  2:00 PM  UPLOAD podcasts
-        6:00 PM  BUILD long-form   ->  8:00 PM  UPLOAD long-form
+    BUILD phase runs 3 hours before UPLOAD phase:
+        5:00 AM  BUILD shorts      ->  8:00 AM  UPLOAD shorts
+        11:00 AM BUILD podcasts    ->  2:00 PM  UPLOAD podcasts
+        5:00 PM  BUILD long-form   ->  8:00 PM  UPLOAD long-form
 
     Checks every 15 minutes. Each phase runs once per slot per day.
     """
     print(f"\n{'#'*60}")
     print(f"# AI Video Factory — Two-Phase Smart Scheduler")
     print(f"# Niches: {len(NICHES)} ({', '.join(NICHES.keys())})")
-    print(f"# Strategy: Build 2h before upload")
+    print(f"# Strategy: Build 3h before upload")
     print(f"# Press Ctrl+C to stop")
     print(f"{'#'*60}\n")
 
