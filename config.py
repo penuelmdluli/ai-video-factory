@@ -31,6 +31,9 @@ ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 CF_ACCOUNT_ID = os.getenv("CF_ACCOUNT_ID", "")
 CF_API_TOKEN = os.getenv("CF_API_TOKEN", "")
 
+# ── Website URL (included in all video descriptions) ─────────
+WEBSITE_URL = os.getenv("WEBSITE_URL", "https://www.gettraderadar.com")
+
 # ── Stock Footage ──────────────────────────────────────────────
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
 

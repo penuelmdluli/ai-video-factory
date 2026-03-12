@@ -199,7 +199,12 @@ def _clean_json_response(text: str) -> str:
 
 def _add_affiliate_links(description: str, niche: str) -> str:
     """Add our product CTAs + relevant affiliate links to video description."""
-    from config import PRODUCT_CTA_TEMPLATES
+    from config import PRODUCT_CTA_TEMPLATES, WEBSITE_URL
+
+    # ── OUR WEBSITE (always included, above the fold) ─────────
+    website_section = ""
+    if WEBSITE_URL and WEBSITE_URL not in description:
+        website_section = f"\n\n🌐 Visit our website: {WEBSITE_URL}"
 
     # ── OUR PRODUCT CTA (always first, above the fold) ──────────
     product_section = ""
@@ -227,7 +232,7 @@ def _add_affiliate_links(description: str, niche: str) -> str:
     links_section += "This is not financial advice. Trading involves risk. "
     links_section += "Some links above are affiliate links.\n"
 
-    return description + product_section + links_section
+    return description + website_section + product_section + links_section
 
 
 async def generate_script_gemini(

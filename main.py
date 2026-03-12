@@ -369,22 +369,22 @@ async def create_video(
             )
             uploads.append(yt_result)
 
-            # TikTok (short-form only)
+            # TikTok (all formats)
+            try:
+                from modules.hashtag_optimizer import get_optimized_hashtags as _get_tt_tags
+                tt_hashtags = _get_tt_tags(niche=niche, platform="tiktok")
+            except Exception:
+                tt_hashtags = niche_config["hashtags"]
+
+            tt_result = await upload_to_tiktok(
+                video_path=str(video_path),
+                description=script.get("caption", title),
+                hashtags=tt_hashtags,
+            )
+            uploads.append(tt_result)
+
+            # Twitter (short-form only)
             if format_type == "short":
-                try:
-                    from modules.hashtag_optimizer import get_optimized_hashtags as _get_tt_tags
-                    tt_hashtags = _get_tt_tags(niche=niche, platform="tiktok")
-                except Exception:
-                    tt_hashtags = niche_config["hashtags"]
-
-                tt_result = await upload_to_tiktok(
-                    video_path=str(video_path),
-                    description=script.get("caption", title),
-                    hashtags=tt_hashtags,
-                )
-                uploads.append(tt_result)
-
-                # Twitter
                 tw_result = await upload_to_twitter(
                     video_path=str(video_path),
                     text=title[:200],
@@ -918,19 +918,19 @@ async def upload_prebuilt_videos(
         )
         uploads.append(yt_result)
 
-        # TikTok (short-form only)
-        if is_short:
-            try:
-                tt_result = await upload_to_tiktok(
-                    video_path=str(video_path),
-                    description=caption,
-                    hashtags=tags,
-                )
-                uploads.append(tt_result)
-            except Exception:
-                pass
+        # TikTok (all formats)
+        try:
+            tt_result = await upload_to_tiktok(
+                video_path=str(video_path),
+                description=caption,
+                hashtags=tags,
+            )
+            uploads.append(tt_result)
+        except Exception:
+            pass
 
-            # Twitter
+        # Twitter (short-form only)
+        if is_short:
             try:
                 tw_result = await upload_to_twitter(
                     video_path=str(video_path),
