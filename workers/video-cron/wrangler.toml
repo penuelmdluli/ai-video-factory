@@ -1,0 +1,14 @@
+name = "video-factory-cron"
+main = "src/index.js"
+compatibility_date = "2024-12-01"
+
+[triggers]
+crons = [
+  "0 6 * * *",   # Morning batch - 6 AM UTC (8 AM SAST)
+  "0 16 * * *",  # Afternoon batch - 4 PM UTC (6 PM SAST)
+]
+
+[vars]
+GITHUB_REPO = "PenuelM/ai-video-factory"
+GITHUB_WORKFLOW = "daily-video.yml"
+ALERT_EMAIL = ""

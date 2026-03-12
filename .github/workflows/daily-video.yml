@@ -1,0 +1,129 @@
+name: AI Video Factory - Daily Run
+
+on:
+  schedule:
+    # Backup cron (Cloudflare Worker is primary trigger)
+    - cron: '0 6 * * *'
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+    inputs:
+      niche:
+        description: 'Specific niche (leave empty for all)'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''
+          - ai_trading
+          - ai_money
+          - tech_news
+      format:
+        description: 'Video format (leave empty for both)'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''
+          - long
+          - short
+      dry_run:
+        description: 'Dry run (generate but dont upload)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  create-videos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg imagemagick
+          sudo sed -i 's/rights="none" pattern="@\*"/rights="read|write" pattern="@*"/' /etc/ImageMagick-6/policy.xml || true
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create output directory
+        run: mkdir -p output tokens
+
+      - name: Restore YouTube token
+        run: echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > tokens/youtube_token.json
+        if: env.YOUTUBE_TOKEN_JSON != ''
+        env:
+          YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+
+      - name: Restore TikTok cookies
+        run: echo '${{ secrets.TIKTOK_COOKIES }}' > tokens/tiktok_cookies.txt
+        if: env.TIKTOK_COOKIES != ''
+        env:
+          TIKTOK_COOKIES: ${{ secrets.TIKTOK_COOKIES }}
+
+      - name: Build pipeline command
+        id: cmd
+        run: |
+          CMD="python main.py"
+          NICHE="${{ github.event.inputs.niche }}"
+          FORMAT="${{ github.event.inputs.format }}"
+          DRY_RUN="${{ github.event.inputs.dry_run }}"
+          if [ -n "$NICHE" ]; then CMD="$CMD --niche $NICHE"; fi
+          if [ -n "$FORMAT" ]; then CMD="$CMD --format $FORMAT"; fi
+          if [ "$DRY_RUN" = "true" ]; then CMD="$CMD --dry-run"; fi
+          echo "cmd=$CMD" >> $GITHUB_OUTPUT
+          echo "Running: $CMD"
+
+      - name: Run video pipeline
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+        run: ${{ steps.cmd.outputs.cmd }}
+
+      - name: Upload video log as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: video-log-${{ github.run_number }}
+          path: output/video_log.json
+          retention-days: 30
+
+      - name: Upload generated videos as artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: videos-${{ github.run_number }}
+          path: output/**/*.mp4
+          retention-days: 7
+
+      - name: Upload thumbnails as artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: thumbnails-${{ github.run_number }}
+          path: output/**/*.jpg
+          retention-days: 7
