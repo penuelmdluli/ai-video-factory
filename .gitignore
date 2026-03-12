@@ -22,3 +22,4 @@ assets/viseme_did_clips/
 # Logs
 logs/
 *.jsonl
+.github/
