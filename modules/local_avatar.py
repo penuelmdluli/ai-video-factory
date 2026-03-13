@@ -840,40 +840,124 @@ def _check_sprites_available(image_path: str) -> Path | None:
     return None
 
 
-# ── Eye Blink Overlay ────────────────────────────────────────
+# ── Eye Animation (Blinks + Gaze Drift + Emotion Squint) ──────
 
-def _apply_blinks(
+def _apply_eye_animation(
     frame: np.ndarray,
+    frame_idx: int,
     blink_value: float,
     landmarks: np.ndarray,
     skin_color: tuple,
+    emotion_config: dict | None = None,
+    fps: int = 30,
 ) -> np.ndarray:
-    """Apply eye blink by drawing skin-colored patches over eyes."""
-    if blink_value < 0.15:
-        return frame
+    """
+    Full eye animation system:
+      1. Blink    — eyelid sweeps down with crease definition
+      2. Squint   — emotion-driven top/bottom lid narrowing (ANGRY, LAUGHS, SHOCKED)
+      3. Catchlight drift — small bright highlight oscillates inside the iris,
+                            giving the illusion of live, moving eyes every frame
+    """
+    t = frame_idx / fps
+    emotion_name = (emotion_config or {}).get("_emotion_name", "") if emotion_config else ""
 
     frame = frame.copy()
 
-    for eye_idx in [(36, 37, 38, 39, 40, 41), (42, 43, 44, 45, 46, 47)]:
-        eye_pts = landmarks[list(eye_idx)]
+    # Per-eye: (landmark slice, phase offset for async gaze movement)
+    eye_defs = [
+        (landmarks[36:42], 0.00),   # left eye
+        (landmarks[42:48], 0.40),   # right eye — slight phase offset
+    ]
+
+    for eye_pts, phase in eye_defs:
         ecx = int(eye_pts[:, 0].mean())
         ecy = int(eye_pts[:, 1].mean())
-        ew = int((eye_pts[:, 0].max() - eye_pts[:, 0].min()) / 2) + 3
-        eh = int((eye_pts[:, 1].max() - eye_pts[:, 1].min()) / 2) + 3
+        ew  = max(4, int((eye_pts[:, 0].max() - eye_pts[:, 0].min()) / 2) + 3)
+        eh  = max(2, int((eye_pts[:, 1].max() - eye_pts[:, 1].min()) / 2) + 3)
 
-        close = min(1.0, blink_value)
-        close_h = max(1, int(eh * close))
+        # ── 1. Blink ──
+        if blink_value >= 0.15:
+            close   = min(1.0, blink_value)
+            close_h = max(1, int(eh * close))
 
-        # Cover eye area with skin color
-        cv2.ellipse(frame, (ecx, ecy), (ew, close_h), 0, 0, 360,
-                     skin_color, -1)
+            # Main eyelid fill (skin-colored — covers the eye)
+            cv2.ellipse(frame, (ecx, ecy), (ew, close_h), 0, 0, 360, skin_color, -1)
 
-        # Eyelid curve when mostly closed
-        if close > 0.4:
-            lid_color = tuple(max(0, c - 30) for c in skin_color)
-            cv2.ellipse(frame, (ecx, ecy), (ew, 1), 0, 0, 180, lid_color, 2)
+            # Upper eyelid edge — dark crease for definition
+            lid_dark = tuple(max(0, c - 55) for c in skin_color)
+            cv2.ellipse(frame, (ecx, ecy - max(1, close_h // 3)),
+                        (ew, max(1, close_h // 4)), 0, 0, 180, lid_dark, 2)
+
+            # Lower lid rises slightly when fully closed
+            if close > 0.65:
+                cv2.ellipse(frame, (ecx, ecy + eh // 2 - 1), (ew, 1),
+                            0, 180, 360, lid_dark, 1)
+            continue   # skip gaze + squint while blinking
+
+        # ── 2. Emotion squint (modifies lid height without blinking) ──
+        if emotion_name in ("ANGRY", "DEAD SERIOUS", "NERVOUS"):
+            # Upper lid drops slightly — authoritative squint
+            squint_h = max(1, int(eh * 0.28))
+            squint_col = tuple(max(0, c - 45) for c in skin_color)
+            sq_cy = ecy - eh + squint_h // 2
+            cv2.ellipse(frame, (ecx, sq_cy), (ew, squint_h), 0, 0, 180, skin_color, -1)
+            cv2.ellipse(frame, (ecx, sq_cy), (ew, 1), 0, 0, 180, squint_col, 2)
+
+        elif emotion_name == "LAUGHS":
+            # Both top & bottom close in — laugh squint
+            squint_h = max(1, int(eh * 0.22))
+            squint_col = tuple(max(0, c - 35) for c in skin_color)
+            cv2.ellipse(frame, (ecx, ecy - eh + squint_h // 2), (ew, squint_h),
+                        0, 0, 180, skin_color, -1)
+            cv2.ellipse(frame, (ecx, ecy + eh - squint_h // 2), (ew, squint_h),
+                        0, 180, 360, skin_color, -1)
+
+        elif emotion_name == "SHOCKED":
+            # Upper lid pulls UP — wide eyes: draw a thin bright strip above eye
+            wide_col = tuple(min(255, c + 18) for c in skin_color)
+            wide_h = max(1, int(eh * 0.18))
+            cv2.ellipse(frame, (ecx, ecy - eh - wide_h // 2), (ew, wide_h),
+                        0, 0, 180, wide_col, -1)
+
+        # ── 3. Catchlight drift (gives the illusion of moving eyes every frame) ──
+        # Two overlapping sine waves → natural-looking saccadic drift
+        drift_x = int(
+            math.sin(2 * math.pi * 0.28 * t + phase * math.pi) * 2.2 +
+            math.sin(2 * math.pi * 1.10 * t + phase * 0.7)      * 0.8
+        )
+        drift_y = int(
+            math.sin(2 * math.pi * 0.11 * t) * 1.2 +
+            math.sin(2 * math.pi * 0.47 * t) * 0.5
+        )
+
+        # Emotion gaze bias
+        if emotion_name == "SHOCKED":
+            drift_y -= 2          # eyes dart upward
+        elif emotion_name in ("DEAD SERIOUS", "ANGRY"):
+            drift_y += 1          # focused downward stare
+        elif emotion_name == "DISBELIEF":
+            drift_x += int(math.sin(2 * math.pi * 0.4 * t) * 2)
+
+        # Catchlight position: upper-inner quadrant of the iris (natural position)
+        shine_x = ecx + drift_x
+        shine_y = ecy + drift_y - max(1, int(eh * 0.25))
+        shine_r = max(1, int(ew * 0.20))
+
+        # Clamp inside eye bounds
+        shine_x = max(ecx - ew + shine_r + 1, min(ecx + ew - shine_r - 1, shine_x))
+        shine_y = max(ecy - eh + shine_r + 1, min(ecy + eh - shine_r - 1, shine_y))
+
+        # Draw catchlight with soft alpha blend (60 % opaque, semi-transparent)
+        overlay = frame.copy()
+        cv2.circle(overlay, (shine_x, shine_y), shine_r, (245, 245, 250), -1)
+        cv2.addWeighted(overlay, 0.55, frame, 0.45, 0, frame)
 
     return frame
+
+
+# Keep old name as alias so any external callers still work
+def _apply_blinks(frame, blink_value, landmarks, skin_color):
+    return _apply_eye_animation(frame, 0, blink_value, landmarks, skin_color)
 
 
 # ── Head Movement ─────────────────────────────────────────────
@@ -1335,8 +1419,8 @@ def _generate_composite_sync(
         # a. Mouth overlay (main lip sync)
         frame = compositor.render(amp, cent, emo)
 
-        # b. Eye blinks
-        frame = _apply_blinks(frame, blk, landmarks, skin_color)
+        # b. Eye animation (blinks + gaze drift + emotion squint)
+        frame = _apply_eye_animation(frame, i, blk, landmarks, skin_color, emo, fps)
 
         # c. Emotion colour tint (subtle screen blend)
         if emo_name:
