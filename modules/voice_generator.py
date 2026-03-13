@@ -368,12 +368,19 @@ def detect_voice_emotion(text: str) -> dict:
 # Per-niche voice pairs for podcast characters
 # SPARKY = bold/energetic voice, NOVA = calm/analytical voice
 PODCAST_EDGE_VOICES = {
+    # SPARKY/NOVA voice MUST match the character gender defined in NICHE_CHARACTER_NAMES
+    # ai_trading:  SPARKY=JAYDEN(M)    NOVA=ZOE(F)
+    # ai_money:    SPARKY=MALIK(M)     NOVA=LUNA(F)
+    # tech_news:   SPARKY=KAI(M)       NOVA=AMARA(F)
+    # motivation:  SPARKY=BLAZE(M)     NOVA=SAGE(F)
+    # health_wellness:   SPARKY=MIA(F)  NOVA=NOAH(M)  ← SPARKY is FEMALE here
+    # blissful_moments:  SPARKY=ARIA(F) NOVA=LIAM(M)  ← SPARKY is FEMALE here
     "ai_trading":       {"SPARKY": "en-US-GuyNeural",          "NOVA": "en-US-JennyNeural"},
     "ai_money":         {"SPARKY": "en-US-ChristopherNeural",  "NOVA": "en-US-AriaNeural"},
     "tech_news":        {"SPARKY": "en-GB-RyanNeural",         "NOVA": "en-GB-SoniaNeural"},
     "motivation":       {"SPARKY": "en-US-ChristopherNeural",  "NOVA": "en-US-JennyNeural"},
-    "health_wellness":  {"SPARKY": "en-US-GuyNeural",          "NOVA": "en-US-AriaNeural"},
-    "blissful_moments": {"SPARKY": "en-US-ChristopherNeural",  "NOVA": "en-US-AriaNeural"},
+    "health_wellness":  {"SPARKY": "en-US-JennyNeural",        "NOVA": "en-US-GuyNeural"},
+    "blissful_moments": {"SPARKY": "en-US-JennyNeural",        "NOVA": "en-US-ChristopherNeural"},
 }
 
 # ── Premium ElevenLabs Voices for Podcast Characters ─────────
@@ -406,12 +413,14 @@ PODCAST_NICHE_ELEVENLABS = {
         "NOVA": "CwhRBWXzGAHq8TQ4Fs17",    # "Roger" — Laid-Back, Casual, Resonant
     },
     "health_wellness": {
-        "SPARKY": "iP95p4xoKVk53GoZ742B",  # "Chris" — Charming, Down-to-Earth
-        "NOVA": "SAz9YHcvj6GT2YYXdXww",    # "River" — Relaxed, Neutral
+        # MIA (girl) = female voice, NOAH (boy) = male voice
+        "SPARKY": "9BWtsMINqrJLrRacOk9x",  # "Aria" — Bright, Expressive, Curious Female
+        "NOVA":   "iP95p4xoKVk53GoZ742B",  # "Chris" — Charming, Warm Male
     },
     "blissful_moments": {
-        "SPARKY": "CwhRBWXzGAHq8TQ4Fs17",  # "Roger" — Laid-Back, Casual
-        "NOVA": "bIHbv24MWmeRgasZH58o",    # "Will" — Relaxed Optimist
+        # ARIA (girl) = female voice, LIAM (boy) = male voice
+        "SPARKY": "9BWtsMINqrJLrRacOk9x",  # "Aria" — Bright, Expressive Female (matches character name!)
+        "NOVA":   "bIHbv24MWmeRgasZH58o",  # "Will" — Relaxed Optimist Male
     },
 }
 

@@ -396,6 +396,8 @@ def _build_emotion_timeline(
                     blended[key] = def_val + (val - def_val) * fade
                 else:
                     blended[key] = val
+            # Always embed raw emotion name so animation effects can read it
+            blended["_emotion_name"] = emotion_name
             timeline[f] = blended
 
     return timeline
@@ -480,83 +482,138 @@ class MouthCompositor:
 
     def render(self, amplitude: float, centroid: float, emotion: dict) -> np.ndarray:
         """
-        Render frame with mouth animation.
+        Render frame with phoneme-aware, emotion-driven mouth animation.
 
-        Uses a minimal-invasive approach: only draws the dark mouth interior
-        within the natural lip boundary. Does NOT cover the original face
-        with solid color — preserves skin texture and natural lighting.
+        Improvements over v1:
+        - Filled upper/lower lip shapes for 3D depth
+        - Phoneme-aware width: oo/uh (narrow) → ee/ah (wide)
+        - Detailed teeth with subtle gap lines
+        - Lower teeth visible for wide-open emotions (LAUGHS, SHOCKED, FIRED UP)
+        - Tongue with centre ridge for realism
+        - Smile/frown corner shift per emotion
+        - Mouth-corner depth shadows
+        - Blend zone sized to encompass full lip area
         """
         if amplitude < 0.02:
             return self.base_image.copy()
 
-        frame = self.base_image.copy()
+        mouth_canvas = self.base_image.copy()
 
-        jaw_drop = emotion.get("jaw_drop", 1.0)
-        mouth_scale = emotion.get("mouth_scale", 1.0)
+        jaw_drop     = emotion.get("jaw_drop",    1.0)
+        mouth_scale  = emotion.get("mouth_scale", 1.0)
+        emotion_name = emotion.get("_emotion_name", "")
 
-        # ── Calculate mouth opening dimensions ──
-        # Scale opening with amplitude — mouth opens proportionally
-        open_h = int(self.base_mouth_h * amplitude * 0.8 * jaw_drop)
-        open_h = max(2, min(open_h, int(self.base_mouth_h * 1.2)))
+        # ── Mouth opening dimensions ──
+        open_h = int(self.base_mouth_h * amplitude * 0.9 * jaw_drop)
+        open_h = max(2, min(open_h, int(self.base_mouth_h * 1.4)))
 
-        # Width shaped by centroid: high = spread (ee), low = round (oo)
-        width_factor = 0.35 + 0.30 * centroid
+        # Phoneme-aware width: low centroid = round (oo/uh), high = wide (ee/ah)
+        width_factor = 0.28 + 0.52 * centroid      # range 0.28 – 0.80
         open_w = int(self.base_mouth_w * width_factor * mouth_scale)
-        open_w = max(4, min(open_w, int(self.base_mouth_w * 0.8)))
+        open_w = max(4, min(open_w, int(self.base_mouth_w * 0.92)))
 
-        # Mouth center shifts down slightly when opening wider
+        # Lip thickness proportional to face size
+        lip_t = max(2, int(self.base_mouth_h * 0.28))
+
+        # Mouth centre (shifts down slightly as mouth opens)
         cx = self.mouth_cx
         cy = self.mouth_cy + open_h // 6
-
         if "mouth_corners" in emotion:
             mc = emotion["mouth_corners"]
             cx += int(mc[0])
             cy += int(mc[1])
 
-        # ── Draw mouth interior on a separate canvas ──
-        mouth_canvas = frame.copy()
+        # Smile / frown corner vertical shift
+        smile_v = 0
+        if emotion_name in ("LAUGHS", "EXCITED", "IMPRESSED", "SMIRKING"):
+            smile_v = -max(1, int(open_h * 0.12))   # corners up
+        elif emotion_name in ("ANGRY", "DEAD SERIOUS", "NERVOUS"):
+            smile_v = max(1, int(open_h * 0.08))    # corners down (frown)
 
-        # Dark mouth cavity — gradient from dark center to slightly lighter edges
-        dark_inner = (20, 15, 30)
-        dark_mid = (35, 25, 45)
-        # Draw outer dark ring first, then darker center for depth
-        cv2.ellipse(mouth_canvas, (cx, cy), (open_w, open_h), 0, 0, 360,
-                     dark_mid, -1)
-        inner_w = max(2, int(open_w * 0.7))
-        inner_h = max(1, int(open_h * 0.6))
-        cv2.ellipse(mouth_canvas, (cx, cy), (inner_w, inner_h), 0, 0, 360,
-                     dark_inner, -1)
+        # ── 1. Dark mouth cavity (two-layer depth) ──
+        dark_inner = (18, 12, 28)
+        dark_mid   = (32, 22, 42)
+        cv2.ellipse(mouth_canvas, (cx, cy + smile_v), (open_w, open_h),
+                    0, 0, 360, dark_mid, -1)
+        cv2.ellipse(mouth_canvas, (cx, cy + smile_v),
+                    (max(2, int(open_w * 0.65)), max(1, int(open_h * 0.55))),
+                    0, 0, 360, dark_inner, -1)
 
-        # Teeth (subtle white band at top of mouth)
-        if amplitude > 0.12 and open_h > 3:
-            teeth_h = max(2, int(open_h * 0.30))
-            teeth_w = int(open_w * 0.65)
-            teeth_y = cy - open_h // 2 + teeth_h // 2 + 1
-            # Off-white teeth, not pure white
+        # ── 2. Upper teeth ──
+        if amplitude > 0.10 and open_h > 3:
+            teeth_h = max(2, int(open_h * 0.35))
+            teeth_w = int(open_w * 0.72)
+            teeth_y = cy + smile_v - open_h // 2 + teeth_h // 2 + 1
             cv2.ellipse(mouth_canvas, (cx, teeth_y), (teeth_w, teeth_h),
-                         0, 0, 180, (215, 218, 225), -1)
+                        0, 0, 180, (222, 222, 230), -1)
+            # Subtle tooth gap lines
+            if teeth_w > 10 and open_h > 5:
+                n_gaps = 3
+                for gi in range(1, n_gaps + 1):
+                    gx = cx - teeth_w + (2 * teeth_w * gi) // (n_gaps + 1)
+                    cv2.line(mouth_canvas,
+                             (gx, teeth_y - teeth_h // 2 + 1),
+                             (gx, teeth_y + teeth_h // 2 - 1),
+                             (178, 176, 185), 1)
+            # Lower teeth for wide-open emotions
+            if emotion_name in ("LAUGHS", "SHOCKED", "FIRED UP", "EXCITED") and open_h > 7:
+                lt_y = cy + smile_v + open_h // 2 - max(1, teeth_h // 2) - 1
+                lt_w = int(teeth_w * 0.80)
+                lt_h = max(1, int(teeth_h * 0.65))
+                cv2.ellipse(mouth_canvas, (cx, lt_y), (lt_w, lt_h),
+                            0, 180, 360, (205, 205, 212), -1)
 
-        # Tongue hint (pink/red at bottom when wide open)
-        if amplitude > 0.50 and open_h > 6:
-            tongue_y = cy + int(open_h * 0.20)
-            tongue_w = int(open_w * 0.35)
-            tongue_h = max(2, int(open_h * 0.22))
-            cv2.ellipse(mouth_canvas, (cx, tongue_y), (tongue_w, tongue_h),
-                         0, 180, 360, (80, 65, 140), -1)
+        # ── 3. Tongue ──
+        if amplitude > 0.42 and open_h > 5:
+            tong_y = cy + smile_v + int(open_h * 0.20)
+            tong_w = int(open_w * 0.36)
+            tong_h = max(2, int(open_h * 0.26))
+            cv2.ellipse(mouth_canvas, (cx, tong_y), (tong_w, tong_h),
+                        0, 180, 360, (88, 68, 150), -1)
+            if tong_h > 3:
+                cv2.line(mouth_canvas,
+                         (cx, tong_y - tong_h // 2 + 1),
+                         (cx, tong_y + tong_h // 2 - 1),
+                         (68, 52, 128), 1)
 
-        # Thin lip line around opening (using actual sampled lip color)
-        thickness = max(1, int(min(open_w, open_h) * 0.12))
-        cv2.ellipse(mouth_canvas, (cx, cy), (open_w + 1, open_h + 1), 0, 0, 360,
-                     self.lip_outline_color, thickness)
+        # ── 4. Lower lip (fuller, with highlight strip) ──
+        if open_h >= 2:
+            ll_cy = cy + smile_v + open_h + lip_t // 2 - 1
+            ll_w  = int(open_w * 0.92)
+            ll_h  = max(1, int(lip_t * 1.15))
+            cv2.ellipse(mouth_canvas, (cx, ll_cy), (ll_w, ll_h),
+                        0, 0, 180, self.lip_color, -1)
+            # Centre highlight — lighter strip for 3-D roundness
+            hl = tuple(min(255, c + 22) for c in self.lip_color)
+            cv2.ellipse(mouth_canvas, (cx, ll_cy),
+                        (max(1, ll_w // 2), max(1, ll_h // 2)),
+                        0, 0, 180, hl, -1)
 
-        # ── Tight feathered blend — ONLY the mouth opening area ──
-        # This is the key: small blend zone preserves surrounding skin texture
+        # ── 5. Upper lip (thinner, cupid's-bow shape) ──
+        if open_h >= 2:
+            ul_cy = cy + smile_v - open_h - lip_t // 2 + 1
+            ul_w  = int(open_w * 0.85)
+            ul_h  = max(1, lip_t)
+            cv2.ellipse(mouth_canvas, (cx, ul_cy), (ul_w, ul_h),
+                        0, 180, 360, self.lip_color, -1)
+
+        # ── 6. Lip outline (definition border) ──
+        border = max(1, int(min(open_w, open_h) * 0.09))
+        cv2.ellipse(mouth_canvas, (cx, cy + smile_v),
+                    (open_w + 1, open_h + lip_t),
+                    0, 0, 360, self.lip_outline_color, border)
+
+        # ── 7. Corner depth shadows ──
+        shadow_r = max(2, int(open_w * 0.12))
+        for corner_x in [cx - open_w + 2, cx + open_w - 2]:
+            cv2.circle(mouth_canvas, (corner_x, cy + smile_v),
+                       shadow_r, self.lip_outline_color, -1)
+
+        # ── Feathered blend mask (covers full lip area) ──
         mask = np.zeros((self.h, self.w), dtype=np.float32)
-        # Blend zone is just slightly larger than the mouth opening
-        blend_w = open_w + 3
-        blend_h = open_h + 3
-        cv2.ellipse(mask, (cx, cy), (blend_w, blend_h), 0, 0, 360, 1.0, -1)
-        # Soft gaussian blur for feathered edges
+        blend_w = open_w + lip_t + 4
+        blend_h = open_h + lip_t * 2 + 4
+        cv2.ellipse(mask, (cx, cy + smile_v), (blend_w, blend_h), 0, 0, 360, 1.0, -1)
         ksize = max(3, (min(blend_w, blend_h) // 2) * 2 + 1)
         mask = cv2.GaussianBlur(mask, (ksize, ksize), max(1.5, min(blend_w, blend_h) * 0.3))
 
@@ -826,26 +883,117 @@ def _apply_head_movement(
     frame_idx: int,
     amplitude: float,
     fps: int,
+    emotion_config: dict | None = None,
 ) -> np.ndarray:
-    """Apply subtle head movement via affine translation."""
+    """Apply dynamic emotion-driven head movement via affine transform."""
     t = frame_idx / fps
+    emotion_name = (emotion_config or {}).get("_emotion_name", "")
 
-    # Breathing: slow vertical oscillation
-    breath_dy = math.sin(2 * math.pi * 0.25 * t) * 0.8
-    # Sway: slow horizontal oscillation
-    sway_dx = math.sin(2 * math.pi * 0.15 * t) * 1.0
-    # Speaking emphasis: slight push when loud
-    emphasis_dy = amplitude * 1.5
+    # Natural breathing oscillation (3× more visible than before)
+    breath_dy = math.sin(2 * math.pi * 0.25 * t) * 2.5
+    # Gentle side sway (3× more visible)
+    sway_dx = math.sin(2 * math.pi * 0.15 * t + math.pi / 4) * 2.5
+    # Speaking nod — downward push when loud
+    nod_dy = amplitude * 4.0
+    # Rapid talking bob during active speech
+    talk_bob = math.sin(2 * math.pi * 3.5 * t) * amplitude * 2.5 if amplitude > 0.15 else 0.0
 
-    dx = sway_dx
-    dy = breath_dy + emphasis_dy
+    # Emotion-driven movement overrides
+    emotion_dx = 0.0
+    emotion_dy = 0.0
+    emotion_rot = 0.0  # degrees
 
-    if abs(dx) < 0.1 and abs(dy) < 0.1:
-        return frame
+    if emotion_name == "SHOCKED":
+        emotion_dy = -4.0                                          # head snaps back
+        emotion_rot = math.sin(2 * math.pi * 0.8 * t) * 0.8      # slight wobble
+    elif emotion_name in ("ANGRY", "FIRED UP"):
+        emotion_dy = 4.0                                           # aggressive forward lean
+        emotion_dx = math.sin(2 * math.pi * 0.6 * t) * 1.5       # side-to-side intensity
+        emotion_rot = -0.8                                         # forward tilt
+    elif emotion_name == "LAUGHS":
+        emotion_dy = math.sin(2 * math.pi * 4.0 * t) * 5.0       # laugh bounce
+        emotion_rot = math.sin(2 * math.pi * 2.0 * t) * 2.0      # head rocks with laughter
+    elif emotion_name == "EXCITED":
+        emotion_dy = math.sin(2 * math.pi * 2.5 * t) * 3.5       # bouncy excitement
+        emotion_dx = math.sin(2 * math.pi * 1.8 * t) * 1.5       # energetic side movement
+    elif emotion_name == "WHISPERING":
+        emotion_dy = 3.5                                           # lean in conspiratorially
+        breath_dy *= 0.4; sway_dx *= 0.4; nod_dy *= 0.3          # reduce background motion
+        talk_bob = 0.0
+    elif emotion_name == "DEAD SERIOUS":
+        # Lock down — almost no movement, very authoritative
+        breath_dy *= 0.2; sway_dx *= 0.2; nod_dy *= 0.2
+        talk_bob = 0.0
+    elif emotion_name == "NERVOUS":
+        emotion_dx = math.sin(2 * math.pi * 5.0 * t) * 1.5       # fidgety side tremor
+        emotion_dy = math.sin(2 * math.pi * 5.5 * t) * 0.8       # slight up-down tremor
+    elif emotion_name == "DISBELIEF":
+        emotion_rot = math.sin(2 * math.pi * 0.4 * t) * 1.5      # slow incredulous head shake
 
+    dx = sway_dx + emotion_dx
+    dy = breath_dy + nod_dy + talk_bob + emotion_dy
     h, w = frame.shape[:2]
+
+    if abs(emotion_rot) > 0.05:
+        cx, cy = w / 2, h / 2
+        M = cv2.getRotationMatrix2D((cx, cy), emotion_rot, 1.0)
+        M[0, 2] += dx
+        M[1, 2] += dy
+        return cv2.warpAffine(frame, M, (w, h), borderMode=cv2.BORDER_REFLECT_101)
+
+    if abs(dx) < 0.05 and abs(dy) < 0.05:
+        return frame
     M = np.float32([[1, 0, dx], [0, 1, dy]])
     return cv2.warpAffine(frame, M, (w, h), borderMode=cv2.BORDER_REFLECT_101)
+
+
+# ── Emotion Color Tint ─────────────────────────────────────────
+# Subtle screen-blend tints reinforce each emotion visually.
+# Values are normalised BGR additive offsets (0.0–1.0 scale).
+
+_EMOTION_TINTS: dict[str, tuple[float, float, float]] = {
+    "EXCITED":      (0.00, 0.03, 0.09),   # warm golden-orange
+    "FIRED UP":     (0.00, 0.00, 0.14),   # hot red energy
+    "ANGRY":        (0.00, 0.00, 0.10),   # red aggression
+    "SHOCKED":      (0.06, 0.02, 0.00),   # icy blue surprise
+    "LAUGHS":       (0.00, 0.05, 0.10),   # warm happiness
+    "DEAD SERIOUS": (0.06, 0.01, 0.00),   # cold authority
+    "WHISPERING":   (0.02, 0.01, 0.03),   # dim soft warmth
+    "NERVOUS":      (0.03, 0.00, 0.04),   # cool anxious purple
+    "DISBELIEF":    (0.04, 0.01, 0.00),   # cool blue doubt
+    "IMPRESSED":    (0.00, 0.04, 0.07),   # warm admiration
+}
+
+
+def _apply_emotion_tint(frame: np.ndarray, emotion_name: str) -> np.ndarray:
+    """Screen-blend a subtle colour tint to reinforce the current emotion."""
+    tint = _EMOTION_TINTS.get(emotion_name)
+    if not tint or max(tint) < 0.005:
+        return frame
+    b_add, g_add, r_add = tint
+    result = frame.astype(np.float32) / 255.0
+    result[:, :, 0] = np.clip(result[:, :, 0] + b_add, 0.0, 1.0)
+    result[:, :, 1] = np.clip(result[:, :, 1] + g_add, 0.0, 1.0)
+    result[:, :, 2] = np.clip(result[:, :, 2] + r_add, 0.0, 1.0)
+    return (result * 255.0).astype(np.uint8)
+
+
+# ── Zoom Pulse ─────────────────────────────────────────────────
+
+def _apply_zoom_pulse(frame: np.ndarray, amplitude: float, emotion_name: str = "") -> np.ndarray:
+    """Dynamic push-in zoom on loud / energetic moments — cinematic feel."""
+    zoom = 1.0 + amplitude * 0.03           # 0–3 % on speech amplitude
+    if emotion_name in ("EXCITED", "FIRED UP", "SHOCKED", "LAUGHS"):
+        zoom = min(zoom + 0.015, 1.055)     # extra kick for hype emotions (max ~5.5 %)
+    if zoom <= 1.004:
+        return frame
+    h, w = frame.shape[:2]
+    new_h = max(1, int(h / zoom))
+    new_w = max(1, int(w / zoom))
+    y1 = (h - new_h) // 2
+    x1 = (w - new_w) // 2
+    return cv2.resize(frame[y1:y1 + new_h, x1:x1 + new_w], (w, h),
+                      interpolation=cv2.INTER_LINEAR)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -1182,6 +1330,7 @@ def _generate_composite_sync(
         cent = float(centroid[i]) if i < len(centroid) else 0.5
         emo = emotion_timeline[i]
         blk = float(blinks[i])
+        emo_name = emo.get("_emotion_name", "") if isinstance(emo, dict) else ""
 
         # a. Mouth overlay (main lip sync)
         frame = compositor.render(amp, cent, emo)
@@ -1189,8 +1338,15 @@ def _generate_composite_sync(
         # b. Eye blinks
         frame = _apply_blinks(frame, blk, landmarks, skin_color)
 
-        # c. Head movement (breathing, sway, speaking emphasis)
-        frame = _apply_head_movement(frame, i, amp, fps)
+        # c. Emotion colour tint (subtle screen blend)
+        if emo_name:
+            frame = _apply_emotion_tint(frame, emo_name)
+
+        # d. Zoom pulse (push-in on loud/exciting moments)
+        frame = _apply_zoom_pulse(frame, amp, emo_name)
+
+        # e. Head movement (emotion-driven — breathing, sway, nod, tilt, rotation)
+        frame = _apply_head_movement(frame, i, amp, fps, emo)
 
         writer.write(frame)
 
