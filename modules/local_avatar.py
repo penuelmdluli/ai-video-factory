@@ -844,6 +844,60 @@ def _check_sprites_available(image_path: str) -> Path | None:
 
 # ── Eye Animation (Blinks + Gaze Drift + Emotion Squint) ──────
 
+
+def _create_closed_eyes_image(image: np.ndarray, landmarks: np.ndarray) -> np.ndarray:
+    """
+    Pre-compute a 'closed eyes' version of the character image using cv2.inpaint.
+
+    OpenCV inpainting fills the masked eye regions using surrounding skin texture,
+    lighting, and color gradients — producing a photorealistic 'eyelids closed'
+    result without any flat colors or blur artifacts.
+
+    Called once at init, then blink frames just cross-fade to this image.
+    """
+    h, w = image.shape[:2]
+
+    # Build inpaint mask covering both eyes (slightly expanded for full coverage)
+    inpaint_mask = np.zeros((h, w), dtype=np.uint8)
+
+    for eye_pts in [landmarks[36:42], landmarks[42:48]]:
+        ecx = int(eye_pts[:, 0].mean())
+        ecy = int(eye_pts[:, 1].mean())
+        ew = max(4, int((eye_pts[:, 0].max() - eye_pts[:, 0].min()) / 2) + 5)
+        eh = max(2, int((eye_pts[:, 1].max() - eye_pts[:, 1].min()) / 2) + 4)
+
+        # Elliptical mask over each eye — 1.3x expanded to cover full visible eye
+        cv2.ellipse(inpaint_mask, (ecx, ecy), (int(ew * 1.3), int(eh * 1.2)),
+                    0, 0, 360, 255, -1)
+
+    # Inpaint: TELEA algorithm fills eyes with surrounding skin context
+    closed = cv2.inpaint(image, inpaint_mask, inpaintRadius=12, flags=cv2.INPAINT_TELEA)
+
+    # Draw subtle eyelid crease lines on the inpainted result
+    # Sample skin color near the eye for the crease color
+    sample_y = max(0, int(landmarks[36:42][:, 1].min()) - 8)
+    sample_x = int(landmarks[36:42][:, 0].mean())
+    if 0 <= sample_y < h and 0 <= sample_x < w:
+        sc = tuple(int(c) for c in closed[sample_y, sample_x])
+    else:
+        sc = (140, 120, 100)
+    crease_dark = tuple(max(0, c - 50) for c in sc)
+
+    for eye_pts in [landmarks[36:42], landmarks[42:48]]:
+        ecx = int(eye_pts[:, 0].mean())
+        ecy = int(eye_pts[:, 1].mean())
+        ew = max(4, int((eye_pts[:, 0].max() - eye_pts[:, 0].min()) / 2) + 3)
+
+        # Upper eyelid crease (curved line)
+        cv2.ellipse(closed, (ecx, ecy), (int(ew * 1.1), 2),
+                    0, 0, 180, crease_dark, 1)
+        # Thin lash line at center
+        cv2.line(closed, (ecx - ew + 2, ecy), (ecx + ew - 2, ecy),
+                 crease_dark, 1)
+
+    return closed
+
+
 def _apply_eye_animation(
     frame: np.ndarray,
     frame_idx: int,
@@ -852,10 +906,11 @@ def _apply_eye_animation(
     skin_color: tuple,
     emotion_config: dict | None = None,
     fps: int = 30,
+    closed_eyes_img: np.ndarray | None = None,
 ) -> np.ndarray:
     """
     Full eye animation system:
-      1. Blink    — eyelid sweeps down with crease definition
+      1. Blink    — cross-fade to pre-computed inpainted 'closed eyes' image
       2. Squint   — emotion-driven top/bottom lid narrowing (ANGRY, LAUGHS, SHOCKED)
       3. Catchlight drift — small bright highlight oscillates inside the iris,
                             giving the illusion of live, moving eyes every frame
@@ -877,25 +932,17 @@ def _apply_eye_animation(
         ew  = max(4, int((eye_pts[:, 0].max() - eye_pts[:, 0].min()) / 2) + 3)
         eh  = max(2, int((eye_pts[:, 1].max() - eye_pts[:, 1].min()) / 2) + 3)
 
-        # ── 1. Blink (natural blur+blend approach) ──
-        # Instead of a flat solid-color ellipse (looks like a band-aid on
-        # photorealistic faces), we:
-        #   a. Extract the eye region (ROI)
-        #   b. Heavy-blur it (removes iris/pupil → looks like closed skin)
-        #   c. Blend blurred result with skin_color (shifts toward eyelid tone)
-        #   d. Apply through a feathered elliptical mask (smooth edges)
-        #   e. Add subtle crease line for realism
-        # Result: preserves actual lighting, texture, and skin gradients.
-        if blink_value >= 0.15:
+        # ── 1. Blink (inpaint cross-fade) ──
+        # Cross-fade between current frame and the pre-inpainted "closed eyes"
+        # image in the eye ROI. Inpainting fills eyes with real surrounding skin
+        # texture — no flat colors, no blur artifacts, fully photorealistic.
+        if blink_value >= 0.15 and closed_eyes_img is not None:
             close = min(1.0, blink_value)
 
-            # Slightly expand coverage beyond landmark bounds
-            blink_ew = int(ew * 1.25)
-            blink_eh = int(eh * 1.15)
-            close_h = max(2, int(blink_eh * close))
-
-            # ROI around the eye (with padding for feathered edges)
-            pad = 4
+            # ROI around the eye (expanded + padding for feathered blend)
+            blink_ew = int(ew * 1.35)
+            blink_eh = int(eh * 1.25)
+            pad = 6
             ry1 = max(0, ecy - blink_eh - pad)
             ry2 = min(frame.shape[0], ecy + blink_eh + pad)
             rx1 = max(0, ecx - blink_ew - pad)
@@ -904,47 +951,26 @@ def _apply_eye_animation(
             roi_w = rx2 - rx1
 
             if roi_h > 2 and roi_w > 2:
-                roi = frame[ry1:ry2, rx1:rx2].copy()
+                # Extract ROIs from both images
+                open_roi = frame[ry1:ry2, rx1:rx2].astype(np.float32)
+                shut_roi = closed_eyes_img[ry1:ry2, rx1:rx2].astype(np.float32)
 
-                # Heavy Gaussian blur — dissolves iris/pupil into skin-like surface
-                ksize = max(3, (min(roi_h, roi_w) // 2) | 1)  # odd kernel
-                blurred = cv2.GaussianBlur(roi, (ksize, ksize), sigmaX=6, sigmaY=6)
-
-                # Blend blurred ROI toward skin_color (40% skin, 60% blur)
-                skin_layer = np.full_like(roi, skin_color, dtype=np.uint8)
-                eyelid = cv2.addWeighted(blurred, 0.60, skin_layer, 0.40, 0)
-
-                # Feathered elliptical mask (soft edges, no hard boundary)
+                # Feathered elliptical mask — soft edges prevent hard boundaries
                 mask = np.zeros((roi_h, roi_w), dtype=np.float32)
-                mc_x = ecx - rx1  # mask centre relative to ROI
+                mc_x = ecx - rx1
                 mc_y = ecy - ry1
-                cv2.ellipse(mask, (mc_x, mc_y), (blink_ew, close_h),
+                cv2.ellipse(mask, (mc_x, mc_y), (blink_ew, blink_eh),
                             0, 0, 360, 1.0, -1)
-                mask = cv2.GaussianBlur(mask, (0, 0), sigmaX=3.5, sigmaY=2.5)
+                mask = cv2.GaussianBlur(mask, (0, 0), sigmaX=4.0, sigmaY=3.0)
 
-                # Scale alpha by blink intensity so partial blinks are translucent
-                alpha = close * 0.92
-                mask_3d = (mask * alpha)[:, :, np.newaxis]
+                # Alpha = blink intensity (partial close → translucent)
+                alpha = close * 0.95
+                m3 = (mask * alpha)[:, :, np.newaxis]
 
-                # Apply — smooth composite preserving surrounding texture
+                # Cross-fade: open eyes → closed eyes
                 frame[ry1:ry2, rx1:rx2] = (
-                    roi.astype(np.float32) * (1.0 - mask_3d) +
-                    eyelid.astype(np.float32) * mask_3d
+                    open_roi * (1.0 - m3) + shut_roi * m3
                 ).astype(np.uint8)
-
-                # Subtle crease line at the upper eyelid edge
-                if close > 0.45:
-                    lid_dark = tuple(max(0, c - 55) for c in skin_color)
-                    crease_y = ecy - max(1, int(close_h * 0.35))
-                    cv2.ellipse(frame, (ecx, crease_y),
-                                (blink_ew - 2, max(1, close_h // 5)),
-                                0, 0, 180, lid_dark, 1)
-
-                # Lash line when mostly/fully closed
-                if close > 0.70:
-                    lid_dark = tuple(max(0, c - 55) for c in skin_color)
-                    cv2.line(frame, (ecx - blink_ew + 4, ecy),
-                             (ecx + blink_ew - 4, ecy), lid_dark, 1)
 
             continue   # skip gaze + squint while blinking
 
@@ -1304,6 +1330,12 @@ def _enhance_wav2lip_video(input_path: Path, output_path: Path, character: str =
     skin_color = mc.skin_color if mc is not None else (200, 180, 160)
     del mc
 
+    # Pre-compute inpainted "closed eyes" image (one-time cost, ~50ms)
+    closed_eyes_img = None
+    if landmarks is not None:
+        closed_eyes_img = _create_closed_eyes_image(original, landmarks)
+        print(f"[LocalAvatar] {character}: Closed-eyes image pre-computed (inpaint)")
+
     emotion_tl = _build_emotion_timeline(line_timings, character, total, int(fps))
 
     # ── Frame loop ────────────────────────────────────────────
@@ -1332,7 +1364,8 @@ def _enhance_wav2lip_video(input_path: Path, output_path: Path, character: str =
             emo = emotion_tl[frame_idx] if frame_idx < len(emotion_tl) else {}
             blk = float(blinks[frame_idx]) if frame_idx < len(blinks) else 0.0
             result = _apply_eye_animation(result, frame_idx, blk, landmarks,
-                                          skin_color, emo, int(fps))
+                                          skin_color, emo, int(fps),
+                                          closed_eyes_img=closed_eyes_img)
 
         writer.write(result)
 
@@ -1509,6 +1542,10 @@ def _generate_composite_sync(
         compositor = MouthCompositor(src_img, landmarks)
         skin_color = compositor.skin_color
 
+    # Pre-compute inpainted "closed eyes" image for natural blinks
+    closed_eyes_img = _create_closed_eyes_image(src_img, landmarks)
+    print(f"[LocalAvatar] {character}: Closed-eyes image pre-computed (inpaint)")
+
     # 5. Render frames
     temp_video = output_path.parent / f"_temp_comp_{character.lower()}.mp4"
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -1526,7 +1563,8 @@ def _generate_composite_sync(
         frame = compositor.render(amp, cent, emo)
 
         # b. Eye animation (blinks + gaze drift + emotion squint)
-        frame = _apply_eye_animation(frame, i, blk, landmarks, skin_color, emo, fps)
+        frame = _apply_eye_animation(frame, i, blk, landmarks, skin_color, emo, fps,
+                                     closed_eyes_img=closed_eyes_img)
 
         # c. Emotion colour tint (subtle screen blend)
         if emo_name:
