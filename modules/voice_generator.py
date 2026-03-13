@@ -1,10 +1,14 @@
 """
-Voice Generator — Smart routing between edge-tts (free) and ElevenLabs (premium).
+Voice Generator — Smart routing: Kokoro (primary free) → ElevenLabs (premium) → edge-tts (fallback).
 
-- YouTube long-form -> ElevenLabs (natural, expressive)
-- Shorts/TikTok/Reels -> edge-tts (free, good enough for short content)
-- Falls back to edge-tts if ElevenLabs fails or quota exhausted
-- Podcast dual-voice -> Two distinct voices for SPARKY & NOVA characters
+Priority chain:
+  1. Kokoro TTS  — hexgrad/Kokoro-82M, 82M-param open-weight, runs on GPU, 54+ voices, 24kHz
+  2. ElevenLabs  — premium cloud TTS (skipped when quota exhausted)
+  3. edge-tts    — Microsoft Azure free tier, always available, unlimited
+
+- Podcast dual-voice -> Kokoro by default (two distinct voices for SPARKY & NOVA characters)
+- YouTube long-form -> Kokoro primary, ElevenLabs optional premium upgrade
+- Shorts/TikTok/Reels -> Kokoro primary, edge-tts fallback
 """
 import asyncio
 import re
@@ -21,6 +25,12 @@ from config import (
     VOICE_SHORTS,
     OUTPUT_DIR,
 )
+
+# ── Module-level state ────────────────────────────────────────
+# Set True after first ElevenLabs quota error — skips further EL calls this session
+_el_quota_exhausted: bool = False
+# Lazy-loaded Kokoro pipelines cached by lang_code ('a'=American, 'b'=British)
+_kokoro_pipeline: dict = {}
 
 
 def _alignment_to_word_segments(alignment) -> list[dict]:
@@ -200,7 +210,156 @@ async def generate_voice_elevenlabs(
         }
 
     except Exception as e:
-        print(f"[Voice] ElevenLabs failed: {e}")
+        err_str = str(e).lower()
+        if any(kw in err_str for kw in ("quota", "limit", "429", "insufficient_quota", "exceeded")):
+            global _el_quota_exhausted
+            _el_quota_exhausted = True
+            print(f"[Voice] ElevenLabs quota exhausted — switching to Kokoro for remaining lines")
+        else:
+            print(f"[Voice] ElevenLabs failed: {e}")
+        return None
+
+
+# ── Kokoro TTS Engine ─────────────────────────────────────────────────────────
+# Voice naming: af_ = American Female, am_ = American Male,
+#               bf_ = British Female, bm_ = British Male
+# Confirmed working voices (tested 2026-03-13 on RTX 2080 Ti):
+#   af_heart, am_michael, af_nova, am_adam, bf_emma, bm_george
+
+
+def _get_kokoro_pipeline(lang_code: str = "a"):
+    """Lazy-load and cache a Kokoro KPipeline. Reuses across calls."""
+    global _kokoro_pipeline
+    if lang_code not in _kokoro_pipeline:
+        from kokoro import KPipeline
+        _kokoro_pipeline[lang_code] = KPipeline(lang_code=lang_code)
+        print(f"[Voice] Kokoro pipeline loaded (lang_code='{lang_code}')")
+    return _kokoro_pipeline[lang_code]
+
+
+def _generate_kokoro_sync(
+    text: str,
+    voice: str,
+    output_path: Path,
+    speed: float = 1.0,
+) -> float:
+    """
+    Sync Kokoro generation: text → 24 kHz numpy array → WAV → MP3.
+    Runs in a thread executor (KPipeline is not async-native).
+    Returns audio duration in seconds.
+    """
+    import numpy as np
+    import soundfile as sf
+    from pydub import AudioSegment
+
+    # lang_code: 'b' for British voices (bf_/bm_), 'a' for American (af_/am_)
+    lang_code = "b" if voice.startswith("b") else "a"
+    pipeline = _get_kokoro_pipeline(lang_code)
+
+    # Collect all audio chunks from the generator
+    audio_chunks = []
+    for _graphemes, _phonemes, audio_np in pipeline(text, voice=voice, speed=speed):
+        if audio_np is not None and len(audio_np) > 0:
+            audio_chunks.append(audio_np)
+
+    if not audio_chunks:
+        raise RuntimeError(f"Kokoro produced no audio for voice='{voice}'")
+
+    combined = np.concatenate(audio_chunks)
+    sample_rate = 24_000  # Kokoro always outputs 24 kHz
+
+    # Save as temp WAV (soundfile handles numpy → WAV natively)
+    tmp_wav = Path(output_path).with_suffix(".tmp_kokoro.wav")
+    try:
+        sf.write(str(tmp_wav), combined, sample_rate)
+        # Convert WAV → MP3 for compatibility with the rest of the pipeline
+        AudioSegment.from_wav(str(tmp_wav)).export(
+            str(output_path), format="mp3", bitrate="192k"
+        )
+    finally:
+        tmp_wav.unlink(missing_ok=True)
+
+    return len(combined) / sample_rate  # exact duration
+
+
+def _srt_ts(seconds: float) -> str:
+    """Convert float seconds → SRT timestamp string (HH:MM:SS,mmm)."""
+    ms = int(round((seconds % 1) * 1000))
+    s = int(seconds) % 60
+    m = int(seconds // 60) % 60
+    h = int(seconds // 3600)
+    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+
+def _generate_estimated_srt(text: str, duration: float, srt_path: Path) -> None:
+    """
+    Build a word-level SRT from raw text + total audio duration.
+    Distributes timing proportionally by character count — a reasonable
+    approximation when phoneme-level alignment is unavailable.
+    """
+    words = text.split()
+    if not words:
+        srt_path.write_text("", encoding="utf-8")
+        return
+
+    total_chars = sum(len(w) for w in words) or 1
+    lines = []
+    t = 0.0
+    for i, word in enumerate(words, 1):
+        word_dur = (len(word) / total_chars) * duration
+        lines += [
+            str(i),
+            f"{_srt_ts(t)} --> {_srt_ts(t + word_dur)}",
+            word,
+            "",
+        ]
+        t += word_dur
+
+    srt_path.write_text("\n".join(lines), encoding="utf-8")
+
+
+async def generate_voice_kokoro(
+    text: str,
+    output_audio: Path,
+    voice: str = "af_heart",
+    speed: float = 1.0,
+    output_subs: Path | None = None,
+) -> dict | None:
+    """
+    Generate voiceover with Kokoro TTS (free, GPU-accelerated, 54+ voices).
+
+    Returns dict with audio_path, subtitle_path, duration_estimate, engine, voice.
+    Returns None on failure so callers can fall through to the next engine.
+    """
+    loop = asyncio.get_event_loop()
+    try:
+        duration = await loop.run_in_executor(
+            None,
+            _generate_kokoro_sync,
+            text,
+            voice,
+            output_audio,
+            speed,
+        )
+
+        subtitle_path = output_subs or output_audio.with_suffix(".srt")
+        _generate_estimated_srt(text, duration, subtitle_path)
+
+        word_count = len(text.split())
+        print(f"[Voice] Kokoro ({voice}, {speed}x): {output_audio.name} "
+              f"({word_count} words, {duration:.1f}s)")
+
+        return {
+            "audio_path": str(output_audio),
+            "subtitle_path": str(subtitle_path),
+            "duration_estimate": duration,
+            "word_count": word_count,
+            "engine": "kokoro",
+            "voice": voice,
+        }
+
+    except Exception as e:
+        print(f"[Voice] Kokoro failed (voice={voice}): {e}")
         return None
 
 
@@ -234,45 +393,55 @@ async def generate_voice(
     audio_path = output_dir / f"{filename_base}.mp3"
     subs_path = output_dir / f"{filename_base}.srt"
 
-    # Determine which engine to use
-    if format_type == "long" and VOICE_YOUTUBE_LONG == "elevenlabs":
-        # Try ElevenLabs for long-form (with timestamps for subtitle sync)
+    # ── 1. Try Kokoro (primary free engine) ──────────────────
+    # Choose a niche-appropriate Kokoro voice (default: af_heart for female narration)
+    kokoro_voices = {
+        "ai_trading":       "am_michael",
+        "ai_money":         "am_adam",
+        "tech_news":        "bm_george",
+        "motivation":       "am_michael",
+        "health_wellness":  "af_heart",
+        "blissful_moments": "af_nova",
+    }
+    kokoro_voice = kokoro_voices.get(niche or "", "af_heart")
+    result = await generate_voice_kokoro(text, audio_path, voice=kokoro_voice, output_subs=subs_path)
+    if result:
+        return result
+
+    # ── 2. Try ElevenLabs (premium, if available and quota not exhausted) ──
+    if format_type == "long" and VOICE_YOUTUBE_LONG == "elevenlabs" and not _el_quota_exhausted:
         result = await generate_voice_elevenlabs(text, audio_path, output_subs=subs_path)
         if result:
-            # If ElevenLabs didn't provide synced subtitles, fall back to edge-tts
             if not result["subtitle_path"]:
-                print("[Voice] Falling back to edge-tts for subtitle timing...")
-                edge_result = await generate_voice_edge_tts(
+                print("[Voice] Falling back to Kokoro for subtitle timing...")
+                kok_sub = await generate_voice_kokoro(
                     text,
                     output_dir / f"{filename_base}_subs_only.mp3",
-                    subs_path,
-                    voice=NICHES.get(niche, {}).get("edge_voice", DEFAULT_EDGE_VOICE),
+                    voice=kokoro_voice,
+                    output_subs=subs_path,
                 )
-                result["subtitle_path"] = edge_result["subtitle_path"]
                 (output_dir / f"{filename_base}_subs_only.mp3").unlink(missing_ok=True)
+                result["subtitle_path"] = str(subs_path) if subs_path.exists() else None
             return result
 
-    # Default: edge-tts (free, includes subtitles)
-    voice = DEFAULT_EDGE_VOICE
+    # ── 3. Fall back to edge-tts (always available, unlimited) ──
+    edge_voice = DEFAULT_EDGE_VOICE
     if niche and niche in NICHES:
-        voice = NICHES[niche].get("edge_voice", DEFAULT_EDGE_VOICE)
+        edge_voice = NICHES[niche].get("edge_voice", DEFAULT_EDGE_VOICE)
 
-    # Apply emotion-based voice parameters from the overall text
     emotion = detect_voice_emotion(text)
     rate = emotion["rate"]
     pitch = emotion["pitch"]
 
-    # For short-form, use the first scene's emotion (the hook)
     if scenes and len(scenes) > 0:
         hook_text = scenes[0].get("narration", "")
-        if hook_text:
+        if hook_text and format_type == "short":
             hook_emotion = detect_voice_emotion(hook_text)
-            # Bias toward the hook's energy for short-form
-            if format_type == "short":
-                rate = hook_emotion["rate"]
-                pitch = hook_emotion["pitch"]
+            rate = hook_emotion["rate"]
+            pitch = hook_emotion["pitch"]
 
-    return await generate_voice_edge_tts(text, audio_path, subs_path, voice=voice, rate=rate, pitch=pitch)
+    print(f"[Voice] Falling back to edge-tts for {filename_base}")
+    return await generate_voice_edge_tts(text, audio_path, subs_path, voice=edge_voice, rate=rate, pitch=pitch)
 
 
 def split_text_for_scenes(text: str, max_chars: int = 500) -> list[str]:
@@ -383,6 +552,23 @@ PODCAST_EDGE_VOICES = {
     "blissful_moments": {"SPARKY": "en-US-JennyNeural",        "NOVA": "en-US-ChristopherNeural"},
 }
 
+# ── Kokoro Podcast Voices ─────────────────────────────────────
+# Per-niche (voice_id, speed) pairs — gender-matched to character names
+# ai_trading:        SPARKY=JAYDEN(M)  NOVA=ZOE(F)
+# ai_money:          SPARKY=MALIK(M)   NOVA=LUNA(F)
+# tech_news:         SPARKY=KAI(M)     NOVA=AMARA(F)
+# motivation:        SPARKY=BLAZE(M)   NOVA=SAGE(F)
+# health_wellness:   SPARKY=MIA(F)     NOVA=NOAH(M)  ← SPARKY is female
+# blissful_moments:  SPARKY=ARIA(F)    NOVA=LIAM(M)  ← SPARKY is female
+PODCAST_KOKORO_VOICES: dict[str, dict[str, tuple[str, float]]] = {
+    "ai_trading":       {"SPARKY": ("am_michael", 1.05), "NOVA": ("af_heart",  0.95)},
+    "ai_money":         {"SPARKY": ("am_adam",    1.05), "NOVA": ("af_nova",   0.95)},
+    "tech_news":        {"SPARKY": ("bm_george",  1.00), "NOVA": ("bf_emma",   0.95)},
+    "motivation":       {"SPARKY": ("am_michael", 1.10), "NOVA": ("af_nova",   0.95)},
+    "health_wellness":  {"SPARKY": ("af_heart",   1.05), "NOVA": ("am_adam",   0.95)},
+    "blissful_moments": {"SPARKY": ("af_nova",    1.00), "NOVA": ("am_michael",0.95)},
+}
+
 # ── Premium ElevenLabs Voices for Podcast Characters ─────────
 # Selected for maximum natural, conversational podcast feel.
 # SPARKY: Bold, energetic, charming — drives the conversation
@@ -458,9 +644,9 @@ async def generate_podcast_dual_voice(
     lines_dir = output_dir / "podcast_lines"
     lines_dir.mkdir(exist_ok=True)
 
-    # Get ElevenLabs voice pair for this niche (premium voices)
+    # Voice pairs for each engine tier
+    kokoro_voice_pair = PODCAST_KOKORO_VOICES.get(niche, PODCAST_KOKORO_VOICES["ai_trading"])
     el_voice_pair = PODCAST_NICHE_ELEVENLABS.get(niche, PODCAST_ELEVENLABS_VOICES)
-    # Edge-TTS fallback pair
     edge_voice_pair = PODCAST_EDGE_VOICES.get(niche, PODCAST_EDGE_VOICES["ai_money"])
 
     # Parse lines from script
@@ -470,8 +656,9 @@ async def generate_podcast_dual_voice(
     if not lines:
         raise ValueError("No dialogue lines found in podcast script")
 
-    # Generate audio for each line — ALWAYS try ElevenLabs first
+    # Generate audio for each line — Kokoro → ElevenLabs → edge-tts
     line_audios = []
+    kokoro_success = 0
     el_success = 0
     edge_fallback = 0
 
@@ -482,8 +669,16 @@ async def generate_podcast_dual_voice(
 
         generated = False
 
-        # Always try ElevenLabs first for premium quality
-        if use_elevenlabs and ELEVENLABS_API_KEY:
+        # ── Tier 1: Kokoro (primary free voice, best quality) ──────────────
+        kok_voice, kok_speed = kokoro_voice_pair.get(character, ("af_heart", 1.0))
+        result = await generate_voice_kokoro(text, line_path, voice=kok_voice, speed=kok_speed)
+        if result:
+            line_audios.append({"path": line_path, "line": line, "index": i})
+            kokoro_success += 1
+            generated = True
+
+        # ── Tier 2: ElevenLabs (premium upgrade when Kokoro fails) ──────────
+        if not generated and use_elevenlabs and ELEVENLABS_API_KEY and not _el_quota_exhausted:
             el_voice_id = el_voice_pair.get(character, PODCAST_ELEVENLABS_VOICES.get(character))
             if el_voice_id:
                 result = await generate_voice_elevenlabs(text, line_path, voice_id=el_voice_id)
@@ -492,7 +687,7 @@ async def generate_podcast_dual_voice(
                     el_success += 1
                     generated = True
 
-        # Fallback to edge-tts if ElevenLabs fails
+        # ── Tier 3: edge-tts (always-available fallback) ────────────────────
         if not generated:
             import edge_tts
             voice = edge_voice_pair.get(character, edge_voice_pair["SPARKY"])
@@ -506,8 +701,9 @@ async def generate_podcast_dual_voice(
             line_audios.append({"path": line_path, "line": line, "index": i})
             edge_fallback += 1
 
-    engine_used = "elevenlabs" if el_success > edge_fallback else "edge-tts"
-    print(f"[Voice] Podcast: {len(line_audios)} lines (ElevenLabs: {el_success}, edge-tts: {edge_fallback})")
+    engine_used = "kokoro" if kokoro_success >= el_success else ("elevenlabs" if el_success > edge_fallback else "edge-tts")
+    print(f"[Voice] Podcast: {len(line_audios)} lines "
+          f"(Kokoro: {kokoro_success}, ElevenLabs: {el_success}, edge-tts: {edge_fallback})")
 
     print(f"[Voice] Podcast: Generated {len(line_audios)} dialogue lines")
 
@@ -669,7 +865,7 @@ async def generate_podcast_dual_voice(
         "line_timings": line_timings,
         "duration": total_duration,
         "line_count": len(line_timings),
-        "engine": "elevenlabs" if use_elevenlabs else "edge-tts",
+        "engine": engine_used,
         "character_audio": char_audio_paths,  # Per-character audio for D-ID
     }
 
