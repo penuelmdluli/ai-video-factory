@@ -272,7 +272,10 @@ async def upload_to_tiktok(
         err_lines = stderr.decode("utf-8", errors="replace").strip()
 
         for line in err_lines.splitlines():
-            print(f"  {line}")
+            try:
+                print(f"  {line}")
+            except UnicodeEncodeError:
+                print(f"  {line.encode('ascii', errors='replace').decode('ascii')}")
 
         result = {"status": "failed", "error": "No output from subprocess"}
         for line in reversed(output.splitlines()):
