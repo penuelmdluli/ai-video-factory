@@ -68,10 +68,10 @@ def _build_engagement_description(description: str, niche: str) -> str:
     ctas = NICHE_ENGAGEMENT_CTAS.get(niche, NICHE_ENGAGEMENT_CTAS["motivation"])
     cta = random.choice(ctas)
 
-    # For trading/money niches, always ensure TradeRadar link is in description
+    # Always include TradeRadar website in every video description
     product_line = ""
-    if niche in ("ai_trading", "ai_money") and "gettraderadar.com" not in description and "gettraderadar.com" not in cta:
-        product_line = "\n\n🤖 FREE AI Stock Analysis → https://www.gettraderadar.com"
+    if "gettraderadar.com" not in description and "gettraderadar.com" not in cta:
+        product_line = "\n\n🌐 Visit us: https://www.gettraderadar.com"
 
     return f"{description}\n\n{cta}{product_line}"
 
