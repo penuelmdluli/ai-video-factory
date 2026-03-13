@@ -847,53 +847,110 @@ def _check_sprites_available(image_path: str) -> Path | None:
 
 def _create_closed_eyes_image(image: np.ndarray, landmarks: np.ndarray) -> np.ndarray:
     """
-    Pre-compute a 'closed eyes' version of the character image using cv2.inpaint.
+    Pre-compute a 'closed eyes' version using mesh warp (cv2.remap).
 
-    OpenCV inpainting fills the masked eye regions using surrounding skin texture,
-    lighting, and color gradients — producing a photorealistic 'eyelids closed'
-    result without any flat colors or blur artifacts.
+    Physically moves the upper eyelid skin DOWN and lower lid UP to squeeze
+    the eye shut — exactly like a real blink. The result uses real pixel data
+    from the actual eyelid/brow area, preserving skin texture and lighting.
 
-    Called once at init, then blink frames just cross-fade to this image.
+    Much better than inpainting (which creates dark blobs from iris pixels)
+    or flat-color fill (which looks like a band-aid).
+
+    Called once at init, then blink frames cross-fade to this image.
     """
     h, w = image.shape[:2]
 
-    # Build inpaint mask covering both eyes (slightly expanded for full coverage)
-    inpaint_mask = np.zeros((h, w), dtype=np.uint8)
+    # Create identity coordinate maps
+    map_y, map_x = np.mgrid[0:h, 0:w].astype(np.float32)
 
+    for eye_pts in [landmarks[36:42], landmarks[42:48]]:
+        ecx = float(eye_pts[:, 0].mean())
+        ecy = float(eye_pts[:, 1].mean())
+        # Expand beyond landmarks — visible eye is larger than dlib detects
+        ew = float((eye_pts[:, 0].max() - eye_pts[:, 0].min()) / 2) + 10
+        eh = float((eye_pts[:, 1].max() - eye_pts[:, 1].min()) / 2) + 10
+
+        # Region of influence
+        ry1 = max(0, int(ecy - eh * 3.0))
+        ry2 = min(h, int(ecy + eh * 3.0))
+        rx1 = max(0, int(ecx - ew * 3.0))
+        rx2 = min(w, int(ecx + ew * 3.0))
+
+        # Local coordinate grids
+        local_y = map_y[ry1:ry2, rx1:rx2]
+        local_x = map_x[ry1:ry2, rx1:rx2]
+
+        # ── Directional slide warp ──
+        # Real blink = upper eyelid slides DOWN over the eye like a curtain.
+        # Instead of squeezing both halves (which compresses the iris into a
+        # visible thin line), we shift ALL eye pixels to sample from ABOVE,
+        # pulling the upper eyelid skin down to cover the iris completely.
+        #
+        # shift = 0 at top of eye (upper lid stays)
+        # shift = max at bottom of eye (shows upper lid skin instead of iris)
+        # Result: iris hidden behind sliding eyelid skin, not compressed.
+
+        eye_top = ecy - eh
+        eye_bot = ecy + eh
+
+        # Vertical position within the eye: 0=top, 1=bottom
+        pos_in_eye = np.clip((local_y - eye_top) / max(1.0, eye_bot - eye_top), 0, 1)
+
+        # Shift gradient: top of eye gets 45% shift, bottom gets full shift
+        # This ensures the upper iris is fully hidden too
+        shift_factor = 0.45 + 0.55 * pos_in_eye
+
+        # Horizontal elliptical falloff (no shift at left/right edges)
+        ndx = (local_x - ecx) / max(1.0, ew)
+        x_falloff = np.clip(1.0 - ndx * ndx, 0, 1)
+
+        # Vertical smooth falloff beyond the eye region
+        ndy_from_center = (local_y - ecy) / max(1.0, eh)
+        r_vert = np.abs(ndy_from_center)
+        vert_falloff = np.clip(1.0 - ((r_vert - 1.0) / 1.5), 0, 1) ** 2
+        vert_falloff = np.where(r_vert <= 1.0, 1.0, vert_falloff)
+
+        # Combined spatial mask
+        spatial = x_falloff * vert_falloff
+
+        # Upper lid slides down (primary — 80% of closure)
+        full_eye_h = eye_bot - eye_top
+        upper_shift = shift_factor * full_eye_h * 1.20 * spatial
+
+        # Lower lid rises (secondary — 20% to seal the bottom edge)
+        lower_pos = np.clip((local_y - ecy) / max(1.0, eh), 0, 1)
+        lower_shift = lower_pos * eh * 0.45 * spatial
+
+        # Apply: upper lid pulls down, lower lid pushes up
+        map_y[ry1:ry2, rx1:rx2] = local_y - upper_shift + lower_shift
+
+    # Apply the warp using high-quality Lanczos interpolation
+    closed = cv2.remap(image, map_x, map_y, cv2.INTER_LANCZOS4,
+                       borderMode=cv2.BORDER_REPLICATE)
+
+    # Draw subtle eyelid crease/lash lines where the lids meet
     for eye_pts in [landmarks[36:42], landmarks[42:48]]:
         ecx = int(eye_pts[:, 0].mean())
         ecy = int(eye_pts[:, 1].mean())
-        ew = max(4, int((eye_pts[:, 0].max() - eye_pts[:, 0].min()) / 2) + 5)
-        eh = max(2, int((eye_pts[:, 1].max() - eye_pts[:, 1].min()) / 2) + 4)
+        ew = int((eye_pts[:, 0].max() - eye_pts[:, 0].min()) / 2) + 4
 
-        # Elliptical mask over each eye — 1.3x expanded to cover full visible eye
-        cv2.ellipse(inpaint_mask, (ecx, ecy), (int(ew * 1.3), int(eh * 1.2)),
-                    0, 0, 360, 255, -1)
+        # Sample real skin color from above eye for crease color
+        sample_y = max(0, int(eye_pts[:, 1].min()) - 10)
+        if 0 <= sample_y < h and 0 <= ecx < w:
+            sc = tuple(int(c) for c in closed[sample_y, ecx])
+        else:
+            sc = (140, 120, 100)
+        crease_dark = tuple(max(0, c - 45) for c in sc)
 
-    # Inpaint: TELEA algorithm fills eyes with surrounding skin context
-    closed = cv2.inpaint(image, inpaint_mask, inpaintRadius=12, flags=cv2.INPAINT_TELEA)
-
-    # Draw subtle eyelid crease lines on the inpainted result
-    # Sample skin color near the eye for the crease color
-    sample_y = max(0, int(landmarks[36:42][:, 1].min()) - 8)
-    sample_x = int(landmarks[36:42][:, 0].mean())
-    if 0 <= sample_y < h and 0 <= sample_x < w:
-        sc = tuple(int(c) for c in closed[sample_y, sample_x])
-    else:
-        sc = (140, 120, 100)
-    crease_dark = tuple(max(0, c - 50) for c in sc)
-
-    for eye_pts in [landmarks[36:42], landmarks[42:48]]:
-        ecx = int(eye_pts[:, 0].mean())
-        ecy = int(eye_pts[:, 1].mean())
-        ew = max(4, int((eye_pts[:, 0].max() - eye_pts[:, 0].min()) / 2) + 3)
-
-        # Upper eyelid crease (curved line)
-        cv2.ellipse(closed, (ecx, ecy), (int(ew * 1.1), 2),
+        # Curved crease line where eyelids meet
+        cv2.ellipse(closed, (ecx, ecy), (int(ew * 1.1), 3),
                     0, 0, 180, crease_dark, 1)
-        # Thin lash line at center
-        cv2.line(closed, (ecx - ew + 2, ecy), (ecx + ew - 2, ecy),
+        # Thin lash shadow
+        cv2.line(closed, (ecx - ew + 3, ecy), (ecx + ew - 3, ecy),
                  crease_dark, 1)
+        # Lower lid subtle fold
+        cv2.ellipse(closed, (ecx, ecy + 1), (int(ew * 0.9), 2),
+                    0, 180, 360, crease_dark, 1)
 
     return closed
 
