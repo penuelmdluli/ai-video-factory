@@ -919,38 +919,58 @@ def _apply_eye_animation(
             cv2.ellipse(frame, (ecx, ecy - eh - wide_h // 2), (ew, wide_h),
                         0, 0, 180, wide_col, -1)
 
-        # ── 3. Catchlight drift (gives the illusion of moving eyes every frame) ──
+        # ── 3. Iris / pupil drift + catchlight ──────────────────────────────
         # Two overlapping sine waves → natural-looking saccadic drift
+        # Amplitude ~6px so movement is clearly visible on typical avatar sizes
         drift_x = int(
-            math.sin(2 * math.pi * 0.28 * t + phase * math.pi) * 2.2 +
-            math.sin(2 * math.pi * 1.10 * t + phase * 0.7)      * 0.8
+            math.sin(2 * math.pi * 0.28 * t + phase * math.pi) * 4.5 +
+            math.sin(2 * math.pi * 1.10 * t + phase * 0.7)      * 1.5
         )
         drift_y = int(
-            math.sin(2 * math.pi * 0.11 * t) * 1.2 +
-            math.sin(2 * math.pi * 0.47 * t) * 0.5
+            math.sin(2 * math.pi * 0.11 * t) * 2.5 +
+            math.sin(2 * math.pi * 0.47 * t) * 1.0
         )
 
         # Emotion gaze bias
         if emotion_name == "SHOCKED":
-            drift_y -= 2          # eyes dart upward
+            drift_y -= 4          # eyes dart upward
         elif emotion_name in ("DEAD SERIOUS", "ANGRY"):
-            drift_y += 1          # focused downward stare
+            drift_y += 2          # focused downward stare
         elif emotion_name == "DISBELIEF":
-            drift_x += int(math.sin(2 * math.pi * 0.4 * t) * 2)
+            drift_x += int(math.sin(2 * math.pi * 0.4 * t) * 4)
+        elif emotion_name in ("LAUGHS", "EXCITED"):
+            drift_y -= 2          # bright upward gaze
 
-        # Catchlight position: upper-inner quadrant of the iris (natural position)
-        shine_x = ecx + drift_x
-        shine_y = ecy + drift_y - max(1, int(eh * 0.25))
-        shine_r = max(1, int(ew * 0.20))
+        # Iris shadow: dark semi-transparent oval that shifts with the gaze
+        # This is the main visible eye-movement indicator
+        iris_x = ecx + drift_x
+        iris_y = ecy + drift_y
+        iris_rx = max(2, int(ew * 0.42))     # iris width (~42% of eye width)
+        iris_ry = max(1, int(eh * 0.55))     # iris height (~55% of eye height)
 
-        # Clamp inside eye bounds
+        # Clamp iris centre inside eye bounds
+        iris_x = max(ecx - ew + iris_rx + 1, min(ecx + ew - iris_rx - 1, iris_x))
+        iris_y = max(ecy - eh + iris_ry + 1, min(ecy + eh - iris_ry - 1, iris_y))
+
+        # 3a. Dark iris shadow (semi-transparent, shows the pupil/iris drifting)
+        overlay = frame.copy()
+        # Outer iris ring — coloured (sample from existing eye area: usually dark)
+        iris_color = (35, 32, 30)            # near-black pupil
+        cv2.ellipse(overlay, (iris_x, iris_y), (iris_rx, iris_ry),
+                    0, 0, 360, iris_color, -1)
+        cv2.addWeighted(overlay, 0.30, frame, 0.70, 0, frame)   # 30% blend — subtle but visible
+
+        # 3b. Catchlight — small bright dot upper-inner of iris
+        shine_x = iris_x - max(1, int(iris_rx * 0.30))
+        shine_y = iris_y - max(1, int(iris_ry * 0.35))
+        shine_r = max(1, int(iris_rx * 0.28))
+
         shine_x = max(ecx - ew + shine_r + 1, min(ecx + ew - shine_r - 1, shine_x))
         shine_y = max(ecy - eh + shine_r + 1, min(ecy + eh - shine_r - 1, shine_y))
 
-        # Draw catchlight with soft alpha blend (60 % opaque, semi-transparent)
-        overlay = frame.copy()
-        cv2.circle(overlay, (shine_x, shine_y), shine_r, (245, 245, 250), -1)
-        cv2.addWeighted(overlay, 0.55, frame, 0.45, 0, frame)
+        overlay2 = frame.copy()
+        cv2.circle(overlay2, (shine_x, shine_y), shine_r, (248, 248, 252), -1)
+        cv2.addWeighted(overlay2, 0.65, frame, 0.35, 0, frame)
 
     return frame
 
@@ -1023,12 +1043,16 @@ def _apply_head_movement(
         M = cv2.getRotationMatrix2D((cx, cy), emotion_rot, 1.0)
         M[0, 2] += dx
         M[1, 2] += dy
-        return cv2.warpAffine(frame, M, (w, h), borderMode=cv2.BORDER_REFLECT_101)
+        return cv2.warpAffine(frame, M, (w, h),
+                              flags=cv2.INTER_LANCZOS4,
+                              borderMode=cv2.BORDER_REFLECT_101)
 
     if abs(dx) < 0.05 and abs(dy) < 0.05:
         return frame
     M = np.float32([[1, 0, dx], [0, 1, dy]])
-    return cv2.warpAffine(frame, M, (w, h), borderMode=cv2.BORDER_REFLECT_101)
+    return cv2.warpAffine(frame, M, (w, h),
+                          flags=cv2.INTER_LANCZOS4,
+                          borderMode=cv2.BORDER_REFLECT_101)
 
 
 # ── Emotion Color Tint ─────────────────────────────────────────
@@ -1077,7 +1101,7 @@ def _apply_zoom_pulse(frame: np.ndarray, amplitude: float, emotion_name: str = "
     y1 = (h - new_h) // 2
     x1 = (w - new_w) // 2
     return cv2.resize(frame[y1:y1 + new_h, x1:x1 + new_w], (w, h),
-                      interpolation=cv2.INTER_LINEAR)
+                      interpolation=cv2.INTER_LANCZOS4)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -1153,13 +1177,16 @@ def _get_gfpgan_restorer():
 
 
 def _enhance_wav2lip_video(input_path: Path, output_path: Path, character: str = "",
-                            original_image: str | None = None):
+                            original_image: str | None = None,
+                            line_timings: list | None = None):
     """Enhance Wav2Lip output via mouth-mask blending with original sharp image.
 
     Strategy: Wav2Lip only modifies the mouth area but blurs the entire face.
     We keep the original sharp image for everything except the mouth region,
     blending only the lip-synced mouth from Wav2Lip output.
-    Result: sharp face + lip-synced mouth in ~10-20s (vs 22min with GFPGAN).
+    Additionally applies eye animation (blinks + iris drift) to the final frames
+    so Wav2Lip output has the same eye movement as the audio-reactive compositor.
+    Result: sharp face + lip-synced mouth + live eye movement in ~10-20s.
     """
     if original_image is None:
         return str(input_path)
@@ -1170,6 +1197,8 @@ def _enhance_wav2lip_video(input_path: Path, output_path: Path, character: str =
 
     cap = cv2.VideoCapture(str(input_path))
     fps = cap.get(cv2.CAP_PROP_FPS)
+    if fps <= 0:
+        fps = ANIMATION_FPS
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -1177,7 +1206,7 @@ def _enhance_wav2lip_video(input_path: Path, output_path: Path, character: str =
     if original.shape[:2] != (h, w):
         original = cv2.resize(original, (w, h))
 
-    # Detect face bounding box on first frame
+    # ── Pre-compute face/mouth mask ───────────────────────────
     face_box = None
     ret, first_frame = cap.read()
     if not ret:
@@ -1197,52 +1226,74 @@ def _enhance_wav2lip_video(input_path: Path, output_path: Path, character: str =
     except Exception as e:
         print(f"[LocalAvatar] {character}: Face detection failed: {e}")
 
-    # Pre-compute the blend mask (same for every frame since character is static)
     mask = np.zeros((h, w), dtype=np.float32)
     if face_box:
         fx1, fy1, fx2, fy2 = face_box
         face_h = fy2 - fy1
-        # Mouth region: lower 55% of face
         mouth_y1 = fy1 + int(face_h * 0.4)
         mouth_y2 = min(h, fy2 + int(face_h * 0.1))
         mask[mouth_y1:mouth_y2, fx1:fx2] = 1.0
     else:
-        # Fallback: lower 40% of image
         mask[int(h * 0.6):, :] = 1.0
 
-    # Feather edges for seamless blend
     mask = cv2.GaussianBlur(mask, (51, 51), 12)
-    mask_3ch = mask[:, :, np.newaxis]
-    # Pre-compute mask as uint8 (0-255) for fast cv2 blending
     mask_u8 = (mask * 255).astype(np.uint8)
     inv_mask_u8 = (255 - mask_u8)
     mask_3ch_u8 = np.stack([mask_u8] * 3, axis=-1)
     inv_mask_3ch_u8 = np.stack([inv_mask_u8] * 3, axis=-1)
-    # Pre-compute original * inverse_mask (uint16 to avoid overflow)
     orig_weighted = (original.astype(np.uint16) * inv_mask_3ch_u8.astype(np.uint16)) // 255
 
+    # ── Pre-compute eye animation data (runs on every frame) ─────
+    landmarks = _get_landmarks(original_image)
+    blinks = _generate_blink_schedule(total, int(fps))
+    mc = MouthCompositor(original, landmarks) if landmarks is not None else None
+    skin_color = mc.skin_color if mc is not None else (200, 180, 160)
+    del mc
+
+    emotion_tl = _build_emotion_timeline(line_timings, character, total, int(fps))
+
+    # ── Frame loop ────────────────────────────────────────────
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     writer = cv2.VideoWriter(str(output_path), fourcc, fps, (w, h))
 
     start = time.time()
-    for _ in range(total):
+    for frame_idx in range(total):
         ret, frame = cap.read()
         if not ret:
             break
-        # Fast uint16 blend: original * (1-mask) + frame * mask
-        result = (orig_weighted + (frame.astype(np.uint16) * mask_3ch_u8.astype(np.uint16)) // 255).astype(np.uint8)
+
+        # 1. Mouth-mask blend: restore sharp face, keep Wav2Lip mouth
+        result = (orig_weighted +
+                  (frame.astype(np.uint16) * mask_3ch_u8.astype(np.uint16)) // 255
+                  ).astype(np.uint8)
+
+        # 2. Sharpen the blended result (counters Wav2Lip's inherent softness)
+        sharp_kernel = np.array([[0, -0.5, 0],
+                                  [-0.5, 3.0, -0.5],
+                                  [0, -0.5, 0]], dtype=np.float32)
+        result = cv2.filter2D(result, -1, sharp_kernel)
+
+        # 3. Eye animation on top of every frame
+        if landmarks is not None:
+            emo = emotion_tl[frame_idx] if frame_idx < len(emotion_tl) else {}
+            blk = float(blinks[frame_idx]) if frame_idx < len(blinks) else 0.0
+            result = _apply_eye_animation(result, frame_idx, blk, landmarks,
+                                          skin_color, emo, int(fps))
+
         writer.write(result)
 
     cap.release()
     writer.release()
     elapsed = time.time() - start
-    print(f"[LocalAvatar] {character}: Mouth-mask blended {total} frames in {elapsed:.1f}s")
+    print(f"[LocalAvatar] {character}: Enhanced (mouth-mask + eye anim) "
+          f"{total} frames in {elapsed:.1f}s")
     return str(output_path)
 
 
 async def _generate_wav2lip(
     image_path: str, audio_path: str, output_path: Path,
     character: str = "SPARKY", use_gpu: bool = True,
+    line_timings: list | None = None,
 ) -> str | None:
     """Generate lip-synced video using Wav2Lip subprocess."""
     if not _check_wav2lip_available():
@@ -1303,9 +1354,10 @@ async def _generate_wav2lip(
         return None
 
     if temp_w2l.exists():
-        # Mouth-mask blend + GFPGAN face restoration to fix Wav2Lip blurriness
+        # Mouth-mask blend + sharpening + eye animation to fix Wav2Lip blurriness
         temp_enhanced = output_path.parent / f"_temp_enhanced_{character.lower()}.mp4"
-        _enhance_wav2lip_video(temp_w2l, temp_enhanced, character, original_image=image_path)
+        _enhance_wav2lip_video(temp_w2l, temp_enhanced, character,
+                               original_image=image_path, line_timings=line_timings)
         source_video = temp_enhanced if temp_enhanced.exists() else temp_w2l
 
         try:
@@ -1533,6 +1585,7 @@ async def generate_local_avatar(
         result = await _generate_wav2lip(
             image_path, audio_path, output_path,
             character=character, use_gpu=prefer_gpu,
+            line_timings=line_timings,
         )
         if result:
             return result
