@@ -332,26 +332,28 @@ def _generate_blink_schedule(n_frames: int, fps: int = 30) -> np.ndarray:
     """
     Generate natural eye blink schedule.
     Returns per-frame blink intensity (0=open, 1=closed).
-    Humans blink every 3-7 seconds, each blink ~150ms (4-5 frames at 30fps).
+    Humans blink every 2-5 seconds. Each blink ~250-350ms (8-10 frames at 30fps).
+    Eyes stay fully closed for 2-3 frames for a clearly visible blink.
     """
     blinks = np.zeros(n_frames, dtype=np.float32)
     t = 0
     while t < n_frames:
-        gap = random.randint(fps * 3, fps * 7)
+        gap = random.randint(fps * 2, fps * 5)  # 2-5s between blinks
         t += gap
         if t >= n_frames:
             break
-        # Blink shape: quick close, slower open (5 frames)
-        blink_len = 5
-        for b in range(blink_len):
+        # Blink shape: quick close (3 frames), hold closed (2-3), slower open (3-4)
+        # Curve: 0.4 → 0.8 → 1.0 → 1.0 → 0.85 → 0.5 → 0.2 → 0.0
+        blink_curve = [0.40, 0.80, 1.0, 1.0, 0.85, 0.55, 0.25]
+        # Occasionally do a quick double-blink (natural reflex)
+        if random.random() < 0.2:
+            # Double blink: normal blink + short gap + quick blink
+            blink_curve = [0.40, 0.80, 1.0, 0.85, 0.4, 0.15, 0.50, 0.95, 1.0, 0.6, 0.2]
+        for b, val in enumerate(blink_curve):
             idx = t + b
-            if idx >= n_frames:
-                break
-            if b < 2:
-                blinks[idx] = (b + 1) / 2.0
-            else:
-                blinks[idx] = max(0, 1.0 - (b - 1) / 3.0)
-        t += blink_len
+            if idx < n_frames:
+                blinks[idx] = val
+        t += len(blink_curve)
     return blinks
 
 
@@ -875,23 +877,75 @@ def _apply_eye_animation(
         ew  = max(4, int((eye_pts[:, 0].max() - eye_pts[:, 0].min()) / 2) + 3)
         eh  = max(2, int((eye_pts[:, 1].max() - eye_pts[:, 1].min()) / 2) + 3)
 
-        # ── 1. Blink ──
+        # ── 1. Blink (natural blur+blend approach) ──
+        # Instead of a flat solid-color ellipse (looks like a band-aid on
+        # photorealistic faces), we:
+        #   a. Extract the eye region (ROI)
+        #   b. Heavy-blur it (removes iris/pupil → looks like closed skin)
+        #   c. Blend blurred result with skin_color (shifts toward eyelid tone)
+        #   d. Apply through a feathered elliptical mask (smooth edges)
+        #   e. Add subtle crease line for realism
+        # Result: preserves actual lighting, texture, and skin gradients.
         if blink_value >= 0.15:
-            close   = min(1.0, blink_value)
-            close_h = max(1, int(eh * close))
+            close = min(1.0, blink_value)
 
-            # Main eyelid fill (skin-colored — covers the eye)
-            cv2.ellipse(frame, (ecx, ecy), (ew, close_h), 0, 0, 360, skin_color, -1)
+            # Slightly expand coverage beyond landmark bounds
+            blink_ew = int(ew * 1.25)
+            blink_eh = int(eh * 1.15)
+            close_h = max(2, int(blink_eh * close))
 
-            # Upper eyelid edge — dark crease for definition
-            lid_dark = tuple(max(0, c - 55) for c in skin_color)
-            cv2.ellipse(frame, (ecx, ecy - max(1, close_h // 3)),
-                        (ew, max(1, close_h // 4)), 0, 0, 180, lid_dark, 2)
+            # ROI around the eye (with padding for feathered edges)
+            pad = 4
+            ry1 = max(0, ecy - blink_eh - pad)
+            ry2 = min(frame.shape[0], ecy + blink_eh + pad)
+            rx1 = max(0, ecx - blink_ew - pad)
+            rx2 = min(frame.shape[1], ecx + blink_ew + pad)
+            roi_h = ry2 - ry1
+            roi_w = rx2 - rx1
 
-            # Lower lid rises slightly when fully closed
-            if close > 0.65:
-                cv2.ellipse(frame, (ecx, ecy + eh // 2 - 1), (ew, 1),
-                            0, 180, 360, lid_dark, 1)
+            if roi_h > 2 and roi_w > 2:
+                roi = frame[ry1:ry2, rx1:rx2].copy()
+
+                # Heavy Gaussian blur — dissolves iris/pupil into skin-like surface
+                ksize = max(3, (min(roi_h, roi_w) // 2) | 1)  # odd kernel
+                blurred = cv2.GaussianBlur(roi, (ksize, ksize), sigmaX=6, sigmaY=6)
+
+                # Blend blurred ROI toward skin_color (40% skin, 60% blur)
+                skin_layer = np.full_like(roi, skin_color, dtype=np.uint8)
+                eyelid = cv2.addWeighted(blurred, 0.60, skin_layer, 0.40, 0)
+
+                # Feathered elliptical mask (soft edges, no hard boundary)
+                mask = np.zeros((roi_h, roi_w), dtype=np.float32)
+                mc_x = ecx - rx1  # mask centre relative to ROI
+                mc_y = ecy - ry1
+                cv2.ellipse(mask, (mc_x, mc_y), (blink_ew, close_h),
+                            0, 0, 360, 1.0, -1)
+                mask = cv2.GaussianBlur(mask, (0, 0), sigmaX=3.5, sigmaY=2.5)
+
+                # Scale alpha by blink intensity so partial blinks are translucent
+                alpha = close * 0.92
+                mask_3d = (mask * alpha)[:, :, np.newaxis]
+
+                # Apply — smooth composite preserving surrounding texture
+                frame[ry1:ry2, rx1:rx2] = (
+                    roi.astype(np.float32) * (1.0 - mask_3d) +
+                    eyelid.astype(np.float32) * mask_3d
+                ).astype(np.uint8)
+
+                # Subtle crease line at the upper eyelid edge
+                if close > 0.45:
+                    lid_dark = tuple(max(0, c - 55) for c in skin_color)
+                    crease_y = ecy - max(1, int(close_h * 0.35))
+                    cv2.ellipse(frame, (ecx, crease_y),
+                                (blink_ew - 2, max(1, close_h // 5)),
+                                0, 0, 180, lid_dark, 1)
+
+                # Lash line when mostly/fully closed
+                if close > 0.70:
+                    lid_dark = tuple(max(0, c - 55) for c in skin_color)
+                    cv2.line(frame, (ecx - blink_ew + 4, ecy),
+                             (ecx + blink_ew - 4, ecy), lid_dark, 1)
+
             continue   # skip gaze + squint while blinking
 
         # ── 2. Emotion squint (modifies lid height without blinking) ──

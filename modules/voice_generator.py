@@ -224,7 +224,11 @@ async def generate_voice_elevenlabs(
 # Voice naming: af_ = American Female, am_ = American Male,
 #               bf_ = British Female, bm_ = British Male
 # Confirmed working voices (tested 2026-03-13 on RTX 2080 Ti):
-#   af_heart, am_michael, af_nova, am_adam, bf_emma, bm_george
+#   American Female: af_heart, af_bella, af_nova, af_sky, af_jessica, af_alloy, af_river
+#   American Male:   am_adam, am_onyx, am_michael, am_eric, am_fenrir, am_liam, am_puck
+#   British Female:  bf_emma, bf_lily, bf_alice, bf_isabella
+#   British Male:    bm_daniel, bm_george, bm_lewis, bm_fable
+# IMPORTANT: Always use speed=1.0 to prevent voice-shift artifacts between clips.
 
 
 def _get_kokoro_pipeline(lang_code: str = "a"):
@@ -396,12 +400,12 @@ async def generate_voice(
     # ── 1. Try Kokoro (primary free engine) ──────────────────
     # Choose a niche-appropriate Kokoro voice (default: af_heart for female narration)
     kokoro_voices = {
-        "ai_trading":       "am_michael",
-        "ai_money":         "am_adam",
-        "tech_news":        "bm_george",
-        "motivation":       "am_michael",
-        "health_wellness":  "af_heart",
-        "blissful_moments": "af_nova",
+        "ai_trading":       "am_onyx",       # Deep authoritative
+        "ai_money":         "am_fenrir",     # Powerful, confident
+        "tech_news":        "bm_daniel",     # British authority
+        "motivation":       "am_puck",       # Lively, energetic
+        "health_wellness":  "af_heart",      # Warm, expressive
+        "blissful_moments": "af_bella",      # Clear, professional
     }
     kokoro_voice = kokoro_voices.get(niche or "", "af_heart")
     result = await generate_voice_kokoro(text, audio_path, voice=kokoro_voice, output_subs=subs_path)
@@ -554,6 +558,7 @@ PODCAST_EDGE_VOICES = {
 
 # ── Kokoro Podcast Voices ─────────────────────────────────────
 # Per-niche (voice_id, speed) pairs — gender-matched to character names
+# IMPORTANT: ALL speeds MUST be 1.0 to prevent voice-shift artifacts between clips.
 # ai_trading:        SPARKY=JAYDEN(M)  NOVA=ZOE(F)
 # ai_money:          SPARKY=MALIK(M)   NOVA=LUNA(F)
 # tech_news:         SPARKY=KAI(M)     NOVA=AMARA(F)
@@ -561,12 +566,12 @@ PODCAST_EDGE_VOICES = {
 # health_wellness:   SPARKY=MIA(F)     NOVA=NOAH(M)  ← SPARKY is female
 # blissful_moments:  SPARKY=ARIA(F)    NOVA=LIAM(M)  ← SPARKY is female
 PODCAST_KOKORO_VOICES: dict[str, dict[str, tuple[str, float]]] = {
-    "ai_trading":       {"SPARKY": ("am_michael", 1.05), "NOVA": ("af_heart",  0.95)},
-    "ai_money":         {"SPARKY": ("am_adam",    1.05), "NOVA": ("af_nova",   0.95)},
-    "tech_news":        {"SPARKY": ("bm_george",  1.00), "NOVA": ("bf_emma",   0.95)},
-    "motivation":       {"SPARKY": ("am_michael", 1.10), "NOVA": ("af_nova",   0.95)},
-    "health_wellness":  {"SPARKY": ("af_heart",   1.05), "NOVA": ("am_adam",   0.95)},
-    "blissful_moments": {"SPARKY": ("af_nova",    1.00), "NOVA": ("am_michael",0.95)},
+    "ai_trading":       {"SPARKY": ("am_onyx",   1.0), "NOVA": ("af_bella",   1.0)},
+    "ai_money":         {"SPARKY": ("am_fenrir", 1.0), "NOVA": ("af_heart",   1.0)},
+    "tech_news":        {"SPARKY": ("bm_daniel", 1.0), "NOVA": ("bf_lily",    1.0)},
+    "motivation":       {"SPARKY": ("am_puck",   1.0), "NOVA": ("af_nova",    1.0)},
+    "health_wellness":  {"SPARKY": ("af_sky",    1.0), "NOVA": ("am_adam",     1.0)},
+    "blissful_moments": {"SPARKY": ("af_bella",  1.0), "NOVA": ("am_michael",  1.0)},
 }
 
 # ── Premium ElevenLabs Voices for Podcast Characters ─────────
