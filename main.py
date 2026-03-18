@@ -42,7 +42,7 @@ import json
 import os
 import shutil
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from config import NICHES, SCHEDULE, OUTPUT_DIR, OPENAI_API_KEY, GEMINI_API_KEY
@@ -58,6 +58,7 @@ async def create_video(
     format_type: str = "long",
     dry_run: bool = False,
     build_only: bool = False,
+    tiktok_schedule_time: datetime | None = None,
 ) -> dict:
     """
     Run the full pipeline for a single video.
@@ -66,13 +67,18 @@ async def create_video(
         niche: Niche key (ai_trading, ai_money, tech_news)
         format_type: "long" for YouTube, "short" for Shorts/TikTok/Reels, "podcast" for split-screen debate
         dry_run: If True, generate video but don't upload
+        tiktok_schedule_time: If set, schedule TikTok post for this time
 
     Returns:
         Result dict with status and upload info
     """
     # Route podcast format to dedicated pipeline
     if format_type == "podcast":
-        return await create_podcast_video(niche, dry_run, build_only)
+        return await create_podcast_video(niche, dry_run, build_only, tiktok_schedule_time)
+
+    # Route news anchor format to dedicated pipeline
+    if niche == "daily_breakdown" or format_type == "news_anchor":
+        return await create_news_anchor_video(niche or "daily_breakdown", dry_run, build_only, tiktok_schedule_time)
 
     from modules.topic_generator import pick_topic
     from modules.script_writer import generate_script, get_full_narration, get_scene_visuals
@@ -82,7 +88,7 @@ async def create_video(
     from modules.caption_generator import generate_captions
     from modules.video_assembler import assemble_video
     from modules.thumbnail_maker import generate_thumbnail_from_script
-    from modules.uploader_youtube import upload_to_youtube
+    from modules.uploader_youtube import upload_to_youtube, upload_to_deep_chill
     from modules.uploader_tiktok import upload_to_tiktok
     from modules.uploader_twitter import upload_to_twitter
     from modules.uploader_facebook import upload_to_facebook
@@ -295,6 +301,26 @@ async def create_video(
         # ── Step 7: Generate Thumbnail ─────────────────────────
         thumb_path = work_dir / "thumbnail.jpg"
         bg_chart = chart_paths[0] if chart_paths else None
+
+        # If no chart, extract a visually interesting frame from the video
+        if not bg_chart and assembly_result.get("output_path"):
+            try:
+                import subprocess
+                video_file = assembly_result["output_path"]
+                duration = assembly_result.get("duration", 10)
+                # Grab frame at ~25% (past intro, usually a good visual)
+                grab_time = min(max(duration * 0.25, 2), duration - 1)
+                frame_path = str(work_dir / "thumb_frame.jpg")
+                subprocess.run([
+                    "ffmpeg", "-y", "-ss", str(grab_time),
+                    "-i", str(video_file), "-frames:v", "1",
+                    "-q:v", "2", frame_path,
+                ], capture_output=True, timeout=15)
+                if Path(frame_path).exists():
+                    bg_chart = frame_path
+            except Exception:
+                pass
+
         thumbnail_layout = ab_variants.get("thumbnail_layout")
         generate_thumbnail_from_script(
             script, thumb_path,
@@ -369,6 +395,19 @@ async def create_video(
             )
             uploads.append(yt_result)
 
+            # Deep Chill secondary channel (all niches)
+            dc_result = await upload_to_deep_chill(
+                video_path=str(video_path),
+                title=title,
+                description=description,
+                tags=optimized_hashtags,
+                niche=niche,
+                thumbnail_path=str(thumb_path) if thumb_path.exists() else None,
+                is_short=is_short,
+                srt_path=srt_path,
+            )
+            uploads.append(dc_result)
+
             # TikTok (all formats)
             try:
                 from modules.hashtag_optimizer import get_optimized_hashtags as _get_tt_tags
@@ -380,6 +419,7 @@ async def create_video(
                 video_path=str(video_path),
                 description=script.get("caption", title),
                 hashtags=tt_hashtags,
+                schedule_time=tiktok_schedule_time,
             )
             uploads.append(tt_result)
 
@@ -527,10 +567,387 @@ async def create_video(
         }
 
 
+async def create_news_anchor_video(
+    niche: str = "daily_breakdown",
+    dry_run: bool = False,
+    build_only: bool = False,
+    tiktok_schedule_time: datetime | None = None,
+) -> dict:
+    """
+    Create a news anchor analysis video (The Daily Breakdown).
+
+    REVERSED pipeline: scrape news → fetch clips → write script around clips.
+    """
+    from modules.news_scraper import select_news_stories
+    from modules.script_writer import generate_news_anchor_script, get_full_narration
+    from modules.voice_generator import generate_voice
+    from modules.visual_fetcher import search_pexels_videos, search_pexels_photos, search_pixabay_videos, search_pixabay_photos
+    from modules.caption_generator import generate_captions
+    from modules.video_assembler import assemble_news_anchor_video
+    from modules.thumbnail_maker import generate_thumbnail
+    from modules.ai_images import generate_image
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    niche_config = NICHES.get(niche, NICHES["daily_breakdown"])
+    work_dir = OUTPUT_DIR / f"{niche}_news_anchor_{timestamp}"
+    work_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"\n{'='*60}")
+    print(f"[NewsAnchor] {niche_config['name']} | {timestamp}")
+    print(f"{'='*60}")
+
+    try:
+        # ── Step 1: Scrape trending news ──
+        print("[1/8] Scraping trending news headlines...")
+        news_stories = await select_news_stories(
+            regions=["iran", "south_africa", "world", "africa", "conflict"],
+            max_stories=3,
+        )
+        if not news_stories:
+            raise RuntimeError("No news stories found")
+        print(f"[1/8] News: {len(news_stories)} stories selected")
+
+        # ── Step 2: Fetch real footage + AI images for each story ──
+        print("[2/8] Fetching real footage & generating AI visuals...")
+        clips_dir = work_dir / "clips"
+        clips_dir.mkdir(exist_ok=True)
+        ai_images_dir = work_dir / "ai_images"
+        ai_images_dir.mkdir(exist_ok=True)
+        news_clips = []
+        import httpx
+
+        for i, story in enumerate(news_stories):
+            queries = story.get("suggested_pexels_queries", ["news broadcast"])
+            headline = story.get("headline", "breaking news")
+            story_clips_count = 0
+
+            # ── A) Fetch MULTIPLE real video clips per story from Pexels + Pixabay ──
+            for query in queries[:5]:  # Try up to 5 queries per story
+                try:
+                    # Search Pexels first (portrait preferred for shorts)
+                    videos = search_pexels_videos(query, per_page=5, orientation="portrait", min_duration=5)
+                    if not videos:
+                        videos = search_pexels_videos(query, per_page=5, orientation="landscape", min_duration=5)
+
+                    # Also search Pixabay for documentary-style footage
+                    pixabay_vids = search_pixabay_videos(query, per_page=5, min_duration=5)
+                    if pixabay_vids:
+                        videos = (videos or []) + pixabay_vids
+
+                    if videos:
+                        for vid_idx, video in enumerate(videos[:2]):  # Up to 2 clips per query
+                            try:
+                                source = video.get("source", "pexels")
+                                clip_path = clips_dir / f"clip_{i}_{story_clips_count}_{query.replace(' ', '_')[:15]}.mp4"
+                                async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+                                    resp = await client.get(video["url"])
+                                    if resp.status_code == 200:
+                                        clip_path.write_bytes(resp.content)
+                                        news_clips.append({
+                                            "path": str(clip_path),
+                                            "query": query,
+                                            "visual_description": f"{query} footage",
+                                            "story_index": i,
+                                            "duration": video.get("duration", 10),
+                                            "type": "video",
+                                            "source": source,
+                                        })
+                                        story_clips_count += 1
+                                        print(f"  Story {i} clip {story_clips_count}: [{source}] {query} ({video.get('duration', '?')}s)")
+                            except Exception:
+                                continue
+                except Exception as e:
+                    print(f"  Story {i} query '{query}' failed: {e}")
+                    continue
+
+                if story_clips_count >= 4:  # 4 clips per story for maximum variety
+                    break
+
+            # ── B) Fetch real photos from Pexels + Pixabay ──
+            if story_clips_count < 2:
+                for query in queries[:3]:
+                    try:
+                        photos = search_pexels_photos(query, per_page=3, orientation="portrait")
+                        if not photos:
+                            photos = search_pexels_photos(query, per_page=3, orientation="landscape")
+                        # Add Pixabay photos
+                        pixabay_imgs = search_pixabay_photos(query, per_page=3, orientation="vertical")
+                        if pixabay_imgs:
+                            photos = (photos or []) + pixabay_imgs
+
+                        if photos:
+                            for photo in photos[:2]:
+                                source = photo.get("source", "pexels")
+                                photo_path = clips_dir / f"clip_{i}_{story_clips_count}_photo.jpg"
+                                async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+                                    resp = await client.get(photo["url"])
+                                    if resp.status_code == 200:
+                                        photo_path.write_bytes(resp.content)
+                                        news_clips.append({
+                                            "path": str(photo_path),
+                                            "query": query,
+                                            "visual_description": f"{query} photo",
+                                            "story_index": i,
+                                            "type": "photo",
+                                            "source": source,
+                                        })
+                                        story_clips_count += 1
+                                        print(f"  Story {i} photo {story_clips_count}: [{source}] {query}")
+                                        if story_clips_count >= 3:
+                                            break
+                    except Exception:
+                        continue
+
+            # ── C) AI-generated images for stories with few visuals ──
+            if story_clips_count < 2:
+                print(f"  Story {i}: Generating AI images for '{headline[:40]}'...")
+                ai_prompts = [
+                    f"Breaking news scene: {headline}. Dramatic photojournalism.",
+                    f"News report visual: {queries[0] if queries else headline}. Documentary style.",
+                ]
+                for ai_idx, ai_prompt in enumerate(ai_prompts):
+                    if story_clips_count >= 3:
+                        break
+                    try:
+                        ai_path = ai_images_dir / f"ai_story_{i}_{ai_idx}.png"
+                        result = await generate_image(
+                            ai_prompt, ai_path,
+                            niche="daily_breakdown",
+                            orientation="portrait",
+                        )
+                        if result:
+                            news_clips.append({
+                                "path": result,
+                                "query": ai_prompt[:40],
+                                "visual_description": ai_prompt,
+                                "story_index": i,
+                                "type": "ai_image",
+                            })
+                            story_clips_count += 1
+                            print(f"  Story {i} AI image {ai_idx}: generated")
+                    except Exception as e:
+                        print(f"  Story {i} AI image failed: {e}")
+
+            # ── D) Last resort: placeholder ──
+            if story_clips_count == 0:
+                news_clips.append({
+                    "path": None,
+                    "query": queries[0] if queries else "news",
+                    "visual_description": f"news footage for: {headline[:40]}",
+                    "story_index": i,
+                    "type": "placeholder",
+                })
+
+        total_visuals = sum(1 for c in news_clips if c.get("path"))
+        videos_count = sum(1 for c in news_clips if c.get("type") == "video")
+        photos_count = sum(1 for c in news_clips if c.get("type") == "photo")
+        ai_count = sum(1 for c in news_clips if c.get("type") == "ai_image")
+        print(f"[2/8] Visuals: {total_visuals} total ({videos_count} videos, {photos_count} photos, {ai_count} AI images)")
+
+        # ── Step 3: Generate script based on clips + stories ──
+        print("[3/8] Generating news analysis script...")
+        script = await generate_news_anchor_script(news_stories, news_clips, niche)
+        if not script:
+            raise RuntimeError("Failed to generate news anchor script")
+
+        title = script.get("title", "Daily Breakdown")
+        print(f"[3/8] Script: {_safe(title)[:60]} ({len(script.get('scenes', []))} scenes)")
+
+        # ── Step 4: Generate AI images for scenes missing visuals ──
+        print("[4/8] Filling visual gaps with AI-generated images...")
+        scenes = script.get("scenes", [])
+        ai_fill_count = 0
+        for scene in scenes:
+            clip_idx = scene.get("clip_index", 0)
+            # Check if this scene has a valid clip
+            has_clip = (clip_idx < len(news_clips) and
+                        news_clips[clip_idx].get("path") and
+                        Path(news_clips[clip_idx]["path"]).exists())
+            if not has_clip:
+                # Generate AI image for this scene
+                visual_desc = scene.get("visual_description", scene.get("narration", "news scene")[:80])
+                try:
+                    ai_path = ai_images_dir / f"ai_scene_fill_{clip_idx}_{ai_fill_count}.png"
+                    result = await generate_image(
+                        f"News footage scene: {visual_desc}. Photojournalism, real-world, dramatic.",
+                        ai_path,
+                        niche="daily_breakdown",
+                        orientation="portrait",
+                    )
+                    if result:
+                        # Insert into news_clips at the right index
+                        while len(news_clips) <= clip_idx:
+                            news_clips.append({"path": None, "type": "placeholder"})
+                        news_clips[clip_idx] = {
+                            "path": result,
+                            "visual_description": visual_desc,
+                            "type": "ai_image",
+                            "story_index": scene.get("story_index", 0),
+                        }
+                        ai_fill_count += 1
+                        print(f"  Scene {scene.get('scene_number', '?')}: AI image generated")
+                except Exception as e:
+                    print(f"  Scene fill failed: {e}")
+        print(f"[4/8] AI fill: {ai_fill_count} images generated for missing scenes")
+
+        # ── Step 5: Generate voice narration ──
+        print("[5/8] Generating voice narration...")
+        narration = get_full_narration(script)
+        voice_result = await generate_voice(
+            text=narration,
+            output_dir=work_dir,
+            filename_base="narration",
+            niche=niche,
+        )
+        audio_path = voice_result["audio_path"]
+        print(f"[5/8] Voice: {voice_result.get('engine', 'unknown')} ({voice_result.get('duration_estimate', 0):.0f}s)")
+
+        # ── Step 6: Generate captions ──
+        print("[6/8] Generating captions...")
+        captions_data = None
+        srt_path = voice_result.get("subtitle_path")
+        try:
+            captions_result = await generate_captions(
+                audio_path=audio_path,
+                vtt_path=srt_path if srt_path and Path(srt_path).exists() else None,
+                output_dir=work_dir,
+                filename_base="captions",
+            )
+            if captions_result and captions_result.get("segments"):
+                captions_data = captions_result["segments"]
+                print(f"[6/8] Captions: {len(captions_data)} segments")
+            else:
+                print("[6/8] Captions: no segments generated")
+        except Exception as e:
+            print(f"[6/8] Captions: skipped ({e})")
+
+        # ── Step 7: Assemble video (full-screen clips + voiceover) ──
+        print("[7/8] Assembling premium news video...")
+        video_path = work_dir / "final_news_anchor.mp4"
+        video_result = await assemble_news_anchor_video(
+            scenes=script.get("scenes", []),
+            audio_path=audio_path,
+            anchor_image=None,
+            news_clips=news_clips,
+            output_path=video_path,
+            captions_data=captions_data,
+            niche=niche,
+            title=title,
+            animated_avatar=None,
+        )
+        print(f"[7/8] Video: {video_result.get('file_size_mb', '?')}MB, {video_result.get('duration', '?')}s")
+
+        # ── Step 8: Generate thumbnail ──
+        print("[8/8] Generating thumbnail...")
+        thumb_path = work_dir / "thumbnail.jpg"
+        try:
+            generate_thumbnail(
+                title_text=script.get("thumbnail_text", title),
+                output_path=str(thumb_path),
+                niche=niche,
+            )
+            print(f"[8/8] Thumbnail: {thumb_path.name}")
+        except Exception as e:
+            print(f"[8/8] Thumbnail: skipped ({e})")
+            thumb_path = None
+
+        # ── Save manifest ──
+        manifest = {
+            "niche": niche,
+            "format": "news_anchor",
+            "title": title,
+            "video_path": str(video_path),
+            "thumbnail_path": str(thumb_path) if thumb_path else None,
+            "script": script,
+            "news_stories": [s.get("headline") for s in news_stories],
+            "created_at": datetime.now().isoformat(),
+            "uploaded": False,
+        }
+        manifest_path = work_dir / "manifest.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2, default=str))
+
+        if dry_run or build_only:
+            print(f"\n[NewsAnchor] {'DRY RUN' if dry_run else 'BUILD ONLY'} — skipping upload")
+            return {"status": "built", "niche": niche, "title": title, "video_path": str(video_path)}
+
+        # ── Upload ──
+        print("\n[NewsAnchor] Uploading to platforms...")
+        uploads = []
+
+        # YouTube Shorts
+        try:
+            from modules.uploader_youtube import upload_to_youtube
+            yt_result = await upload_to_youtube(
+                video_path=str(video_path),
+                title=title[:100],
+                description=script.get("caption", title),
+                tags=script.get("tags", []) + niche_config.get("hashtags", []),
+                category_id="25",  # News category
+                is_short=True,
+                niche=niche,
+                thumbnail_path=str(thumb_path) if thumb_path and thumb_path.exists() else None,
+            )
+            uploads.append({"platform": "youtube", "status": "success", **yt_result})
+        except Exception as e:
+            print(f"[Upload] YouTube failed: {e}")
+            uploads.append({"platform": "youtube", "status": "failed", "error": str(e)})
+
+        # TikTok
+        try:
+            from modules.uploader_tiktok import upload_to_tiktok
+            tt_result = await upload_to_tiktok(
+                video_path=str(video_path),
+                title=title[:100],
+                tags=[h.replace("#", "") for h in niche_config.get("hashtags", [])[:5]],
+                niche=niche,
+                schedule_time=tiktok_schedule_time,
+            )
+            uploads.append({"platform": "tiktok", "status": "success", **tt_result})
+        except Exception as e:
+            print(f"[Upload] TikTok failed: {e}")
+            uploads.append({"platform": "tiktok", "status": "failed", "error": str(e)})
+
+        # Facebook Reels
+        try:
+            from modules.uploader_facebook import upload_to_facebook
+            fb_result = await upload_to_facebook(
+                video_path=str(video_path),
+                title=title[:100],
+                description=script.get("caption", title),
+                niche=niche,
+                is_reel=True,
+            )
+            uploads.append({"platform": "facebook", "status": "success", **fb_result})
+        except Exception as e:
+            print(f"[Upload] Facebook failed: {e}")
+            uploads.append({"platform": "facebook", "status": "failed", "error": str(e)})
+
+        # Update manifest
+        manifest["uploaded"] = True
+        manifest["uploaded_at"] = datetime.now().isoformat()
+        manifest["upload_results"] = uploads
+        manifest_path.write_text(json.dumps(manifest, indent=2, default=str))
+
+        print(f"\n[NewsAnchor] COMPLETE: {_safe(title)}")
+        return {
+            "status": "uploaded",
+            "niche": niche,
+            "title": title,
+            "video_path": str(video_path),
+            "uploads": uploads,
+        }
+
+    except Exception as e:
+        print(f"\n[NewsAnchor] FAILED: {e}")
+        traceback.print_exc()
+        return {"status": "failed", "niche": niche, "error": str(e)}
+
+
 async def create_podcast_video(
     niche: str,
     dry_run: bool = False,
     build_only: bool = False,
+    tiktok_schedule_time: datetime | None = None,
 ) -> dict:
     """
     Run the Baby Podcast pipeline — two-character split-screen debate video.
@@ -554,7 +971,7 @@ async def create_podcast_video(
     from modules.video_assembler import assemble_podcast_video
     from modules.podcast_generator import generate_podcast_avatars
     from modules.thumbnail_maker import generate_thumbnail_from_script
-    from modules.uploader_youtube import upload_to_youtube
+    from modules.uploader_youtube import upload_to_youtube, upload_to_deep_chill
     from modules.uploader_tiktok import upload_to_tiktok
     from modules.uploader_twitter import upload_to_twitter
     from modules.uploader_facebook import upload_to_facebook
@@ -742,12 +1159,26 @@ async def create_podcast_video(
             )
             uploads.append(yt_result)
 
-            # TikTok
+            # Deep Chill secondary channel
+            dc_result = await upload_to_deep_chill(
+                video_path=str(video_path),
+                title=f"🔴🔵 {title}",
+                description=description,
+                tags=niche_config.get("hashtags", []),
+                niche=niche,
+                thumbnail_path=str(thumb_path) if thumb_path.exists() else None,
+                is_short=True,
+                srt_path=voice_result.get("subtitle_path"),
+            )
+            uploads.append(dc_result)
+
+            # TikTok — staggered scheduling (first posts now, rest scheduled)
             try:
                 tt_result = await upload_to_tiktok(
                     video_path=str(video_path),
                     description=script.get("caption", title),
                     hashtags=niche_config.get("hashtags", []),
+                    schedule_time=tiktok_schedule_time,
                 )
                 uploads.append(tt_result)
             except Exception:
@@ -860,7 +1291,7 @@ async def upload_prebuilt_videos(
     Scans output/ for upload_manifest.json files where uploaded=False.
     Used by the scheduler's upload phase (2 hours after build phase).
     """
-    from modules.uploader_youtube import upload_to_youtube
+    from modules.uploader_youtube import upload_to_youtube, upload_to_deep_chill
     from modules.uploader_tiktok import upload_to_tiktok
     from modules.uploader_twitter import upload_to_twitter
     from modules.uploader_facebook import upload_to_facebook
@@ -917,6 +1348,19 @@ async def upload_prebuilt_videos(
             srt_path=srt_path,
         )
         uploads.append(yt_result)
+
+        # Deep Chill secondary channel
+        dc_result = await upload_to_deep_chill(
+            video_path=str(video_path),
+            title=title,
+            description=description,
+            tags=tags,
+            niche=niche,
+            thumbnail_path=str(thumb_path) if thumb_path.exists() else None,
+            is_short=is_short,
+            srt_path=srt_path,
+        )
+        uploads.append(dc_result)
 
         # TikTok (all formats)
         try:
@@ -1038,11 +1482,18 @@ async def run_daily_pipeline(
     dry_run: bool = False,
     build_only: bool = False,
 ):
-    """Run the full daily video creation pipeline."""
+    """
+    Run the full daily video creation pipeline.
+
+    TikTok staggered scheduling: the first video posts immediately,
+    subsequent videos are scheduled 2 hours apart for better algorithm reach.
+    """
     if niches is None:
         niches = list(NICHES.keys())
     if formats is None:
-        formats = ["long", "short", "podcast"]
+        formats = ["long", "short", "podcast", "news_anchor"]
+
+    tiktok_stagger_hours = 2.0
 
     print(f"\n{'#'*60}")
     print(f"# AI Video Factory v2 — Trending Edition")
@@ -1051,20 +1502,41 @@ async def run_daily_pipeline(
     print(f"# Formats: {', '.join(formats)}")
     print(f"# Dry Run: {dry_run}")
     print(f"# Build Only: {build_only}")
+    print(f"# TikTok: 1st posts NOW, rest scheduled {tiktok_stagger_hours}h apart")
     print(f"{'#'*60}\n")
 
     results = []
+    tiktok_video_index = 0  # Tracks which TikTok video we're on
 
     for niche in niches:
         schedule = SCHEDULE.get(niche, {"long_form": 1, "shorts": 1})
 
         for fmt in formats:
-            sched_key = {"long": "long_form", "short": "shorts", "podcast": "podcast"}.get(fmt, "shorts")
+            # daily_breakdown niche only runs news_anchor format; skip other formats
+            if niche == "daily_breakdown" and fmt != "news_anchor":
+                continue
+            # Non-daily_breakdown niches skip news_anchor format
+            if niche != "daily_breakdown" and fmt == "news_anchor":
+                continue
+
+            sched_key = {"long": "long_form", "short": "shorts", "podcast": "podcast", "news_anchor": "shorts"}.get(fmt, "shorts")
             count = schedule.get(sched_key, 1)
             for i in range(count):
                 print(f"\n--- {niche} | {fmt} | Video {i+1}/{count} ---")
-                result = await create_video(niche, fmt, dry_run, build_only)
+
+                # Calculate TikTok schedule time
+                # First video (index 0) → None (posts immediately)
+                # Subsequent → staggered 2h apart from now
+                if tiktok_video_index == 0 or dry_run:
+                    tt_schedule = None
+                else:
+                    tt_schedule = datetime.now() + timedelta(
+                        hours=tiktok_stagger_hours * tiktok_video_index
+                    )
+
+                result = await create_video(niche, fmt, dry_run, build_only, tt_schedule)
                 results.append(result)
+                tiktok_video_index += 1
 
                 if not dry_run:
                     await asyncio.sleep(5)
@@ -1084,14 +1556,17 @@ async def run_daily_pipeline(
 
 def main():
     parser = argparse.ArgumentParser(description="AI Video Factory v2")
-    parser.add_argument("--niche", choices=list(NICHES.keys()), help="Run specific niche only")
-    parser.add_argument("--format", choices=["long", "short", "podcast"], help="Run specific format only")
+    parser.add_argument("--niche", choices=list(NICHES.keys()) + ["daily_breakdown"], help="Run specific niche only")
+    parser.add_argument("--format", choices=["long", "short", "podcast", "news_anchor"], help="Run specific format only")
     parser.add_argument("--dry-run", action="store_true", help="Generate videos but don't upload")
     parser.add_argument("--stats", action="store_true", help="Show statistics")
     parser.add_argument("--health", action="store_true", help="Run health check on all services")
     parser.add_argument("--update-metrics", action="store_true", help="Update performance metrics (all platforms)")
     parser.add_argument("--ab-summary", action="store_true", help="Show A/B test results")
-    parser.add_argument("--trends", action="store_true", help="Show current trending topics")
+    parser.add_argument("--trends", action="store_true", help="Show current trending topics (all 5 sources)")
+    parser.add_argument("--trend-health", action="store_true", help="Show trend source health status")
+    parser.add_argument("--viral-check", type=str, metavar="TOPIC", help="Check viral score for a topic string")
+    parser.add_argument("--niche-heat", action="store_true", help="Show niche trend heat rankings")
     parser.add_argument("--build-only", action="store_true", help="Build videos without uploading (for scheduled deferred upload)")
     parser.add_argument("--upload-prebuilt", action="store_true", help="Upload pre-built videos from previous build phase")
     args = parser.parse_args()
@@ -1121,13 +1596,50 @@ def main():
     if args.trends:
         async def show_trends():
             from modules.trend_detector import get_trending_topics
-            for niche in NICHES:
+            target_niches = [args.niche] if args.niche else list(NICHES.keys())
+            for niche in target_niches:
                 data = await get_trending_topics(niche)
                 print(f"\n--- {NICHES[niche]['name']} ---")
-                print(f"  Sources: {data['source_count']}")
-                for kw in data["top_keywords"][:5]:
+                print(f"  Active sources: {', '.join(data.get('active_sources', []))}")
+                print(f"  Total trends: {data['source_count']}")
+                for kw in data["top_keywords"][:8]:
                     print(f"  -> {kw}")
         asyncio.run(show_trends())
+        return
+
+    if args.trend_health:
+        from modules.trend_detector import get_health_status
+        status = get_health_status()
+        print(f"\n{'='*55}")
+        print(f"  Trend Source Health Status")
+        print(f"{'='*55}")
+        for source, info in status.items():
+            h = "OK" if info["healthy"] else "STALE"
+            b = " BACKOFF" if info["backed_off"] else ""
+            err = f" | Last error: {info['last_error'][:50]}" if info["last_error"] else ""
+            print(f"  {source:<16} [{h}{b}] failures: {info['consecutive_failures']} | results: {info['last_result_count']}{err}")
+        print(f"{'='*55}\n")
+        return
+
+    if args.viral_check:
+        async def check_viral():
+            from modules.viral_scorer import validate_topic
+            niche = args.niche or "tech_news"
+            print(f"\nChecking viral score for: {args.viral_check}")
+            print(f"Niche: {niche}")
+            result = await validate_topic(args.viral_check, niche)
+            print(f"\n  Viral Score: {result['viral_score']}/100 ({result['recommendation']})")
+            print(f"  Passes threshold ({VIRAL_SCORE_THRESHOLD}): {result['passes_threshold']}")
+            print(f"  Components:")
+            for k, v in result["components"].items():
+                print(f"    {k}: {v}")
+        from config import VIRAL_SCORE_THRESHOLD
+        asyncio.run(check_viral())
+        return
+
+    if args.niche_heat:
+        from modules.niche_prioritizer import show_niche_heat
+        asyncio.run(show_niche_heat())
         return
 
     if args.health:

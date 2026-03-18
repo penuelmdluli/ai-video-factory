@@ -3,8 +3,10 @@ Visual Fetcher — Gets stock footage and images for video scenes.
 
 Sources:
 - Pexels API (free, no attribution required, 200 req/hr)
+- Pixabay API (free, 5000 req/hr with free key)
 - Falls back to solid color backgrounds if API fails
 """
+import os
 import random
 import re
 import requests
@@ -15,6 +17,10 @@ from config import PEXELS_API_KEY
 
 PEXELS_VIDEO_URL = "https://api.pexels.com/videos/search"
 PEXELS_PHOTO_URL = "https://api.pexels.com/v1/search"
+PIXABAY_API_URL = "https://pixabay.com/api/"
+PIXABAY_VIDEO_URL = "https://pixabay.com/api/videos/"
+
+PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "")
 
 # Cache fetched videos to avoid re-downloading
 _video_cache: dict[str, list] = {}
@@ -120,6 +126,109 @@ def search_pexels_photos(
         return []
 
 
+def search_pixabay_videos(
+    query: str,
+    per_page: int = 10,
+    min_duration: int = 5,
+    max_duration: int = 60,
+) -> list[dict]:
+    """
+    Search Pixabay for free stock videos.
+    More documentary/editorial content than Pexels.
+    Free API key: 5000 requests/hour.
+    """
+    if not PIXABAY_API_KEY:
+        return []
+
+    cache_key = f"pixabay_v_{query}"
+    if cache_key in _video_cache:
+        return _video_cache[cache_key]
+
+    try:
+        params = {
+            "key": PIXABAY_API_KEY,
+            "q": query,
+            "per_page": per_page,
+            "safesearch": "true",
+            "video_type": "film",  # Higher quality
+        }
+        resp = requests.get(PIXABAY_VIDEO_URL, params=params, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+
+        results = []
+        for hit in data.get("hits", []):
+            duration = hit.get("duration", 0)
+            if duration < min_duration or duration > max_duration:
+                continue
+
+            # Get medium quality (good balance of quality/size)
+            videos = hit.get("videos", {})
+            medium = videos.get("medium", {})
+            large = videos.get("large", {})
+            best = large if large.get("url") else medium
+
+            if best.get("url"):
+                results.append({
+                    "url": best["url"],
+                    "width": best.get("width", 1920),
+                    "height": best.get("height", 1080),
+                    "duration": duration,
+                    "id": hit.get("id"),
+                    "type": "video",
+                    "source": "pixabay",
+                })
+
+        _video_cache[cache_key] = results
+        return results
+
+    except Exception as e:
+        print(f"[Visual] Pixabay video search failed for '{query}': {e}")
+        return []
+
+
+def search_pixabay_photos(
+    query: str,
+    per_page: int = 10,
+    orientation: str = "horizontal",
+) -> list[dict]:
+    """
+    Search Pixabay for free stock photos.
+    Has strong editorial/documentary photography.
+    """
+    if not PIXABAY_API_KEY:
+        return []
+
+    try:
+        params = {
+            "key": PIXABAY_API_KEY,
+            "q": query,
+            "per_page": per_page,
+            "image_type": "photo",
+            "orientation": orientation,
+            "safesearch": "true",
+        }
+        resp = requests.get(PIXABAY_API_URL, params=params, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+
+        return [
+            {
+                "url": hit["largeImageURL"],
+                "width": hit.get("imageWidth", 1920),
+                "height": hit.get("imageHeight", 1080),
+                "id": hit.get("id"),
+                "type": "photo",
+                "source": "pixabay",
+            }
+            for hit in data.get("hits", [])
+        ]
+
+    except Exception as e:
+        print(f"[Visual] Pixabay photo search failed for '{query}': {e}")
+        return []
+
+
 def download_asset(url: str, output_path: Path) -> bool:
     """Download a video or image from URL."""
     try:
@@ -148,6 +257,14 @@ def _extract_keywords(visual_description: str, narration: str = "") -> list[str]
         "let", "get", "got", "going", "actually", "really", "very",
         "you", "your", "our", "they", "them", "their", "its",
     }
+    # Filter out abstract/unsearchable words that return garbage stock footage
+    abstract_words = {
+        "abstract", "concept", "unknown", "symbols", "metaphor", "essence",
+        "notion", "idea", "feeling", "sense", "impression", "split",
+        "montage", "visualization", "representation", "illustration",
+    }
+    stop_words.update(abstract_words)
+
     # Prioritize visual description keywords, then supplement from narration
     vis_words = re.findall(r'\b\w+\b', visual_description.lower())
     vis_keywords = [w for w in vis_words if w not in stop_words and len(w) > 2]

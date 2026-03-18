@@ -1395,6 +1395,11 @@ def _enhance_wav2lip_video(input_path: Path, output_path: Path, character: str =
 
     emotion_tl = _build_emotion_timeline(line_timings, character, total, int(fps))
 
+    # ── Pre-compute head motion parameters ─────────────────────
+    # Natural head motion = sum of slow sinusoids at different frequencies
+    # This makes the character look alive — subtle breathing + sway + nod
+    cx, cy = w / 2, h / 2  # Center of rotation (center of image)
+
     # ── Frame loop ────────────────────────────────────────────
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     writer = cv2.VideoWriter(str(output_path), fourcc, fps, (w, h))
@@ -1424,12 +1429,30 @@ def _enhance_wav2lip_video(input_path: Path, output_path: Path, character: str =
                                           skin_color, emo, int(fps),
                                           closed_eyes_img=closed_eyes_img)
 
+        # 4. Subtle head motion — breathing, swaying, micro-nod
+        t = frame_idx / fps  # Time in seconds
+        # Horizontal sway (slow, ~5s cycle) ± 3px
+        dx = 3.0 * math.sin(2 * math.pi * t / 5.0)
+        # Vertical breathing (subtle, ~3.5s cycle) ± 2px
+        dy = 2.0 * math.sin(2 * math.pi * t / 3.5)
+        # Micro rotation (very subtle, ~7s cycle) ± 0.4 degrees
+        angle = 0.4 * math.sin(2 * math.pi * t / 7.0)
+        # Breathing scale (tiny, ~4s cycle) 1.0 → 1.008
+        scale = 1.0 + 0.008 * math.sin(2 * math.pi * t / 4.0)
+
+        # Build affine transform: rotate + scale around center, then translate
+        M = cv2.getRotationMatrix2D((cx, cy), angle, scale)
+        M[0, 2] += dx
+        M[1, 2] += dy
+        result = cv2.warpAffine(result, M, (w, h),
+                                borderMode=cv2.BORDER_REPLICATE)
+
         writer.write(result)
 
     cap.release()
     writer.release()
     elapsed = time.time() - start
-    print(f"[LocalAvatar] {character}: Enhanced (mouth-mask + eye anim) "
+    print(f"[LocalAvatar] {character}: Enhanced (mouth-mask + eye anim + head motion) "
           f"{total} frames in {elapsed:.1f}s")
     return str(output_path)
 

@@ -47,6 +47,21 @@ TWITTER_API_SECRET = os.getenv("TWITTER_API_SECRET", "")
 TWITTER_ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN", "")
 TWITTER_ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET", "")
 
+# ── YouTube Data API (read-only trending/search — simple API key) ──
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
+
+# ── Viral Score Settings ─────────────────────────────────
+VIRAL_SCORE_THRESHOLD = float(os.getenv("VIRAL_SCORE_THRESHOLD", "35"))
+VIRAL_SCORE_MAX_RETRIES = int(os.getenv("VIRAL_SCORE_MAX_RETRIES", "3"))
+
+# ── Niche Prioritization ─────────────────────────────────
+ENABLE_NICHE_PRIORITIZATION = os.getenv("ENABLE_NICHE_PRIORITIZATION", "true").lower() in ("true", "1", "yes")
+MIN_VIDEOS_PER_NICHE_PER_DAY = int(os.getenv("MIN_VIDEOS_PER_NICHE_PER_DAY", "1"))
+
+# ── Trend Source Settings ─────────────────────────────────
+TREND_CACHE_TTL_HOURS = float(os.getenv("TREND_CACHE_TTL_HOURS", "2"))
+TREND_SOURCE_STALE_HOURS = float(os.getenv("TREND_SOURCE_STALE_HOURS", "6"))
+
 # ── Facebook Pages (MOTIVATIONS App ID: 591543017174198) ─────
 FB_APP_ID = os.getenv("FB_APP_ID", "591543017174198")
 # Per-niche page tokens and IDs
@@ -62,6 +77,10 @@ FB_PAGE_ID_HEALTH_WELLNESS = os.getenv("FB_PAGE_ID_health_wellness", "")
 FB_PAGE_TOKEN_HEALTH_WELLNESS = os.getenv("FB_PAGE_TOKEN_health_wellness", "")
 FB_PAGE_ID_BLISSFUL_MOMENTS = os.getenv("FB_PAGE_ID_blissful_moments", "")
 FB_PAGE_TOKEN_BLISSFUL_MOMENTS = os.getenv("FB_PAGE_TOKEN_blissful_moments", "")
+FB_PAGE_ID_DAILY_BREAKDOWN = os.getenv("FB_PAGE_ID_daily_breakdown", "")
+FB_PAGE_TOKEN_DAILY_BREAKDOWN = os.getenv("FB_PAGE_TOKEN_daily_breakdown", "")
+FB_PAGE_ID_SHOPMO_PRODUCTS = os.getenv("FB_PAGE_ID_shopmo_products", "61582171693722")
+FB_PAGE_TOKEN_SHOPMO_PRODUCTS = os.getenv("FB_PAGE_TOKEN_shopmo_products", "")
 
 # ── Cloud Storage (for Instagram Reels upload) ───────────────
 R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID", "")
@@ -95,6 +114,14 @@ INSTAGRAM_ACCOUNTS = {
     "blissful_moments": {
         "user_id": os.getenv("IG_USER_ID_blissful_moments", os.getenv("INSTAGRAM_USER_ID", "")),
         "access_token": os.getenv("IG_TOKEN_blissful_moments", os.getenv("INSTAGRAM_ACCESS_TOKEN", "")),
+    },
+    "daily_breakdown": {
+        "user_id": os.getenv("IG_USER_ID_daily_breakdown", os.getenv("INSTAGRAM_USER_ID", "")),
+        "access_token": os.getenv("IG_TOKEN_daily_breakdown", os.getenv("INSTAGRAM_ACCESS_TOKEN", "")),
+    },
+    "shopmo_products": {
+        "user_id": os.getenv("IG_USER_ID_shopmo_products", os.getenv("INSTAGRAM_USER_ID", "")),
+        "access_token": os.getenv("IG_TOKEN_shopmo_products", os.getenv("INSTAGRAM_ACCESS_TOKEN", "")),
     },
 }
 
@@ -154,6 +181,14 @@ VIDEO_SETTINGS = {
         "height": 1920,
         "fps": 30,
         "duration_target": 30,  # 15-45 sec sweet spot
+        "aspect": "9:16",
+    },
+    # ── News Anchor Format (Daily Breakdown) ──
+    "news_anchor_short": {
+        "width": 1080,
+        "height": 1920,
+        "fps": 30,
+        "duration_target": 60,   # 45-75 sec sweet spot for news clips
         "aspect": "9:16",
     },
     # ── Podcast Split-Screen Format ──
@@ -391,6 +426,78 @@ NICHES = {
         "generate_charts": False,
         "edge_voice": "en-US-AriaNeural",  # Warm female voice — soothing for positivity content
     },
+    "daily_breakdown": {
+        "name": "The Daily Breakdown - News Analysis",
+        "topics_bank": [
+            "Iran nuclear tensions latest developments",
+            "South Africa political crisis update",
+            "global economic outlook this week",
+            "Middle East conflict analysis",
+            "Africa rising: economic growth stories",
+            "world leaders meeting at summit",
+            "sanctions impact on global trade",
+            "refugee crisis update worldwide",
+            "climate change affecting developing nations",
+            "technology in modern warfare",
+            "South Africa energy crisis and solutions",
+            "Iran diplomatic negotiations breakdown",
+            "global food security concerns",
+            "Africa infrastructure development boom",
+            "world news that mainstream media ignores",
+            "geopolitical shifts reshaping the world order",
+            "breaking news analysis and what it means for you",
+            "South Africa crime and safety update",
+            "Iran Israel tensions escalating",
+            "what is really happening in the world right now",
+        ],
+        "search_keywords": ["world news", "Iran news", "South Africa news", "breaking news", "geopolitics", "Africa news"],
+        "pexels_queries": ["news broadcast", "world map", "political meeting", "press conference", "city skyline", "protest crowd", "parliament building", "military", "diplomacy", "african city"],
+        "hashtags": ["#DailyBreakdown", "#NewsAnalysis", "#WorldNews", "#BreakingNews", "#Iran", "#SouthAfrica", "#Africa", "#Geopolitics", "#NewsUpdate", "#CurrentEvents"],
+        "cpm_estimate": 15,
+        "generate_charts": False,
+        "edge_voice": "en-US-GuyNeural",  # Deep male voice — authoritative for news
+    },
+    "shopmo_products": {
+        "name": "ShopMO - SA's Smartest Online Store",
+        "topics_bank": [
+            "best online shopping deals in South Africa today",
+            "top 5 gadgets every South African needs in 2026",
+            "unboxing the hottest products on ShopMO right now",
+            "why South Africans are switching from Takealot to ShopMO",
+            "affordable tech gadgets you can buy online in SA",
+            "best wireless earbuds under R500 in South Africa",
+            "ring light setup for content creators on a budget",
+            "air fryer recipes and the best air fryer deals in SA",
+            "smart watch vs fitness band which should you buy in SA",
+            "home gym essentials you can order online in South Africa",
+            "best skincare products available online in SA",
+            "fast charger review the one accessory you need",
+            "bluetooth speaker showdown best portable speakers SA",
+            "yoga mat and resistance bands home workout starter kit",
+            "vitamin C serum review best beauty products online SA",
+            "car phone mount review best driving accessories",
+            "water bottle comparison which one keeps water cold longest",
+            "back to school essentials you can buy on ShopMO",
+            "gift ideas under R300 from ShopMO South Africa",
+            "flash sale alert massive discounts on ShopMO today",
+            "how to save money shopping online in South Africa",
+            "ShopMO vs Takealot which has better prices in SA",
+            "free delivery shopping tips for South Africans",
+            "trending products South Africans are buying right now",
+            "must have kitchen gadgets under R1000 in South Africa",
+            "the ultimate guide to online shopping in South Africa 2026",
+            "product review electronics worth buying on ShopMO",
+            "beauty and health products every South African woman needs",
+            "sports and fitness gear deals you cannot miss",
+            "fashion accessories trending in South Africa right now",
+        ],
+        "search_keywords": ["online shopping South Africa", "best deals SA", "buy online SA", "gadgets South Africa", "affordable tech SA", "ShopMO deals", "South Africa e-commerce"],
+        "pexels_queries": ["online shopping", "unboxing", "tech gadgets", "beauty products", "fitness equipment", "kitchen appliances", "smartphone accessories", "happy customer", "delivery package", "south africa city", "shopping bags", "product review"],
+        "hashtags": ["#ShopMO", "#OnlineShoppingSA", "#SouthAfrica", "#DealsOfTheDay", "#ShopOnline", "#AffordableGadgets", "#SADeals", "#TrendingProducts", "#FreeDelivery", "#ShopMODeals", "#BuyOnlineSA", "#EcommerceSA"],
+        "cpm_estimate": 12,
+        "generate_charts": False,
+        "edge_voice": "en-US-AriaNeural",  # Warm female voice — engaging for product reviews
+    },
 }
 
 # ── Schedule (videos per day per niche) ────────────────────────
@@ -401,11 +508,14 @@ SCHEDULE = {
     "motivation": {"long_form": 1, "shorts": 1, "podcast": 1},     # 3 videos/day
     "health_wellness": {"long_form": 1, "shorts": 1, "podcast": 1}, # 3 videos/day
     "blissful_moments": {"long_form": 1, "shorts": 1, "podcast": 1}, # 3 videos/day — 58K followers!
+    "daily_breakdown": {"shorts": 2},  # 2 news analysis clips/day
+    "shopmo_products": {"long_form": 1, "shorts": 2},  # 1 product review + 2 shorts/day — pure sales machine
 }
 
 # ── Affiliate Links (auto-inserted in descriptions) ───────────
 AFFILIATE_LINKS = {
     "traderadar": "https://www.gettraderadar.com",
+    "shopmo": "https://shopmoo.co.za",
     "tradingview": "https://www.tradingview.com/?aff_id=YOUR_ID",
     "binance": "https://accounts.binance.com/register?ref=YOUR_ID",
     "3commas": "https://3commas.io/?c=YOUR_ID",
@@ -424,6 +534,14 @@ OUR_PRODUCTS = {
         "niches": ["ai_trading", "ai_money"],  # Which niches promote this
         "hashtags": ["#TradeRadarAI", "#AITrading", "#StockAnalysis"],
     },
+    "shopmo": {
+        "name": "ShopMO",
+        "url": "https://shopmoo.co.za",
+        "tagline": "South Africa's smartest online store — 127+ trending products, free delivery over R500",
+        "cta": "Shop now at ShopMO",
+        "niches": ["shopmo_products"],
+        "hashtags": ["#ShopMO", "#OnlineShoppingSA", "#ShopOnlineSA", "#SADeals"],
+    },
 }
 
 # ── Product CTA Templates (inserted in video descriptions) ────
@@ -439,6 +557,15 @@ PRODUCT_CTA_TEMPLATES = {
         "🤖 FREE AI tool that analyzes stocks for you — TradeRadar AI\n👉 https://www.gettraderadar.com",
         "💰 Want to make smarter investment decisions? Try TradeRadar AI FREE\n👉 https://www.gettraderadar.com",
         "📈 AI-powered market intelligence — completely FREE to start\n👉 https://www.gettraderadar.com",
+    ],
+    "shopmo_products": [
+        "🛒 Shop 127+ trending products at ShopMO — SA's smartest online store!\n🚚 FREE delivery over R500\n👉 https://shopmoo.co.za",
+        "🔥 Massive deals on electronics, fashion & more — only at ShopMO!\n💳 Secure Yoco payments | Fast SA delivery\n👉 https://shopmoo.co.za",
+        "🇿🇦 South Africa's #1 smart shopping destination — ShopMO\n✅ Free delivery over R500 | Same-day dispatch\n👉 https://shopmoo.co.za",
+        "💰 Why pay more? ShopMO has the best prices in SA!\n🛍️ Electronics, beauty, fitness & more\n👉 https://shopmoo.co.za",
+        "⚡ Flash deals dropping daily at ShopMO!\n🔥 Don't miss out — shop now before they're gone\n👉 https://shopmoo.co.za/deals",
+        "🎁 Looking for the perfect gift? ShopMO has 127+ options!\n🚚 Free delivery over R500 across South Africa\n👉 https://shopmoo.co.za",
+        "📱 Best tech gadgets at unbeatable prices — ShopMO\n🇿🇦 Proudly South African | Secure payments\n👉 https://shopmoo.co.za/categories/electronics",
     ],
 }
 
@@ -463,4 +590,6 @@ NICHE_YOUTUBE_CATEGORY = {
     "motivation": YOUTUBE_CATEGORY_EDUCATION,
     "health_wellness": YOUTUBE_CATEGORY_HOWTO,
     "blissful_moments": YOUTUBE_CATEGORY_ENTERTAINMENT,
+    "daily_breakdown": YOUTUBE_CATEGORY_NEWS,
+    "shopmo_products": YOUTUBE_CATEGORY_HOWTO,  # Product reviews = How-to
 }

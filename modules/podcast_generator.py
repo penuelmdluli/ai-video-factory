@@ -26,7 +26,7 @@ import asyncio
 from pathlib import Path
 from datetime import datetime
 
-from config import NICHES, GEMINI_API_KEY, ANTHROPIC_API_KEY
+from config import NICHES, GEMINI_API_KEY, ANTHROPIC_API_KEY, WEBSITE_URL
 
 
 # ── Emotion Tags ──────────────────────────────────────────────
@@ -344,6 +344,14 @@ NICHE_PODCAST_CONFIG = {
             "The dark side of high-frequency trading nobody talks about",
             "Is crypto dead or about to explode — AI analysis",
             "AI just predicted the next market crash — should you panic?",
+            "Why 90% of day traders lose money — and how AI changes that",
+            "The secret indicator that predicted every crash since 2008",
+            "AI trading bots vs human intuition — which wins in 2026?",
+            "How hedge funds use AI to front-run retail traders",
+            "The $50 AI tool that outperforms Goldman Sachs analysts",
+            "Is the stock market rigged? What the data actually shows",
+            "Why Warren Buffett is wrong about AI trading",
+            "The AI trading strategy that turned $1000 into $47000",
         ],
         "tone": "controversial",
     },
@@ -454,6 +462,14 @@ ENGAGEMENT MECHANICS (these make it VIRAL):
 16. USE ALL 15 EMOTIONS: Don't just use SHOCKED and EXCITED. Mix in SARCASTIC, DISBELIEF, SMIRKING, NERVOUS, CONFUSED, FIRED UP, CALM, IMPRESSED — variety keeps viewers engaged.
 17. BEAT DROPS: Before THE TWIST reveal, add a brief pause moment — SPARKY says something like "Wait... are you about to say what I think you're about to say?" (NERVOUS emotion). Then NOVA drops the bomb.
 
+CONFLICT IS KING (this is what makes people SHARE):
+18. SPARKY and NOVA MUST disagree on at least 3 specific points. Agreement-only conversations are BORING and NOT viral. Real debate = real engagement.
+19. Each character needs a STRONG opinion they defend. NOVA can't just agree with everything SPARKY says — that kills the energy.
+20. Include at least 1 moment where a character directly pushes back: "I completely disagree", "That's actually wrong", "No, here's what's really happening".
+21. The BEST moments come from tension → one says something bold, the other challenges it, then they find unexpected common ground. This arc hooks viewers.
+
+{cta_hint}
+
 OUTPUT FORMAT — Return valid JSON:
 {{
     "title": "Viral title (under 60 chars, include a number or specific claim)",
@@ -475,7 +491,7 @@ OUTPUT FORMAT — Return valid JSON:
             "section": "HOOK"
         }}
     ],
-    "sections": ["HOOK", "ROUND 1: sub-topic", "ROUND 2: sub-topic", "THE TWIST", "ROUND 3: sub-topic", "CLIFFHANGER CTA"],
+    "sections": ["HOOK", "ROUND 1: sub-topic", "THE TWIST", "ROUND 2: sub-topic", "CLIFFHANGER CTA"],
     "viral_clip_moment": {{
         "description": "Description of the single most shareable 5-10 second moment",
         "line_indices": [5, 6, 7],
@@ -485,12 +501,20 @@ OUTPUT FORMAT — Return valid JSON:
     "engagement_score": 8
 }}
 
+STRICT LENGTH RULES — CRITICAL:
+- Total script MUST be EXACTLY 10-12 lines (not more, not less)
+- Short reaction lines: 3-8 words ("Wait, are you serious right now?")
+- Medium lines: 12-20 words (one clear point or question)
+- Long explanation lines: 20-30 words MAX (the longest any line should be)
+- NEVER exceed 30 words in a single line — split long thoughts across two lines instead
+- At 1.0x speaking speed, each word takes ~0.4 seconds. 10 lines × ~15 words avg = ~60 words × 0.4s = ~{duration}s
+- If you write more than 12 lines or lines longer than 30 words, the video will be ruined
+
 CONVERSATION FLOW (keep it feeling NATURAL, not scripted):
-- HOOK (2-3 exchanges, intensity 5/10): Open with something WILD that makes people stop scrolling. One drops a bomb casually. Use SHOCKED, DISBELIEF, or DEAD SERIOUS emotions.
-- ROUND 1 (3-4 exchanges, intensity 6/10): They dig in. Back and forth — one explains, the other reacts genuinely. Mix agreement with pushback. Use CONFUSED, IMPRESSED, SARCASTIC.
-- ROUND 2 (3-4 exchanges, intensity 7/10): Go deeper. "Wait, are you serious?" moments. Include a FALSE AGREEMENT and at least one CUTS OFF moment.
+- HOOK (2 exchanges, intensity 5/10): Open with something WILD that makes people stop scrolling. One drops a bomb casually. Use SHOCKED, DISBELIEF, or DEAD SERIOUS emotions.
+- ROUND 1 (2 exchanges, intensity 7/10): They dig in. Back and forth — one explains, the other reacts genuinely. Mix agreement with pushback. Use CONFUSED, IMPRESSED, SARCASTIC. Include a CUTS OFF moment.
 - THE TWIST (2-3 exchanges, intensity 9/10): Beat drop pause → one drops a fact that FLIPS everything. The other is genuinely shook. Use NERVOUS before, then SHOCKED + FIRED UP. This is the viral clip moment.
-- ROUND 3 (2-3 exchanges, intensity 8/10): They process the twist together. Use EXCITED, IMPRESSED, CALM. New perspective — two minds connecting.
+- ROUND 2 (2-3 exchanges, intensity 8/10): They process the twist together. Include a FALSE AGREEMENT moment. Use EXCITED, FIRED UP, SARCASTIC.
 - CLIFFHANGER CTA (2 exchanges, intensity 10/10): End on something that FORCES viewers to comment. Use DEAD SERIOUS + SMIRKING. Tease the next topic or ask a divisive question.
 
 CRITICAL: Return ONLY valid JSON. No markdown, no code blocks, just raw JSON.
@@ -498,6 +522,68 @@ CRITICAL: "engagement_score" should be 1-10 based on: emotion variety (use 8+ di
 
 Make the conversation feel like eavesdropping on two interesting friends. Controversial enough to share, factual enough to trust. This needs to go VIRAL.
 """
+
+
+# ── Organic CTA Hints Per Niche ──────────────────────────────
+# These get injected into the CLIFFHANGER CTA section so the
+# product mention feels like a natural part of the conversation.
+NICHE_CTA_HINTS = {
+    "ai_trading": f"In the CLIFFHANGER CTA, have one character naturally mention AI tools that analyze stocks in plain English — like TradeRadar ({WEBSITE_URL}). Make it a genuine 'you should check this out' moment, NOT a scripted ad.",
+    "ai_money": f"In the CLIFFHANGER CTA, casually mention AI-powered tools for finding money opportunities — like TradeRadar ({WEBSITE_URL}) for stock analysis. Keep it natural, like one friend recommending an app.",
+    "tech_news": f"In the CLIFFHANGER CTA, mention how AI tools like TradeRadar ({WEBSITE_URL}) are changing how regular people interact with markets. Frame it as a tech innovation, not an ad.",
+    "motivation": "",
+    "health_wellness": "",
+    "blissful_moments": "",
+}
+
+
+def _validate_script_quality(script: dict) -> tuple[bool, list[str]]:
+    """
+    Validate podcast script quality.
+
+    Returns:
+        (passed, reasons) — True if quality is acceptable, list of failure reasons
+    """
+    reasons = []
+    lines = script.get("lines", [])
+
+    # Check engagement score
+    score = script.get("engagement_score", 0)
+    if isinstance(score, (int, float)) and score < 7:
+        reasons.append(f"engagement_score={score} (need >=7)")
+
+    # Check emotion variety (need at least 6 different emotions for 10-12 lines)
+    emotions_used = set(l.get("emotion", "").upper().strip("[]") for l in lines)
+    emotions_used.discard("")
+    if len(emotions_used) < 6:
+        reasons.append(f"emotions={len(emotions_used)}/15 (need >=6)")
+
+    # Check for interruptions (CUTS OFF emotion) — at least 1 for shorter scripts
+    cuts_off_count = sum(1 for l in lines if l.get("emotion", "").upper().strip("[]") == "CUTS OFF")
+    if cuts_off_count < 1:
+        reasons.append(f"interruptions={cuts_off_count} (need >=1)")
+
+    # Check character balance (both need at least 35% of lines)
+    total = len(lines)
+
+    # Check line count — too many lines means audio will be too long
+    if total > 14:
+        reasons.append(f"too many lines={total} (max 14, target 10-12)")
+    if total > 0:
+        sparky_pct = sum(1 for l in lines if l.get("character", "").upper() == "SPARKY") / total
+        nova_pct = sum(1 for l in lines if l.get("character", "").upper() == "NOVA") / total
+        if sparky_pct < 0.35:
+            reasons.append(f"SPARKY only {sparky_pct:.0%} of lines (need >=35%)")
+        if nova_pct < 0.35:
+            reasons.append(f"NOVA only {nova_pct:.0%} of lines (need >=35%)")
+
+    # Check THE TWIST section exists
+    has_twist = any("TWIST" in l.get("section", "").upper() for l in lines)
+    if not has_twist:
+        reasons.append("missing THE TWIST section")
+
+    passed = len(reasons) == 0
+    return passed, reasons
 
 
 def _clean_json_response(text: str) -> str:
@@ -536,6 +622,7 @@ async def generate_podcast_script(
 
     tone = podcast_config.get("tone", "controversial")
     niche_style = NICHE_STYLE_GUIDES.get(niche, "Write in an engaging, viewer-focused style.")
+    cta_hint = NICHE_CTA_HINTS.get(niche, "")
 
     prompt = PODCAST_SCRIPT_PROMPT.format(
         topic=topic,
@@ -545,14 +632,85 @@ async def generate_podcast_script(
         duration=duration,
         character_style=character_style,
         emotions=", ".join(f"[{e}]" for e in EMOTIONS[:10]),
+        cta_hint=cta_hint,
     )
 
-    # Try Gemini first
-    script = await _generate_podcast_gemini(prompt)
-    if not script:
-        script = await _generate_podcast_claude(prompt)
-    if not script:
-        return None
+    # ── Quality Gate: Generate + validate, retry if weak ──────
+    best_script = None
+    best_score = -1
+    max_attempts = 2
+
+    for attempt in range(max_attempts):
+        # Try Gemini first
+        script = await _generate_podcast_gemini(prompt)
+        if not script:
+            script = await _generate_podcast_claude(prompt)
+        if not script:
+            continue
+
+        # Basic structure check
+        if "lines" not in script or not script["lines"]:
+            continue
+
+        # Ensure all lines have required fields
+        for line in script["lines"]:
+            line.setdefault("character", "SPARKY")
+            line.setdefault("emotion", "EXCITED")
+            line.setdefault("text", "")
+            line.setdefault("section", "HOOK")
+
+        # Validate quality
+        passed, reasons = _validate_script_quality(script)
+        score = script.get("engagement_score", 0)
+        if isinstance(score, (int, float)) and score > best_score:
+            best_score = score
+            best_script = script
+
+        if passed:
+            print(f"[Podcast] Quality gate: PASSED (score: {score}, attempt {attempt + 1})")
+            break
+        else:
+            reason_str = ", ".join(reasons)
+            print(f"[Podcast] Script rejected (attempt {attempt + 1}/{max_attempts}): {reason_str}")
+            if attempt < max_attempts - 1:
+                # Add emphasis to prompt for retry
+                prompt += "\n\nIMPORTANT RETRY: The previous script was too weak. You MUST include more conflict, use 10+ different emotions, include 2+ CUTS OFF interruptions, and ensure engagement_score >= 8. Make it MORE controversial and dramatic."
+    else:
+        # Used all attempts — use best available
+        if best_script:
+            print(f"[Podcast] Quality gate: using best available (score: {best_score})")
+            script = best_script
+        else:
+            return None
+
+    # ── Word Count Safety Net ──────────────────────────────────
+    # At Kokoro 1.0x speed, ~0.4s per word. Target: duration seconds.
+    # Max words ≈ duration / 0.4 = 225 for 90s. Add 10% buffer.
+    max_words = int(duration / 0.4 * 1.1)
+    total_words = sum(len(l.get("text", "").split()) for l in script["lines"])
+    if total_words > max_words:
+        # Truncate long lines first (trim each line to 25 words max)
+        for line in script["lines"]:
+            words = line["text"].split()
+            if len(words) > 25:
+                line["text"] = " ".join(words[:25]) + "..."
+        # Recount
+        total_words = sum(len(l.get("text", "").split()) for l in script["lines"])
+        # If still too long, remove lines from the middle (keep HOOK, TWIST, CTA)
+        if total_words > max_words and len(script["lines"]) > 10:
+            lines = script["lines"]
+            # Keep first 3 (HOOK), last 3 (CTA), and TWIST lines
+            twist_indices = [i for i, l in enumerate(lines) if "TWIST" in l.get("section", "").upper()]
+            keep = set(range(3)) | set(range(len(lines) - 3, len(lines))) | set(twist_indices)
+            # Remove middle lines until under word limit
+            removable = [i for i in range(len(lines)) if i not in keep]
+            while total_words > max_words and removable:
+                idx = removable.pop(len(removable) // 2)  # Remove from middle
+                removed_words = len(lines[idx].get("text", "").split())
+                lines[idx] = None
+                total_words -= removed_words
+            script["lines"] = [l for l in lines if l is not None]
+        print(f"[Podcast] Word count adjusted: {total_words} words (max {max_words} for {duration}s)")
 
     # Enrich the script
     script["niche"] = niche
@@ -563,17 +721,6 @@ async def generate_podcast_script(
 
     if "description" in script:
         script["description"] = _add_affiliate_links(script["description"], niche)
-
-    # Validate and fix structure
-    if "lines" not in script or not script["lines"]:
-        return None
-
-    # Ensure all lines have required fields
-    for line in script["lines"]:
-        line.setdefault("character", "SPARKY")
-        line.setdefault("emotion", "EXCITED")
-        line.setdefault("text", "")
-        line.setdefault("section", "HOOK")
 
     line_count = len(script["lines"])
     sparky_count = sum(1 for l in script["lines"] if l["character"] == "SPARKY")

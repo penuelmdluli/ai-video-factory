@@ -32,7 +32,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from config import NICHES, SCHEDULE
+from config import NICHES, SCHEDULE, ENABLE_NICHE_PRIORITIZATION
 
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
@@ -227,6 +227,10 @@ async def run_build_phase(slot: int | None = None):
     BUILD phase: Generate videos for all niches (without uploading).
     Videos are saved with upload_manifest.json for later upload.
 
+    When ENABLE_NICHE_PRIORITIZATION is on, niches are built in order
+    of trend heat (hottest first), so the most important content is
+    always produced even if time/resources run out.
+
     Args:
         slot: Specific slot index (0, 1, 2) or None for all slots.
     """
@@ -234,6 +238,32 @@ async def run_build_phase(slot: int | None = None):
 
     slots_to_build = [slot] if slot is not None else list(SLOT_FORMATS.keys())
     results = []
+
+    # Determine niche build order
+    niche_order = list(NICHES.keys())
+    heat_info = ""
+
+    if ENABLE_NICHE_PRIORITIZATION:
+        try:
+            from modules.niche_prioritizer import rank_niches_by_heat, get_niche_order_for_slot
+            rankings = await rank_niches_by_heat()
+            if rankings:
+                niche_order = get_niche_order_for_slot(rankings)
+                top3 = [(r["niche"], r["heat_score"]) for r in rankings[:3]]
+                heat_info = f"  Niche priority: {', '.join(f'{n} ({s:.0f})' for n, s in top3)}"
+
+                # Log heat scores
+                log = load_schedule_log()
+                today = get_today_key()
+                if today not in log:
+                    log[today] = {}
+                log[today]["_niche_heat"] = {
+                    r["niche"]: {"heat_score": r["heat_score"], "top_trend": r.get("top_trend", "")}
+                    for r in rankings
+                }
+                save_schedule_log(log)
+        except Exception as e:
+            print(f"[Scheduler] Niche prioritization failed (using default order): {e}")
 
     for s in slots_to_build:
         fmt = SLOT_FORMATS[s]
@@ -244,9 +274,13 @@ async def run_build_phase(slot: int | None = None):
         print(f"# BUILD PHASE — {SLOT_NAMES[s]}")
         print(f"# Format: {fmt} | Build: {build_hour}:00 | Upload: {upload_hour}:00")
         print(f"# {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        if heat_info:
+            print(f"#{heat_info}")
         print(f"{'#'*60}\n")
 
-        for niche in NICHES:
+        for niche in niche_order:
+            if niche not in NICHES:
+                continue
             if already_done_today(niche, s, "build"):
                 print(f"[SKIP] {niche} {fmt} — already built today")
                 continue
@@ -534,10 +568,16 @@ def main():
     parser.add_argument("--slot", type=int, choices=[0, 1, 2], help="Specific slot to build (0=shorts, 1=podcast, 2=long)")
     parser.add_argument("--status", action="store_true", help="Show schedule status")
     parser.add_argument("--optimize", action="store_true", help="Show optimal posting times")
+    parser.add_argument("--niche-heat", action="store_true", help="Show current niche trend heat rankings")
     args = parser.parse_args()
 
     if args.status:
         show_status()
+        return
+
+    if args.niche_heat:
+        from modules.niche_prioritizer import show_niche_heat
+        asyncio.run(show_niche_heat())
         return
 
     if args.optimize:

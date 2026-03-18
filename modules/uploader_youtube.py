@@ -28,6 +28,9 @@ from config import (
 TOKEN_PATH = TOKENS_DIR / "youtube_token.json"
 CLIENT_SECRET_PATH = TOKENS_DIR / "youtube_client_secret.json"
 
+# Secondary channel: Deep Chill (@DeepFocusBeats-w2f) — all niches cross-post here
+DEEP_CHILL_TOKEN_PATH = TOKENS_DIR / "youtube_token_deep_chill.json"
+
 
 def _get_token_path(niche: str = "") -> Path:
     """Get YouTube token path, preferring niche-specific tokens for separate channels."""
@@ -315,6 +318,116 @@ def _build_seo_description(
         lines.append("Not financial advice. Always do your own research before investing.")
 
     return "\n".join(lines)[:5000]  # YT description limit
+
+
+async def upload_to_deep_chill(
+    video_path: str,
+    title: str,
+    description: str,
+    tags: list[str],
+    niche: str = "ai_trading",
+    thumbnail_path: str | None = None,
+    is_short: bool = False,
+    srt_path: str | None = None,
+) -> dict:
+    """
+    Upload a video to the Deep Chill secondary YouTube channel.
+
+    Uses a dedicated token (youtube_token_deep_chill.json).
+    All niches cross-post here. Silently skips if token not set up.
+    """
+    if not DEEP_CHILL_TOKEN_PATH.exists():
+        print("[YouTube/DeepChill] Token not found — skipping (run: python auth_one_channel.py deep_chill)")
+        return {"platform": "youtube_deep_chill", "status": "skipped", "error": "no token"}
+
+    try:
+        creds = Credentials.from_authorized_user_file(str(DEEP_CHILL_TOKEN_PATH), YOUTUBE_SCOPES)
+
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+            with open(DEEP_CHILL_TOKEN_PATH, "w") as f:
+                f.write(creds.to_json())
+
+        if not creds or not creds.valid:
+            print("[YouTube/DeepChill] Token expired and cannot refresh — skipping")
+            return {"platform": "youtube_deep_chill", "status": "skipped", "error": "token expired"}
+
+        youtube = build("youtube", YOUTUBE_API_VERSION, credentials=creds)
+
+        # Prefix title for Deep Chill branding
+        dc_title = title[:100]
+
+        if is_short and "#Shorts" not in dc_title:
+            dc_title = dc_title[:90] + " #Shorts" if len(dc_title) > 90 else dc_title + " #Shorts"
+
+        dc_title = dc_title[:100]
+
+        seo_description = _build_seo_description(description, dc_title, niche, tags)
+        category = NICHE_YOUTUBE_CATEGORY.get(niche, "28")
+
+        body = {
+            "snippet": {
+                "title": dc_title,
+                "description": seo_description,
+                "tags": tags[:30],
+                "categoryId": category,
+                "defaultLanguage": "en",
+                "defaultAudioLanguage": "en",
+            },
+            "status": {
+                "privacyStatus": "public",
+                "selfDeclaredMadeForKids": False,
+            },
+        }
+
+        media = MediaFileUpload(
+            video_path,
+            chunksize=256 * 1024,
+            resumable=True,
+            mimetype="video/mp4",
+        )
+
+        request = youtube.videos().insert(
+            part="snippet,status",
+            body=body,
+            media_body=media,
+        )
+
+        response = None
+        while response is None:
+            status, response = request.next_chunk()
+            if status:
+                print(f"[YouTube/DeepChill] Upload progress: {int(status.progress() * 100)}%")
+
+        video_id = response["id"]
+        video_url = f"https://youtube.com/watch?v={video_id}"
+
+        if thumbnail_path and Path(thumbnail_path).exists():
+            try:
+                youtube.thumbnails().set(
+                    videoId=video_id,
+                    media_body=MediaFileUpload(thumbnail_path, mimetype="image/jpeg"),
+                ).execute()
+            except Exception:
+                pass
+
+        if srt_path:
+            await upload_srt_captions(youtube, video_id, srt_path)
+
+        print(f"[YouTube/DeepChill] Uploaded: {video_url}")
+
+        return {
+            "platform": "youtube_deep_chill",
+            "video_id": video_id,
+            "url": video_url,
+            "title": dc_title,
+            "status": "uploaded",
+            "is_short": is_short,
+        }
+
+    except Exception as e:
+        print(f"[YouTube/DeepChill] Upload failed: {e}")
+        return {"platform": "youtube_deep_chill", "status": "failed", "error": str(e)}
 
 
 def check_youtube_quota() -> dict:

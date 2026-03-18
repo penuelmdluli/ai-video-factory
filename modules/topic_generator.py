@@ -14,7 +14,7 @@ import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from config import NICHES, GEMINI_API_KEY, OUTPUT_DIR
+from config import NICHES, GEMINI_API_KEY, OUTPUT_DIR, VIRAL_SCORE_THRESHOLD, VIRAL_SCORE_MAX_RETRIES
 
 # Track recently used topics to avoid repeats
 HISTORY_FILE = OUTPUT_DIR / "topic_history.json"
@@ -72,12 +72,13 @@ async def _fetch_trending_context(niche: str) -> str:
     Uses the new trend_detector module instead of broken Google scraping.
     Falls back to lightweight Google search if trend_detector fails.
     """
-    # Primary: Use the real trend detector
+    # Primary: Use the real trend detector (YouTube + Google Trends + Reddit + Twitter + TikTok)
     try:
         from modules.trend_detector import get_trending_topics
         trend_data = await get_trending_topics(niche)
         if trend_data["context_string"]:
-            return trend_data["context_string"]
+            sources = ", ".join(trend_data.get("active_sources", []))
+            return f"[Live data from: {sources}]\n{trend_data['context_string']}"
     except Exception as e:
         print(f"[TopicGen] Trend detector failed (non-critical): {e}")
 
@@ -141,9 +142,10 @@ async def generate_trending_topic_ai(
             trending_context = await _fetch_trending_context(niche)
             if trending_context:
                 trending_context = (
-                    f"\n\nCurrent trending data (REAL, from Google Trends and Reddit):\n"
+                    f"\n\nCURRENT TRENDING DATA (REAL, live from YouTube + Google Trends + Reddit):\n"
                     f"{trending_context}\n\n"
-                    f"Use these as inspiration but create an ORIGINAL topic that's MORE specific and viral."
+                    f"IMPORTANT: Use these REAL trending topics as your foundation. Pick one that's HOT right now "
+                    f"and create a video angle on it that will get MORE views than the existing content."
                 )
         except Exception:
             pass
@@ -152,7 +154,7 @@ async def generate_trending_topic_ai(
         perf_context = ""
         if perf_keywords:
             perf_context = f"\n\nOur TOP PERFORMING past topics included these themes: {', '.join(perf_keywords)}"
-            perf_context += "\nConsider incorporating similar themes since our audience responds well to them."
+            perf_context += "\nThese themes get the MOST engagement from our audience. Lean into them."
 
         # A/B test modifiers
         hook_instruction = ""
@@ -171,7 +173,7 @@ async def generate_trending_topic_ai(
             except Exception:
                 pass
 
-        prompt = f"""You are a viral content strategist. Generate ONE specific, trending video topic for the "{niche_config['name']}" niche.
+        prompt = f"""You are an elite YouTube strategist who has studied every viral video formula. Your job: generate ONE video topic for the "{niche_config['name']}" niche that will MAXIMIZE views and subscriber growth.
 
 Today's date: {today}
 {trending_context}
@@ -179,33 +181,49 @@ Today's date: {today}
 {hook_instruction}
 {title_instruction}
 
-Requirements:
-- Must be about something currently relevant or trending RIGHT NOW in {today}
-- Must be SPECIFIC (include numbers, names, or specific tools — not generic like "AI is changing the world")
-- Must have viral potential (curiosity gap, surprising data, controversy, or practical value)
-- The FIRST 3 SECONDS when spoken must hook the viewer — make the opening words irresistible
-- Return ONLY the topic as a single sentence, nothing else
-- Make it sound like a viral video title hook that compels clicks
+## VIRAL VIDEO FORMULAS THAT WORK (use one):
 
-AVOID these patterns (too generic, overused):
-- "X things you didn't know about..."
-- Generic predictions with no specific data
-- Topics we've likely covered in the past week
-- Unverifiable health claims or dangerous financial advice
-- Clickbait with no real substance
+1. **"I Tested X So You Don't Have To"** — Personal experiment with surprising results
+   "I gave AI $1000 to trade stocks for 30 days — here's what happened"
 
-Keywords to consider: {', '.join(niche_config['search_keywords'])}
+2. **"The Hidden Truth About X"** — Expose or reveal something the audience doesn't know
+   "The stock your broker doesn't want you to know about just got flagged by AI"
 
-Examples of good specific topics:
-- "This new AI tool just replaced 5 freelancer jobs overnight"
-- "AI trading bot made 47% returns in February — here's the strategy"
-- "Why every tech company is firing engineers and hiring AI trainers"
-- "Scientists just discovered this herb reverses aging by 10 years"
-- "I let AI analyze 50 stocks and found 3 hidden gems nobody's talking about"
-- "This FREE AI tool explains any stock in plain English — no jargon needed"
-- "AI just predicted this stock will breakout — here's what the data shows"
+3. **"X Just Changed Everything"** — Breaking news angle with real impact
+   "OpenAI just released a tool that replaces $50K analysts — and it's free"
 
-Return ONLY the topic, no quotes, no explanation."""
+4. **"Why X Is Doing Y (And What It Means For You)"** — Connect trending news to viewer's life
+   "Why Goldman Sachs just went all-in on AI trading — and what it means for your portfolio"
+
+5. **"I Found X And It Actually Works"** — Discovery/proof format
+   "I found an AI that predicts stock breakouts 3 days early — here's the proof"
+
+6. **"Stop Doing X, Do This Instead"** — Contrarian advice with authority
+   "Stop using ChatGPT for trading — this AI tool actually understands markets"
+
+7. **"X vs Y — The Results Shocked Me"** — Comparison with surprising outcome
+   "AI trading bot vs my own picks for 7 days — the results will shock you"
+
+## RULES:
+
+1. MUST be based on something ACTUALLY trending or newsworthy right now ({today})
+2. Use SPECIFIC names, numbers, tools, or events — never generic
+3. The first 5 words must create an IRRESISTIBLE curiosity gap
+4. Must provide real VALUE — not empty clickbait (the viewer should learn something)
+5. Keep it under 15 words — punchy, not wordy
+6. Must feel URGENT — like they'll miss out if they don't watch NOW
+
+## AVOID (instant skip for viewers):
+
+- Generic "AI is amazing" or "AI changes everything" (too vague)
+- "Top 5/10 things" lists (overplayed)
+- Unverifiable claims or fake statistics
+- Topics with no trending news hook (stale content)
+- Anything that sounds like every other channel
+
+## NICHE KEYWORDS: {', '.join(niche_config['search_keywords'])}
+
+Return ONLY the topic as a single line. No quotes. No explanation. No numbering."""
 
         # Try multiple models for rate limit resilience
         for model_name in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]:
@@ -235,7 +253,11 @@ async def pick_topic(
     ab_variants: dict | None = None,
 ) -> dict:
     """
-    Pick a topic for a given niche.
+    Pick a topic for a given niche with viral validation.
+
+    Generates up to VIRAL_SCORE_MAX_RETRIES topics, validates each against
+    the viral score threshold, and picks the best one. Falls back to topic
+    bank if AI fails or all topics score too low.
 
     Args:
         niche: Content niche key
@@ -243,7 +265,7 @@ async def pick_topic(
         ab_variants: A/B test variants (hook_style, title_style)
 
     Returns:
-        dict with keys: topic, niche, source, timestamp
+        dict with keys: topic, niche, source, timestamp, viral_score, viral_components
     """
     niche_config = NICHES[niche]
     recent = _get_recent_topics(niche)
@@ -260,22 +282,77 @@ async def pick_topic(
     hook_style = (ab_variants or {}).get("hook_style", "")
     title_style = (ab_variants or {}).get("title_style", "")
 
-    # Try AI-generated trending topic first
+    # Pre-fetch trend data once (shared by viral scorer + topic gen)
+    trend_data = None
+    try:
+        from modules.trend_detector import get_trending_topics
+        trend_data = await get_trending_topics(niche)
+    except Exception:
+        pass
+
+    # Viral validation loop: try multiple AI-generated topics
+    best_candidate = None
+    best_score = -1
+
     if use_ai:
-        ai_topic = await generate_trending_topic_ai(
-            niche,
-            perf_keywords=perf_keywords,
-            hook_style=hook_style,
-            title_style=title_style,
-        )
-        if ai_topic and _topic_hash(ai_topic) not in recent:
-            _record_topic(niche, ai_topic)
-            return {
-                "topic": ai_topic,
-                "niche": niche,
-                "source": "gemini_ai",
-                "timestamp": datetime.now().isoformat(),
-            }
+        for attempt in range(VIRAL_SCORE_MAX_RETRIES):
+            ai_topic = await generate_trending_topic_ai(
+                niche,
+                perf_keywords=perf_keywords,
+                hook_style=hook_style,
+                title_style=title_style,
+            )
+            if not ai_topic or _topic_hash(ai_topic) in recent:
+                continue
+
+            # Validate viral potential
+            try:
+                from modules.viral_scorer import validate_topic
+                validation = await validate_topic(
+                    ai_topic, niche,
+                    trend_data=trend_data,
+                    perf_keywords=perf_keywords,
+                )
+                score = validation["viral_score"]
+
+                # Track best candidate regardless of threshold
+                if score > best_score:
+                    best_score = score
+                    best_candidate = {
+                        "topic": ai_topic,
+                        "niche": niche,
+                        "source": "gemini_ai",
+                        "timestamp": datetime.now().isoformat(),
+                        "viral_score": score,
+                        "viral_components": validation["components"],
+                        "viral_recommendation": validation["recommendation"],
+                    }
+
+                if validation["passes_threshold"]:
+                    print(f"[TopicGen] Topic scored {score:.0f}/100 ({validation['recommendation']}) on attempt {attempt+1}")
+                    _record_topic(niche, ai_topic)
+                    return best_candidate
+                else:
+                    print(f"[TopicGen] Topic scored {score:.0f}/100 (min: {VIRAL_SCORE_THRESHOLD}) — retrying ({attempt+1}/{VIRAL_SCORE_MAX_RETRIES})")
+            except Exception as e:
+                # Viral scoring failed — accept the topic anyway (graceful degradation)
+                print(f"[TopicGen] Viral scoring failed (non-critical): {e}")
+                _record_topic(niche, ai_topic)
+                return {
+                    "topic": ai_topic,
+                    "niche": niche,
+                    "source": "gemini_ai",
+                    "timestamp": datetime.now().isoformat(),
+                    "viral_score": None,
+                    "viral_components": None,
+                    "viral_recommendation": "unscored",
+                }
+
+    # If we have a best candidate (even below threshold), use it rather than topic bank
+    if best_candidate:
+        print(f"[TopicGen] Using best candidate (score: {best_score:.0f}) after {VIRAL_SCORE_MAX_RETRIES} attempts")
+        _record_topic(niche, best_candidate["topic"])
+        return best_candidate
 
     # Fallback to topic bank with randomization
     available = [
@@ -295,6 +372,9 @@ async def pick_topic(
         "niche": niche,
         "source": "topic_bank",
         "timestamp": datetime.now().isoformat(),
+        "viral_score": None,
+        "viral_components": None,
+        "viral_recommendation": "fallback",
     }
 
 

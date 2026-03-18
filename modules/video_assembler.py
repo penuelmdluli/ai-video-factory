@@ -87,6 +87,7 @@ NICHE_COLOR_GRADE = {
     "motivation": (10, 5, -8, 1.05),       # Warm amber/golden
     "health_wellness": (-5, 10, -3, 1.03), # Green/natural tint
     "blissful_moments": (8, 4, -5, 1.04),  # Warm golden glow
+    "daily_breakdown": (5, 0, 10, 1.01),    # Cool news-desk blue
 }
 
 
@@ -1719,22 +1720,120 @@ EMOTION_CAPTION_STYLES = {
 }
 
 
+def _render_podcast_caption_with_pill(
+    text: str, font_path: str, font_size: int, text_w: int,
+    accent_color: tuple, character: str, stroke_width: int = 4,
+) -> np.ndarray:
+    """
+    Render a podcast caption with a rounded pill background.
+
+    Returns RGBA numpy array with:
+    - Semi-transparent dark pill (tinted red for SPARKY, blue for NOVA)
+    - White text with colored power words
+    - Accent-colored left bar on the pill
+    """
+    try:
+        font = ImageFont.truetype(font_path, font_size)
+    except Exception:
+        font = ImageFont.load_default()
+
+    words = text.upper().split()
+
+    # Measure text
+    dummy_img = PILImage.new("RGBA", (text_w + 80, font_size * 4), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(dummy_img)
+    space_w = draw.textlength(" ", font=font)
+
+    word_widths = []
+    for w in words:
+        word_widths.append(draw.textlength(w, font=font))
+
+    # Word-wrap into lines
+    lines = []
+    current_line = []
+    current_width = 0
+    for i, w in enumerate(words):
+        test_width = current_width + word_widths[i] + (space_w if current_line else 0)
+        if test_width > text_w - 40 and current_line:  # 40px padding inside pill
+            lines.append(current_line)
+            current_line = [(w, word_widths[i], _is_power_word(w))]
+            current_width = word_widths[i]
+        else:
+            current_line.append((w, word_widths[i], _is_power_word(w)))
+            current_width = test_width
+    if current_line:
+        lines.append(current_line)
+
+    line_height = int(font_size * 1.35)
+    pad_x = 24
+    pad_y = 14
+    accent_bar_w = 5
+    content_h = line_height * len(lines)
+
+    # Calculate pill dimensions
+    pill_w = text_w + pad_x * 2
+    pill_h = content_h + pad_y * 2
+    total_h = pill_h + 4  # small bottom margin
+
+    img = PILImage.new("RGBA", (pill_w, total_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    # Draw rounded pill background (character-tinted)
+    pill_color = (40, 15, 15, 180) if character == "SPARKY" else (15, 20, 45, 180)
+    corner_r = min(18, pill_h // 3)
+    draw.rounded_rectangle(
+        [(0, 0), (pill_w - 1, pill_h - 1)],
+        radius=corner_r,
+        fill=pill_color,
+    )
+
+    # Accent-colored left bar
+    bar_color = accent_color + (220,)
+    draw.rounded_rectangle(
+        [(0, 0), (accent_bar_w, pill_h - 1)],
+        radius=min(corner_r, accent_bar_w),
+        fill=bar_color,
+    )
+
+    # Draw text with stroke
+    y = pad_y
+    for line in lines:
+        line_w = sum(w for _, w, _ in line) + space_w * (len(line) - 1)
+        x = (pill_w - line_w) / 2  # Center text in pill
+
+        for word, w_width, is_power in line:
+            color = accent_color if is_power else (255, 255, 255)
+
+            # Stroke (black outline)
+            for dx in range(-stroke_width, stroke_width + 1):
+                for dy in range(-stroke_width, stroke_width + 1):
+                    if dx * dx + dy * dy <= stroke_width * stroke_width:
+                        draw.text((x + dx, y + dy), word, font=font, fill=(0, 0, 0, 255))
+
+            draw.text((x, y), word, font=font, fill=color + (255,))
+            x += w_width + space_w
+
+        y += line_height
+
+    return np.array(img)
+
+
 def _create_podcast_captions(
     line_timings: list,
     target_w: int,
     target_h: int,
     niche: str = "ai_trading",
 ) -> list:
-    """Create podcast captions with character color coding, display names, and emotion-aware styling."""
+    """Create podcast captions with pill backgrounds, character color coding, and emotion-aware styling."""
     from modules.podcast_generator import NICHE_CHARACTER_NAMES
 
     caption_clips = []
     is_portrait = target_h > target_w
     text_w = int(target_w * 0.88)
-    base_font_size = int(target_w * 0.045) if is_portrait else int(target_w * 0.032)
-    name_font_size = int(base_font_size * 0.65)
-    cap_y = int(target_h * 0.78) if is_portrait else int(target_h * 0.80)
-    name_y = cap_y - name_font_size - 8  # Name label sits above caption
+    base_font_size = int(target_w * 0.055) if is_portrait else int(target_w * 0.038)
+    name_font_size = int(base_font_size * 0.55)
+    cap_y = int(target_h * 0.76) if is_portrait else int(target_h * 0.78)
+    name_y = cap_y - name_font_size - 12  # Name label sits above caption
 
     display_names = NICHE_CHARACTER_NAMES.get(niche, {})
 
@@ -1747,9 +1846,10 @@ def _create_podcast_captions(
         if duration < 0.1 or not text:
             continue
 
-        char_key = timing["character"].lower()
-        accent = (255, 120, 120) if timing["character"] == "SPARKY" else (120, 170, 255)
-        display_name = display_names.get(char_key, timing["character"])
+        character = timing["character"]
+        char_key = character.lower()
+        accent = (255, 120, 120) if character == "SPARKY" else (120, 170, 255)
+        display_name = display_names.get(char_key, character)
 
         # ── Emotion-aware styling ──
         em_style = EMOTION_CAPTION_STYLES.get(emotion, {"font_scale": 1.0, "opacity": 1.0, "stroke": 4, "fade_in": 0.05})
@@ -1772,13 +1872,13 @@ def _create_podcast_captions(
             name_clip = name_clip.with_effects([vfx.CrossFadeIn(0.05), vfx.CrossFadeOut(0.2)])
             caption_clips.append(name_clip)
 
-            # ── Phrase captions (emotion-styled) ──
+            # ── Phrase captions with pill background ──
             words = text.upper().split()
-            # Fewer words per phrase for intense emotions (punchy), more for calm
+            # Fewer words per phrase for intense emotions, more for calm
             if em_style["font_scale"] >= 1.1:
-                max_pw = 4  # Punchy short phrases for high-intensity
+                max_pw = 4
             elif em_style["font_scale"] <= 0.9:
-                max_pw = 8  # Longer phrases for calm/whisper
+                max_pw = 8
             else:
                 max_pw = 6
             phrases = [" ".join(words[j:j + max_pw]) for j in range(0, len(words), max_pw)]
@@ -1788,9 +1888,10 @@ def _create_podcast_captions(
 
             for p_idx, phrase in enumerate(phrases):
                 p_start = start + p_idx * phrase_dur
-                img_array = _render_caption_image(
+                img_array = _render_podcast_caption_with_pill(
                     text=phrase, font_path=CAPTION_FONT, font_size=font_size,
-                    text_w=text_w, accent_color=accent, stroke_width=stroke_width,
+                    text_w=text_w, accent_color=accent, character=character,
+                    stroke_width=stroke_width,
                 )
                 rgb = img_array[:, :, :3]
                 alpha = img_array[:, :, 3].astype(float) / 255.0
@@ -1863,6 +1964,96 @@ def _create_section_title_overlay(
 
 # Emotions that trigger snap zoom effect
 _SNAP_ZOOM_EMOTIONS = {"SHOCKED", "ANGRY", "LAUGHS", "EXCITED"}
+
+def _create_twist_impact(
+    target_w: int, target_h: int, twist_start: float,
+    niche: str = "ai_trading",
+) -> list:
+    """
+    Create dramatic visual impact overlays for THE TWIST moment.
+
+    Layers:
+    1. White flash — rapid full-screen flash (0.12s)
+    2. Screen shake — horizontal jitter via offset overlays (0.3s)
+    3. Red/amber color shift — danger/revelation tint (0.5s)
+    """
+    clips = []
+    accent = NICHE_CAPTION_COLORS.get(niche, (0, 255, 136))
+
+    # 1. White flash — bright and fast
+    flash = ColorClip(
+        size=(target_w, target_h), color=(255, 255, 255),
+        duration=0.12,
+    )
+    flash = (
+        flash
+        .with_start(twist_start)
+        .with_position((0, 0))
+        .with_opacity(0.35)
+        .with_effects([
+            vfx.CrossFadeIn(0.02),
+            vfx.CrossFadeOut(0.08),
+        ])
+    )
+    clips.append(flash)
+
+    # 2. Screen shake — jittery dark overlay strips to simulate shake
+    # Create a few rapid horizontal-offset dark bars
+    shake_dur = 0.25
+    shake_start = twist_start + 0.05
+    for i, offset in enumerate([5, -8, 4, -3]):
+        bar_dur = shake_dur / 4
+        bar_start = shake_start + i * bar_dur
+        bar = ColorClip(
+            size=(abs(offset) * 2, target_h), color=(0, 0, 0),
+            duration=bar_dur,
+        )
+        bar_x = 0 if offset < 0 else target_w - abs(offset) * 2
+        bar = (
+            bar
+            .with_start(bar_start)
+            .with_position((bar_x, 0))
+            .with_opacity(0.25)
+        )
+        clips.append(bar)
+
+    # 3. Red/amber color shift — danger/revelation feel
+    # Use a warm red-amber tint overlay
+    color_shift = ColorClip(
+        size=(target_w, target_h), color=(255, 60, 20),
+        duration=0.5,
+    )
+    color_shift = (
+        color_shift
+        .with_start(twist_start + 0.08)
+        .with_position((0, 0))
+        .with_opacity(0.08)
+        .with_effects([
+            vfx.CrossFadeIn(0.05),
+            vfx.CrossFadeOut(0.35),
+        ])
+    )
+    clips.append(color_shift)
+
+    # 4. Accent-colored thin horizontal line sweep (dramatic reveal)
+    sweep_line = ColorClip(
+        size=(target_w, 3), color=accent,
+        duration=0.4,
+    )
+    sweep_line = (
+        sweep_line
+        .with_start(twist_start + 0.03)
+        .with_position((0, target_h // 2))
+        .with_opacity(0.6)
+        .with_effects([
+            vfx.CrossFadeIn(0.03),
+            vfx.CrossFadeOut(0.3),
+        ])
+    )
+    clips.append(sweep_line)
+
+    return clips
+
 
 # Sections that trigger wide-shot effect
 _WIDE_SHOT_SECTIONS = {"THE TWIST", "ROUND 1", "ROUND 2", "ROUND 3", "CLIFFHANGER", "THE HOOK"}
@@ -2064,6 +2255,13 @@ def _create_camera_angle_cuts(
                         ])
                     )
                     clips.append(both_lift)
+
+                    # ── TWIST SPECIAL: Dramatic impact for THE TWIST ──
+                    if "TWIST" in section_key:
+                        twist_clips = _create_twist_impact(
+                            target_w, target_h, wide_start, niche)
+                        clips.extend(twist_clips)
+
                 except Exception:
                     pass
 
@@ -2542,6 +2740,7 @@ async def assemble_podcast_video(
     total_duration = audio.duration
     max_dur = settings.get("duration_target")
     if max_dur and total_duration > max_dur + 5:
+        print(f"[Podcast] Trimming audio from {total_duration:.1f}s to {max_dur}s (exceeds target)")
         audio = audio.subclipped(0, max_dur)
         total_duration = max_dur
 
@@ -2593,17 +2792,45 @@ async def assemble_podcast_video(
     nova_comp = CompositeVideoClip(nova_clips, size=(panel_w, panel_h))
     nova_comp = nova_comp.with_position(nova_pos).with_duration(total_duration)
 
-    # ── Center Divider (subtle for same-room feel) ─────────
+    # ── Center Divider (gradient fade for polish) ──────────
     accent = NICHE_CAPTION_COLORS.get(niche, (0, 255, 136))
     if is_portrait:
-        # Thin subtle divider for portrait
-        divider = ColorClip(size=(target_w, gap), color=accent, duration=total_duration)
-        divider = divider.with_position((0, panel_h)).with_opacity(0.3)
+        # Gradient divider — accent line with soft dark feathering above/below
+        div_h = max(gap, 6)
+        div_arr = np.zeros((div_h, target_w, 4), dtype=np.uint8)
+        mid = div_h // 2
+        # Center accent line (2px)
+        div_arr[mid:mid + 2, :, :3] = accent
+        div_arr[mid:mid + 2, :, 3] = 100
+        # Soft dark fade above and below
+        for dy in range(mid):
+            alpha = int(60 * (1.0 - dy / max(1, mid)))
+            div_arr[mid - dy - 1, :, 3] = np.maximum(div_arr[mid - dy - 1, :, 3], alpha)
+            if mid + 2 + dy < div_h:
+                div_arr[mid + 2 + dy, :, 3] = np.maximum(div_arr[mid + 2 + dy, :, 3], alpha)
+        div_rgb = div_arr[:, :, :3]
+        div_alpha = div_arr[:, :, 3].astype(float) / 255.0
+        divider = ImageClip(div_rgb, duration=total_duration)
+        div_mask = ImageClip(div_alpha, is_mask=True, duration=total_duration)
+        divider = divider.with_mask(div_mask).with_position((0, panel_h - mid))
     else:
-        # Very subtle center line for landscape (same room feel)
+        # Very subtle center line for landscape
         dx = panel_w - 1
         divider = ColorClip(size=(2, target_h), color=accent, duration=total_duration)
         divider = divider.with_position((dx, 0)).with_opacity(0.15)
+
+    # ── Panel Edge Vignettes (draws eye to center) ────────
+    panel_vignette_clips = []
+    for char_name, pos in [("SPARKY", sparky_pos), ("NOVA", nova_pos)]:
+        try:
+            pv_clips = _create_panel_vignette(
+                panel_w, panel_h, pos,
+                total_duration, 0.0,
+                opacity=0.12, border_fraction=0.10,
+            )
+            panel_vignette_clips.extend(pv_clips)
+        except Exception:
+            pass
 
     # ── Active Speaker Glow ───────────────────────────────
     glow_clips = _create_active_speaker_glow(
@@ -2687,6 +2914,7 @@ async def assemble_podcast_video(
     # ── Compose ───────────────────────────────────────────
     all_clips = (
         [bg, sparky_comp, nova_comp, divider]
+        + panel_vignette_clips
         + glow_clips + camera_cuts + section_clips + emotion_clips
         + lower_third_clips + top_bar_clips
         + progress_clips + hook_clips + caption_clips
@@ -2770,6 +2998,444 @@ async def assemble_podcast_video(
         "file_size_mb": file_size_mb,
         "resolution": f"{target_w}x{target_h}",
         "line_count": len(line_timings),
+    }
+
+
+# ── News Anchor Video Assembly ──────────────────────────────────────
+
+async def assemble_news_anchor_video(
+    scenes: list[dict],
+    audio_path: str,
+    anchor_image: str | None,
+    news_clips: list[dict],
+    output_path: str | Path,
+    captions_data: list[dict] | None = None,
+    music_volume: float = 0.04,
+    niche: str = "daily_breakdown",
+    title: str = "",
+    animated_avatar: str | None = None,
+) -> dict:
+    """
+    Assemble a news anchor video.
+
+    Two modes:
+      - Full-screen (anchor_image=None): News clips fill entire 1080x1920
+        with voiceover narration, captions, lower thirds, and banner overlaid.
+      - Split-screen (anchor_image set): Top 45% clips, bottom 55% anchor.
+    """
+    from moviepy import (
+        VideoFileClip, ImageClip, AudioFileClip, TextClip,
+        CompositeVideoClip, ColorClip, concatenate_videoclips,
+    )
+    from PIL import Image, ImageDraw, ImageFont
+    import numpy as np
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # ── Dimensions ──
+    target_w, target_h = 1080, 1920
+    fps = 30
+
+    # Full-screen mode when no anchor image
+    fullscreen_mode = anchor_image is None and animated_avatar is None
+    if fullscreen_mode:
+        clip_panel_h = target_h  # Clips fill entire frame
+        anchor_panel_h = 0
+        print("[NewsAnchor] Full-screen clips mode (no anchor)")
+    else:
+        clip_panel_h = int(target_h * 0.45)    # 864px for news clips
+        anchor_panel_h = target_h - clip_panel_h  # 1056px for anchor
+        print("[NewsAnchor] Split-screen mode (anchor + clips)")
+    divider_h = 6  # Red news banner divider
+
+    # ── Load audio ──
+    audio = AudioFileClip(audio_path)
+    total_duration = audio.duration
+    print(f"[NewsAnchor] Video duration: {total_duration:.1f}s")
+
+    # ── Ken Burns helper for images ──
+    def _apply_ken_burns(img_array, duration, panel_w, panel_h):
+        """Apply slow zoom + pan to a static image for cinematic feel."""
+        import random
+        zoom_start = 1.0
+        zoom_end = random.uniform(1.12, 1.25)
+        # Random pan direction
+        pan_x = random.choice([-1, 0, 1]) * random.uniform(0.02, 0.06)
+        pan_y = random.choice([-1, 0, 1]) * random.uniform(0.02, 0.04)
+
+        h, w = img_array.shape[:2]
+        # Upscale image for zoom headroom
+        upscale = int(max(panel_w, panel_h) * zoom_end * 1.15)
+        pil_img = Image.fromarray(img_array).resize((upscale, int(upscale * panel_h / panel_w)), Image.LANCZOS)
+        base = np.array(pil_img)
+
+        def make_frame(t):
+            progress = t / max(duration, 0.01)
+            zoom = zoom_start + (zoom_end - zoom_start) * progress
+            cx = base.shape[1] / 2 + pan_x * base.shape[1] * progress
+            cy = base.shape[0] / 2 + pan_y * base.shape[0] * progress
+
+            crop_w = int(panel_w / zoom)
+            crop_h = int(panel_h / zoom)
+            x1 = int(max(0, min(cx - crop_w // 2, base.shape[1] - crop_w)))
+            y1 = int(max(0, min(cy - crop_h // 2, base.shape[0] - crop_h)))
+            cropped = base[y1:y1 + crop_h, x1:x1 + crop_w]
+
+            result = np.array(Image.fromarray(cropped).resize((panel_w, panel_h), Image.LANCZOS))
+            return result
+
+        from moviepy import VideoClip
+        return VideoClip(make_frame, duration=duration).with_fps(fps)
+
+    # ── Build news clips panel ──
+    scene_clips_available = []
+    used_clip_indices = set()  # Track which clips we've used
+
+    for scene_idx, scene in enumerate(scenes):
+        clip_idx = scene.get("clip_index", 0)
+        duration = scene.get("duration_seconds", 8)
+
+        # Find matching clip — try exact index, then round-robin available clips
+        clip_path = None
+        clip_type = "placeholder"
+        if clip_idx < len(news_clips) and news_clips[clip_idx].get("path"):
+            clip_path = news_clips[clip_idx]["path"]
+            clip_type = news_clips[clip_idx].get("type", "video")
+        else:
+            # Round-robin: find any unused clip, or reuse least-used
+            for nc_idx, nc in enumerate(news_clips):
+                if nc.get("path") and Path(nc["path"]).exists() and nc_idx not in used_clip_indices:
+                    clip_path = nc["path"]
+                    clip_type = nc.get("type", "video")
+                    clip_idx = nc_idx
+                    break
+            if not clip_path:
+                # Reuse any available clip
+                for nc in news_clips:
+                    if nc.get("path") and Path(nc["path"]).exists():
+                        clip_path = nc["path"]
+                        clip_type = nc.get("type", "video")
+                        break
+
+        if clip_path:
+            used_clip_indices.add(clip_idx)
+
+        if clip_path and Path(clip_path).exists():
+            try:
+                ext = Path(clip_path).suffix.lower()
+                if ext in (".mp4", ".mov", ".avi", ".webm") and clip_type == "video":
+                    vc = VideoFileClip(clip_path)
+                    # Resize to fill panel (cover crop)
+                    scale = max(target_w / vc.w, clip_panel_h / vc.h)
+                    vc = vc.resized(scale)
+                    # Center crop to exact panel size
+                    x_off = max(0, (vc.w - target_w) // 2)
+                    y_off = max(0, (vc.h - clip_panel_h) // 2)
+                    vc = vc.cropped(x1=x_off, y1=y_off, x2=x_off + target_w, y2=y_off + clip_panel_h)
+                    # Set duration — trim or use what we have
+                    if vc.duration >= duration:
+                        vc = vc.subclipped(0, duration)
+                    else:
+                        # Use what we have (don't loop — avoids frame read errors)
+                        vc = vc.subclipped(0, min(vc.duration, duration))
+                    scene_clips_available.append(vc)
+                    continue
+                else:
+                    # Image (photo or AI) — apply Ken Burns zoom for cinematic motion
+                    img = Image.open(clip_path).convert("RGB")
+                    img_array = np.array(img)
+                    try:
+                        kb_clip = _apply_ken_burns(img_array, duration, target_w, clip_panel_h)
+                        scene_clips_available.append(kb_clip)
+                    except Exception as kb_err:
+                        print(f"[NewsAnchor] Ken Burns failed, using static: {kb_err}")
+                        img = img.resize((target_w, clip_panel_h), Image.LANCZOS)
+                        img_clip = ImageClip(np.array(img)).with_duration(duration)
+                        scene_clips_available.append(img_clip)
+                    continue
+            except Exception as e:
+                print(f"[NewsAnchor] Clip load error: {e}")
+
+        # Fallback: dark placeholder with animated gradient
+        placeholder = ColorClip(size=(target_w, clip_panel_h), color=(20, 20, 35)).with_duration(duration)
+        scene_clips_available.append(placeholder)
+
+    # Concatenate clips with crossfade transitions for smooth flow
+    if scene_clips_available:
+        crossfade_dur = 0.4  # Smooth 0.4s crossfade between scenes
+        if len(scene_clips_available) > 1:
+            # Build with crossfade: position clips with overlap
+            positioned_clips = []
+            current_t = 0.0
+            for idx, sc in enumerate(scene_clips_available):
+                positioned_clips.append(sc.with_start(current_t))
+                if idx < len(scene_clips_available) - 1:
+                    # Add crossfade by overlapping
+                    current_t += sc.duration - crossfade_dur
+                    # Fade out outgoing clip
+                    scene_clips_available[idx] = sc.with_effects([
+                        lambda c, d=crossfade_dur: c.crossfadeout(d)
+                    ]) if hasattr(sc, 'crossfadeout') else sc
+                else:
+                    current_t += sc.duration
+            try:
+                news_panel = concatenate_videoclips(scene_clips_available, method="compose", padding=-crossfade_dur)
+            except Exception:
+                news_panel = concatenate_videoclips(scene_clips_available, method="compose")
+        else:
+            news_panel = scene_clips_available[0]
+
+        # Trim or extend to match audio
+        if news_panel.duration > total_duration:
+            news_panel = news_panel.subclipped(0, total_duration)
+        elif news_panel.duration < total_duration:
+            remaining = total_duration - news_panel.duration
+            last = scene_clips_available[-1].with_duration(remaining)
+            news_panel = concatenate_videoclips([news_panel, last], method="compose")
+    else:
+        news_panel = ColorClip(size=(target_w, clip_panel_h), color=(20, 20, 35)).with_duration(total_duration)
+
+    news_panel = news_panel.with_position((0, 0))
+
+    # ── Build anchor panel (bottom) — only in split-screen mode ──
+    anchor_clip = None
+    if not fullscreen_mode:
+        if animated_avatar and Path(animated_avatar).exists():
+            # Wav2Lip animated video
+            anchor_clip = VideoFileClip(animated_avatar)
+            scale = max(target_w / anchor_clip.w, anchor_panel_h / anchor_clip.h)
+            anchor_clip = anchor_clip.resized(scale)
+            x_off = max(0, (anchor_clip.w - target_w) // 2)
+            y_off = max(0, (anchor_clip.h - anchor_panel_h) // 2)
+            anchor_clip = anchor_clip.cropped(x1=x_off, y1=y_off, x2=x_off + target_w, y2=y_off + anchor_panel_h)
+            if anchor_clip.duration < total_duration:
+                anchor_clip = anchor_clip.subclipped(0, min(anchor_clip.duration, total_duration))
+        elif anchor_image and Path(anchor_image).exists():
+            # Static image
+            img = Image.open(anchor_image).convert("RGB")
+            img = img.resize((target_w, anchor_panel_h), Image.LANCZOS)
+            anchor_clip = ImageClip(np.array(img)).with_duration(total_duration)
+
+        if anchor_clip:
+            anchor_clip = anchor_clip.with_position((0, clip_panel_h))
+
+    # ── Divider bar (red news banner) — only in split-screen mode ──
+    divider_bar = None
+    if not fullscreen_mode:
+        divider_bar = ColorClip(
+            size=(target_w, divider_h), color=(200, 30, 30)
+        ).with_duration(total_duration).with_position((0, clip_panel_h - divider_h // 2))
+
+    # ── "DAILY BREAKDOWN" banner text ──
+    banner_clip = None
+    try:
+        banner_h = 48 if fullscreen_mode else 40
+        if fullscreen_mode:
+            # Top banner overlay on full-screen clips
+            banner_y = 60
+        else:
+            banner_y = clip_panel_h - banner_h - divider_h
+
+        # Create banner text as PIL image
+        banner_bg_color = (200, 30, 30, 220)
+        banner_img = Image.new("RGBA", (target_w, banner_h), banner_bg_color)
+        draw = ImageDraw.Draw(banner_img)
+        try:
+            font_size = 26 if fullscreen_mode else 22
+            font = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", font_size)
+        except Exception:
+            font = ImageFont.load_default()
+        banner_text = "THE DAILY BREAKDOWN"
+        bbox = draw.textbbox((0, 0), banner_text, font=font)
+        text_w = bbox[2] - bbox[0]
+        text_y = (banner_h - (bbox[3] - bbox[1])) // 2
+        draw.text(((target_w - text_w) // 2, text_y), banner_text, fill=(255, 255, 255), font=font)
+        banner_clip = ImageClip(np.array(banner_img)).with_duration(total_duration).with_position((0, banner_y))
+    except Exception as e:
+        print(f"[NewsAnchor] Banner error: {e}")
+
+    # ── Lower thirds (headline per scene) ──
+    lower_third_clips = []
+    current_time = 0.0
+    for scene in scenes:
+        lt_text = scene.get("lower_third_text", "")
+        duration = scene.get("duration_seconds", 8)
+        if lt_text:
+            try:
+                lt_h = 55 if fullscreen_mode else 50
+                if fullscreen_mode:
+                    # Position lower thirds in lower-third area of full-screen
+                    lt_y = target_h - 450
+                else:
+                    lt_y = clip_panel_h + 10
+                lt_img = Image.new("RGBA", (target_w, lt_h), (0, 0, 0, 180))
+                draw = ImageDraw.Draw(lt_img)
+                try:
+                    font_size = 22 if fullscreen_mode else 20
+                    font = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", font_size)
+                except Exception:
+                    font = ImageFont.load_default()
+                # Red accent bar on left
+                draw.rectangle([0, 0, 6, lt_h], fill=(200, 30, 30, 255))
+                draw.text((16, 14), lt_text.upper()[:60], fill=(255, 255, 255), font=font)
+                lt_clip = (
+                    ImageClip(np.array(lt_img))
+                    .with_duration(duration)
+                    .with_start(current_time)
+                    .with_position((0, lt_y))
+                )
+                lower_third_clips.append(lt_clip)
+            except Exception:
+                pass
+        current_time += duration
+
+    # ── Captions ──
+    caption_clips = []
+    if captions_data:
+        if fullscreen_mode:
+            # Captions near bottom of full-screen (above progress bar)
+            caption_y = target_h - 300
+        else:
+            caption_y = clip_panel_h + anchor_panel_h - 280
+        for cap in captions_data:
+            try:
+                text = cap.get("text", "")
+                start = cap.get("start", 0)
+                end = cap.get("end", start + 1)
+                if not text:
+                    continue
+
+                cap_img = Image.new("RGBA", (target_w - 40, 100), (0, 0, 0, 0))
+                draw = ImageDraw.Draw(cap_img)
+                try:
+                    font_size = 52 if fullscreen_mode else 48
+                    font = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", font_size)
+                except Exception:
+                    font = ImageFont.load_default()
+
+                # Background box for readability on full-screen clips
+                if fullscreen_mode:
+                    text_bbox = draw.textbbox((20, 5), text.upper(), font=font)
+                    pad = 8
+                    draw.rectangle(
+                        [text_bbox[0] - pad, text_bbox[1] - pad,
+                         text_bbox[2] + pad, text_bbox[3] + pad],
+                        fill=(0, 0, 0, 160)
+                    )
+
+                # Shadow
+                draw.text((22, 7), text.upper(), fill=(0, 0, 0, 200), font=font)
+                # White text
+                draw.text((20, 5), text.upper(), fill=(255, 255, 255), font=font)
+
+                cap_clip = (
+                    ImageClip(np.array(cap_img))
+                    .with_duration(end - start)
+                    .with_start(start)
+                    .with_position(("center", caption_y))
+                )
+                caption_clips.append(cap_clip)
+            except Exception:
+                continue
+
+    # ── Semi-transparent gradient overlay (full-screen mode) ──
+    # Darkens top and bottom for text readability over clips
+    gradient_clips = []
+    if fullscreen_mode:
+        try:
+            # Top gradient (for banner)
+            top_grad_h = 160
+            top_grad = np.zeros((top_grad_h, target_w, 4), dtype=np.uint8)
+            for y in range(top_grad_h):
+                alpha = int(180 * (1 - y / top_grad_h))
+                top_grad[y, :] = [0, 0, 0, alpha]
+            top_grad_clip = ImageClip(top_grad).with_duration(total_duration).with_position((0, 0))
+            gradient_clips.append(top_grad_clip)
+
+            # Bottom gradient (for captions + lower thirds)
+            bot_grad_h = 500
+            bot_grad = np.zeros((bot_grad_h, target_w, 4), dtype=np.uint8)
+            for y in range(bot_grad_h):
+                alpha = int(200 * (y / bot_grad_h))
+                bot_grad[y, :] = [0, 0, 0, alpha]
+            bot_grad_clip = ImageClip(bot_grad).with_duration(total_duration).with_position((0, target_h - bot_grad_h))
+            gradient_clips.append(bot_grad_clip)
+        except Exception as e:
+            print(f"[NewsAnchor] Gradient overlay error: {e}")
+
+    # ── Progress bar background ──
+    try:
+        prog_img = Image.new("RGB", (target_w, 4), (50, 50, 50))
+        progress_bg = ImageClip(np.array(prog_img)).with_duration(total_duration).with_position((0, target_h - 4))
+    except Exception:
+        progress_bg = None
+
+    # ── Compose all layers ──
+    layers = [
+        ColorClip(size=(target_w, target_h), color=(15, 15, 25)).with_duration(total_duration),
+        news_panel,
+    ]
+
+    # Split-screen elements
+    if not fullscreen_mode:
+        if anchor_clip:
+            layers.append(anchor_clip)
+        if divider_bar:
+            layers.append(divider_bar)
+
+    # Gradient overlays (full-screen readability)
+    layers.extend(gradient_clips)
+
+    if banner_clip:
+        layers.append(banner_clip)
+
+    layers.extend(lower_third_clips)
+    layers.extend(caption_clips)
+
+    if progress_bg:
+        layers.append(progress_bg)
+
+    # Final compose
+    final = CompositeVideoClip(layers, size=(target_w, target_h))
+    final = final.with_audio(audio)
+
+    # Render
+    output_file = str(output_path)
+    mode_label = "full-screen" if fullscreen_mode else "split-screen"
+    print(f"[NewsAnchor] Rendering {mode_label} -> {output_file} ({total_duration:.0f}s)...")
+
+    final.write_videofile(
+        output_file,
+        fps=fps,
+        codec="libx264",
+        audio_codec="aac",
+        preset="medium",
+        bitrate="6M",
+        threads=4,
+        logger=None,
+    )
+
+    # Cleanup
+    try:
+        audio.close()
+        final.close()
+        for clip in scene_clips_available:
+            try:
+                clip.close()
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    file_size = Path(output_file).stat().st_size / (1024 * 1024)
+    print(f"[NewsAnchor] Done: {output_file} ({file_size:.1f}MB)")
+
+    return {
+        "video_path": output_file,
+        "duration": total_duration,
+        "file_size_mb": round(file_size, 1),
+        "resolution": f"{target_w}x{target_h}",
     }
 
 

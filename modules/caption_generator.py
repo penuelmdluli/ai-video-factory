@@ -81,14 +81,20 @@ def segments_to_srt(segments: list[dict], output_path: str | Path) -> str:
 
 def group_words_into_phrases(
     segments: list[dict],
-    max_words: int = 5,
+    max_words: int = 4,
+    min_words: int = 2,
     max_duration: float = 3.0,
 ) -> list[dict]:
     """
     Group word-level segments into readable phrases for on-screen captions.
 
-    edge-tts often outputs word-by-word. This groups them into
-    phrases of 3-5 words for better readability on screen.
+    edge-tts/Kokoro often output word-by-word. This groups them into
+    phrases of 2-4 words for punchy, readable on-screen captions.
+
+    Rules:
+    - Each phrase has min_words to max_words words
+    - Natural break points: punctuation triggers a phrase boundary
+    - No orphan single-word captions (merged with neighbors)
     """
     if not segments:
         return []
@@ -97,29 +103,49 @@ def group_words_into_phrases(
     current_words = []
     current_start = segments[0]["start"]
 
-    for seg in segments:
+    # Punctuation that signals a natural break point
+    break_chars = {".", "!", "?", "...", ",", ";", ":"}
+
+    for i, seg in enumerate(segments):
         current_words.append(seg["text"])
 
-        # Check if we should start a new phrase
         duration = seg["end"] - current_start
         word_count = len(current_words)
 
-        if word_count >= max_words or duration >= max_duration:
+        # Check for natural break (punctuation at end of word)
+        has_break = any(seg["text"].rstrip().endswith(c) for c in break_chars)
+
+        # Create phrase if: hit max words, OR natural break with enough words, OR max duration
+        should_break = (
+            word_count >= max_words
+            or (has_break and word_count >= min_words)
+            or (duration >= max_duration and word_count >= min_words)
+        )
+
+        if should_break:
             phrases.append({
                 "start": current_start,
                 "end": seg["end"],
                 "text": " ".join(current_words),
             })
             current_words = []
-            current_start = seg["end"]
+            # Next phrase starts at this word's end
+            if i + 1 < len(segments):
+                current_start = segments[i + 1]["start"]
 
-    # Don't forget remaining words
+    # Handle remaining words
     if current_words:
-        phrases.append({
-            "start": current_start,
-            "end": segments[-1]["end"],
-            "text": " ".join(current_words),
-        })
+        if len(current_words) < min_words and phrases:
+            # Merge orphan words into last phrase instead of creating tiny caption
+            last = phrases[-1]
+            last["end"] = segments[-1]["end"]
+            last["text"] += " " + " ".join(current_words)
+        else:
+            phrases.append({
+                "start": current_start,
+                "end": segments[-1]["end"],
+                "text": " ".join(current_words),
+            })
 
     return phrases
 
@@ -260,8 +286,14 @@ async def generate_captions(
     if vtt_path and Path(vtt_path).exists():
         segments = parse_subtitle_to_segments(vtt_path)
         if segments:
-            # Split sentence-level segments into shorter caption phrases
-            phrases = split_sentences_into_phrases(segments, max_words=4)
+            # Detect if segments are word-level (avg ~1 word) or sentence-level
+            avg_words = sum(len(s["text"].split()) for s in segments) / len(segments)
+            if avg_words <= 1.5:
+                # Word-level (Kokoro/edge-tts word timestamps) — group into phrases
+                phrases = group_words_into_phrases(segments, max_words=4, min_words=2)
+            else:
+                # Sentence-level — split into shorter caption phrases
+                phrases = split_sentences_into_phrases(segments, max_words=4)
             srt_file = segments_to_srt(phrases, srt_path)
             print(f"[Captions] Parsed subtitles -> SRT: {len(phrases)} phrases")
             return {

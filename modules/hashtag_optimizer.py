@@ -160,9 +160,11 @@ def get_optimized_hashtags(
     remaining = limit - len(selected)
     if topic_keywords and remaining > 0:
         for kw in topic_keywords[:remaining]:
-            tag = "#" + kw.strip().title().replace(" ", "").replace("-", "")
+            # Only use single words as topic hashtags (avoid concatenated monsters)
+            word = kw.strip().split()[0] if kw.strip() else ""
+            tag = "#" + word.title().replace("-", "")
             tag = "".join(c for c in tag if c.isalnum() or c == "#")
-            if tag not in selected and len(tag) > 3:
+            if tag not in selected and 3 < len(tag) <= 20:
                 selected.append(tag)
 
     # Ensure all start with #

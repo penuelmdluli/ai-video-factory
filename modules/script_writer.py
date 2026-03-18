@@ -63,6 +63,17 @@ NICHE_STYLE_GUIDES = {
 - Create a feeling of calm and wonder — slow the viewer's racing mind
 - End with an affirmation or gentle call to appreciate the present moment
 - Tone: Gentle, wise friend sharing a beautiful perspective on life""",
+
+    "daily_breakdown": """NICHE STYLE — The Daily Breakdown (News Analysis):
+- Lead with the most SHOCKING or consequential headline ("This just happened and the world is watching...")
+- Speak with authority — you ARE the news analyst, not reading from a script
+- Reference what the viewer is SEEING on screen ("Take a look at this...", "As you can see here...")
+- Connect distant events to the viewer's life ("Here's why this affects YOUR wallet...")
+- Provide ANALYSIS, not just facts — give your take, explain the WHY behind the news
+- Cover multiple stories: transition with "But that's not all..." or "Meanwhile, in South Africa..."
+- Use specific names, dates, and numbers for credibility
+- End with a thought-provoking question or prediction
+- Tone: Confident, knowledgeable news analyst — think independent journalist, NOT corporate anchor""",
 }
 
 
@@ -98,7 +109,7 @@ OUTPUT FORMAT — Return valid JSON:
     {{
       "scene_number": 1,
       "narration": "The exact words to speak for this scene",
-      "visual_description": "Brief description of what should be shown on screen",
+      "visual_description": "Specific Pexels stock footage query, 3-5 concrete words (e.g. 'person analyzing data computer', 'city traffic aerial view'). Must be filmable — NEVER use abstract words like 'unknown', 'concept', 'symbols'.",
       "duration_seconds": 15,
       "lower_third_text": "Short topic label for this scene (5-8 words, e.g. 'AI Trading Profits Up 340%')",
       "sfx_hint": "One of: whoosh, impact, money, data, notification, rise, success, reveal, glitch, typing, none"
@@ -168,7 +179,7 @@ OUTPUT FORMAT — Return valid JSON:
     {{
       "scene_number": 1,
       "narration": "Exact words to speak — write these as if performing, not reading",
-      "visual_description": "Specific, searchable visual (e.g. 'close-up of stock trading screen with green profits' not just 'trading')",
+      "visual_description": "Specific Pexels stock footage query, 3-5 concrete words (e.g. 'stock trading screen green profits', 'person typing laptop office', 'city skyline night lights'). NEVER use abstract words like 'unknown', 'concept', 'abstract', 'symbols'. Must be a real thing a camera can film.",
       "duration_seconds": 5,
       "lower_third_text": "Punchy overlay text (max 6 words, uses numbers when possible)",
       "sfx_hint": "One of: whoosh, impact, money, data, notification, rise, success, reveal, glitch, typing, none"
@@ -389,6 +400,209 @@ async def generate_script(
         return script
 
     raise RuntimeError(f"Failed to generate script for topic: {topic}")
+
+
+# ── News Anchor Script Prompt (Daily Breakdown) ──────────────────
+
+NEWS_ANCHOR_SCRIPT_PROMPT = """You are a WORLD-CLASS news analyst creating viral short-form content. Think Tucker Carlson's confidence meets Vice News's edge meets CNN's authority. You don't just report — you ANALYZE with fire.
+
+{niche_style_guide}
+
+TODAY'S NEWS STORIES:
+{news_stories}
+
+AVAILABLE VIDEO CLIPS & IMAGES (visual assets we have):
+{available_clips}
+
+YOUR TASK: Write a punchy 50-65 second news analysis script that DEMANDS attention.
+
+HOOK FORMULA (First 3 seconds — viewer decides to stay or scroll):
+- Open with a SHOCKING statement, question, or revelation
+- Examples: "This changes EVERYTHING." / "Nobody's talking about this." / "You need to see this."
+- Make it personal — "Here's what they're NOT telling you about..."
+- NEVER start generic ("Today we're looking at..."). That's boring.
+
+STORY ANALYSIS RULES:
+- Cover 2-3 stories, ~15 seconds each
+- ALWAYS reference the visuals: "Look at this footage...", "As you can see right here..."
+- Don't just state facts — give YOUR take: "Here's what this REALLY means..."
+- Use contrast and tension: "While the world watches X, nobody noticed Y"
+- Include NUMBERS and specifics — "42% increase", "3 countries", "since March 2026"
+- Use power phrases: "Make no mistake", "Let that sink in", "Here's the truth"
+- Short punchy sentences. Not academic. Conversational but authoritative.
+
+TRANSITIONS (keep momentum):
+- "But here's where it gets interesting..."
+- "Now, meanwhile on the other side of the world..."
+- "And it gets worse."
+- "But wait — there's more to this story."
+- NEVER: "Moving on to our next story..."
+
+WRAP-UP (last 5-7 seconds):
+- Bold prediction OR provocative question
+- "The real question is... [thought-provoking question]"
+- End with CTA: "Follow for more breakdowns you won't see on mainstream media."
+
+CRITICAL: Each scene MUST use a clip_index matching the available clips above. Distribute clips evenly — use DIFFERENT clips for different scenes. If we have 6 clips, use all 6 across scenes.
+
+OUTPUT FORMAT — Return valid JSON only (no markdown, no ```):
+{{
+  "title": "Punchy headline (under 60 chars, provocative news-style)",
+  "caption": "Engaging caption with context + emojis + hashtags",
+  "scenes": [
+    {{
+      "scene_number": 1,
+      "narration": "Exact words — punchy, direct, conversational authority",
+      "visual_description": "What the viewer sees during this narration",
+      "clip_index": 0,
+      "duration_seconds": 4,
+      "lower_third_text": "BREAKING: max 8 words headline",
+      "sfx_hint": "One of: whoosh, impact, notification, rise, reveal, suspense_hit, none"
+    }}
+  ],
+  "thumbnail_text": "2-4 word SHOCK text for thumbnail"
+}}
+
+Requirements:
+- Total duration: 50-65 seconds
+- 6-8 scenes (more scenes = more visual variety)
+- Scene 1 = HOOK (3-4 seconds, maximum impact)
+- Last scene = WRAP-UP + CTA (5-7 seconds)
+- Include hashtags: {hashtags}
+- Narration must be CONVERSATIONAL — like you're telling a friend the most insane news
+- Use clip_index values from 0 to {max_clip_index} to reference available clips
+
+Today's date: {today}
+"""
+
+
+async def generate_news_anchor_script(
+    news_stories: list[dict],
+    available_clips: list[dict],
+    niche: str = "daily_breakdown",
+) -> dict | None:
+    """
+    Generate a news analysis script based on pre-fetched stories and clips.
+
+    This is the REVERSED flow: clips are fetched first, script references them.
+
+    Args:
+        news_stories: List of dicts with headline, summary, region
+        available_clips: List of dicts with clip descriptions and paths
+        niche: Niche key (default: daily_breakdown)
+
+    Returns:
+        Script dict with title, scenes (each with clip_index), caption, etc.
+    """
+    if not GEMINI_API_KEY:
+        return None
+
+    from google import genai
+
+    niche_config = NICHES.get(niche, NICHES["daily_breakdown"])
+    today = datetime.now().strftime("%B %d, %Y")
+    niche_style = NICHE_STYLE_GUIDES.get(niche, "Speak with authority as a news analyst.")
+
+    # Format stories for the prompt
+    stories_text = ""
+    for i, story in enumerate(news_stories):
+        stories_text += f"\nStory {i+1} [{story.get('region', 'world').upper()}]:\n"
+        stories_text += f"  Headline: {story['headline']}\n"
+        stories_text += f"  Summary: {story.get('summary', 'No details available')}\n"
+        stories_text += f"  Source: {story.get('source', 'unknown')}\n"
+
+    # Format clips for the prompt
+    clips_text = ""
+    for i, clip in enumerate(available_clips):
+        desc = clip.get("visual_description", clip.get("query", f"clip {i}"))
+        clips_text += f"  Clip {i}: {desc}\n"
+
+    prompt = NEWS_ANCHOR_SCRIPT_PROMPT.format(
+        niche_style_guide=niche_style,
+        news_stories=stories_text,
+        available_clips=clips_text,
+        hashtags=", ".join(niche_config.get("hashtags", [])),
+        today=today,
+        max_clip_index=max(len(available_clips) - 1, 0),
+    )
+
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+    response = None
+
+    for model_name in models:
+        try:
+            response = client.models.generate_content(
+                model=model_name, contents=prompt,
+            )
+            if response and response.text:
+                print(f"[ScriptWriter] News anchor using {model_name}")
+                break
+        except Exception as e:
+            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                import asyncio
+                print(f"[ScriptWriter] {model_name} rate-limited, waiting 20s...")
+                await asyncio.sleep(20)
+                # Retry same model once after wait
+                try:
+                    response = client.models.generate_content(
+                        model=model_name, contents=prompt,
+                    )
+                    if response and response.text:
+                        print(f"[ScriptWriter] News anchor using {model_name} (retry)")
+                        break
+                except Exception:
+                    continue
+            else:
+                print(f"[ScriptWriter] News anchor {model_name} failed: {e}")
+            continue
+
+    # Claude fallback if Gemini is exhausted
+    if not response or not response.text:
+        try:
+            from config import ANTHROPIC_API_KEY as CLAUDE_API_KEY
+            if CLAUDE_API_KEY:
+                import anthropic
+                print("[ScriptWriter] Gemini exhausted — falling back to Claude...")
+                claude_client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+                claude_response = claude_client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=2000,
+                    messages=[{"role": "user", "content": prompt + "\n\nReturn ONLY valid JSON, no markdown."}],
+                )
+                if claude_response.content:
+                    response = type("Resp", (), {"text": claude_response.content[0].text})()
+                    print("[ScriptWriter] News anchor using Claude fallback")
+        except Exception as e:
+            print(f"[ScriptWriter] Claude fallback failed: {e}")
+
+    if not response or not response.text:
+        return None
+
+    try:
+        raw = _clean_json_response(response.text)
+        script = json.loads(raw)
+
+        # Ensure clip_index exists on each scene
+        for scene in script.get("scenes", []):
+            if "clip_index" not in scene:
+                scene["clip_index"] = min(scene.get("scene_number", 1) - 1, len(available_clips) - 1)
+
+        script["niche"] = niche
+        script["format"] = "news_anchor"
+        script["generated_at"] = datetime.now().isoformat()
+        script["ai_model"] = "gemini"
+        script["news_stories"] = news_stories
+
+        print(f"[ScriptWriter] News anchor script: {script.get('title', 'untitled')[:60]}")
+        return script
+
+    except json.JSONDecodeError as e:
+        print(f"[ScriptWriter] News anchor JSON parse error: {e}")
+        return None
+    except Exception as e:
+        print(f"[ScriptWriter] News anchor script failed: {e}")
+        return None
 
 
 def get_full_narration(script: dict) -> str:

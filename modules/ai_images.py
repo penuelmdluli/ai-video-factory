@@ -30,6 +30,7 @@ NICHE_IMAGE_STYLES = {
     "motivation": "shot on Canon 5D Mark IV, golden hour natural light, real outdoor location, dramatic sky, documentary style",
     "health_wellness": "shot on Fujifilm X-T5, natural daylight, real fresh ingredients, soft bokeh background, food/lifestyle photography",
     "blissful_moments": "shot on Sony A7III, golden hour, real outdoor location, warm natural tones, soft focus background, lifestyle photography",
+    "daily_breakdown": "photojournalism style, Reuters/AP quality, real-world scene, dramatic natural lighting, documentary photography, raw and authentic",
 }
 
 

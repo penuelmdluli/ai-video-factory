@@ -107,6 +107,7 @@ NICHE_COLORS = {
     "motivation": {"accent": (255, 200, 0), "secondary": (255, 100, 50)},
     "health_wellness": {"accent": (100, 220, 100), "secondary": (0, 200, 100)},
     "blissful_moments": {"accent": (255, 180, 100), "secondary": (255, 130, 200)},
+    "daily_breakdown": {"accent": (220, 40, 40), "secondary": (255, 255, 255)},  # News red + white
 }
 
 

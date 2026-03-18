@@ -406,6 +406,7 @@ async def generate_voice(
         "motivation":       "am_puck",       # Lively, energetic
         "health_wellness":  "af_heart",      # Warm, expressive
         "blissful_moments": "af_bella",      # Clear, professional
+        "daily_breakdown":  "am_adam",       # Deep, authoritative news anchor
     }
     kokoro_voice = kokoro_voices.get(niche or "", "af_heart")
     result = await generate_voice_kokoro(text, audio_path, voice=kokoro_voice, output_subs=subs_path)

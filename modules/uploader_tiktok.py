@@ -1,6 +1,10 @@
 """
 TikTok Uploader — Posts videos to TikTok via browser automation (Playwright).
 
+Supports staggered scheduling: post the first video immediately,
+schedule subsequent ones 2 hours apart so TikTok's algorithm treats
+each one as a fresh upload (better reach than dumping all at once).
+
 Authentication priority:
   1. TIKTOK_SESSION_ID env var  (most reliable — single cookie value)
   2. tokens/tiktok_cookies.json (JSON list from browser extension export)
@@ -17,6 +21,7 @@ import json
 import os
 import sys
 import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from config import TOKENS_DIR
@@ -33,6 +38,7 @@ COOKIES_TXT  = TOKENS_DIR / "tiktok_cookies.txt"
 # ---------------------------------------------------------------------------
 _UPLOAD_SCRIPT = r'''
 import json, sys, os, time
+from datetime import datetime
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
@@ -40,6 +46,7 @@ args        = json.loads(sys.argv[1])
 video_path  = args["video_path"]
 description = args["description"]
 auth        = args["auth"]
+schedule_iso = args.get("schedule_time")  # ISO format or None
 
 
 def dismiss_joyride(page):
@@ -141,16 +148,33 @@ _tu._post_video = _patched_post_video
 
 
 from tiktok_uploader.upload import upload_video
+
+# Parse schedule time if provided
+schedule_dt = None
+if schedule_iso:
+    try:
+        schedule_dt = datetime.fromisoformat(schedule_iso)
+    except Exception:
+        pass
+
 try:
-    failed = upload_video(
-        filename=video_path,
-        description=description,
+    upload_kwargs = {
+        "filename": video_path,
+        "description": description,
         **{k: v for k, v in auth.items()},
-        headless=True,
-        num_retries=2,
-    )
+        "headless": True,
+        "num_retries": 2,
+    }
+    if schedule_dt:
+        upload_kwargs["schedule"] = schedule_dt
+
+    failed = upload_video(**upload_kwargs)
     if not failed:
-        print(json.dumps({"status": "uploaded"}))
+        status_msg = "scheduled" if schedule_dt else "uploaded"
+        result = {"status": status_msg}
+        if schedule_dt:
+            result["scheduled_for"] = schedule_iso
+        print(json.dumps(result))
     else:
         print(json.dumps({"status": "failed", "error": "post button click failed"}))
 except Exception as e:
@@ -216,10 +240,17 @@ async def upload_to_tiktok(
     video_path: str,
     description: str,
     hashtags: list[str] | None = None,
-    schedule: str | None = None,
+    schedule_time: datetime | None = None,
 ) -> dict:
     """
     Upload a video to TikTok via a subprocess (avoids asyncio/Playwright conflict).
+
+    Args:
+        video_path: Path to the video file.
+        description: Post description text.
+        hashtags: List of hashtags to append.
+        schedule_time: If set, schedule the post for this datetime instead
+                       of posting immediately. Must be at least 15 min in the future.
     """
     auth = _get_auth()
     if not auth:
@@ -244,7 +275,10 @@ async def upload_to_tiktok(
     full_description = full_description[:2200]
 
     auth_method = list(auth.keys())[0]
-    print(f"[TikTok] Auth: {auth_method} | {Path(video_path).name}")
+    schedule_str = ""
+    if schedule_time:
+        schedule_str = f" | scheduled for {schedule_time.strftime('%H:%M')}"
+    print(f"[TikTok] Auth: {auth_method} | {Path(video_path).name}{schedule_str}")
 
     # Write upload script to temp file
     with tempfile.NamedTemporaryFile(
@@ -257,6 +291,7 @@ async def upload_to_tiktok(
         "video_path":  str(Path(video_path).resolve()),
         "description": full_description,
         "auth":        auth,
+        "schedule_time": schedule_time.isoformat() if schedule_time else None,
     })
 
     try:
@@ -287,8 +322,12 @@ async def upload_to_tiktok(
                 except Exception:
                     pass
 
-        if result.get("status") == "uploaded":
-            print(f"[TikTok] Posted: {Path(video_path).name}")
+        if result.get("status") in ("uploaded", "scheduled"):
+            if result.get("status") == "scheduled":
+                sched_for = result.get("scheduled_for", "")
+                print(f"[TikTok] Scheduled: {Path(video_path).name} → {sched_for}")
+            else:
+                print(f"[TikTok] Posted: {Path(video_path).name}")
         else:
             err = result.get("error", "unknown")
             print(f"[TikTok] Failed: {err[:120]}")
@@ -312,14 +351,44 @@ async def upload_to_tiktok(
             pass
 
 
-async def upload_batch_to_tiktok(videos: list[dict]) -> list[dict]:
-    """Upload multiple videos to TikTok sequentially."""
+async def upload_batch_to_tiktok(
+    videos: list[dict],
+    stagger_hours: float = 2.0,
+) -> list[dict]:
+    """
+    Upload multiple videos to TikTok with staggered scheduling.
+
+    First video posts immediately. Subsequent videos are scheduled
+    at `stagger_hours` intervals to maximize TikTok algorithm reach.
+
+    Args:
+        videos: List of dicts with 'path', 'description', optional 'hashtags'.
+        stagger_hours: Hours between each scheduled post (default: 2).
+
+    Returns:
+        List of upload result dicts.
+    """
     results = []
-    for v in videos:
+    now = datetime.now()
+
+    for idx, v in enumerate(videos):
+        # First video: post immediately. Rest: schedule stagger_hours apart
+        if idx == 0:
+            schedule_time = None
+            print(f"[TikTok] Video {idx + 1}/{len(videos)}: posting NOW")
+        else:
+            schedule_time = now + timedelta(hours=stagger_hours * idx)
+            # TikTok requires schedule at least 15 min in the future
+            min_future = now + timedelta(minutes=20)
+            if schedule_time < min_future:
+                schedule_time = min_future
+            print(f"[TikTok] Video {idx + 1}/{len(videos)}: scheduling for {schedule_time.strftime('%Y-%m-%d %H:%M')}")
+
         r = await upload_to_tiktok(
             video_path=v["path"],
             description=v.get("description", ""),
             hashtags=v.get("hashtags"),
+            schedule_time=schedule_time,
         )
         results.append(r)
     return results
