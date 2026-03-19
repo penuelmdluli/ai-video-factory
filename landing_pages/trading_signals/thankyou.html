@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Welcome Aboard | Beast Mode Academy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0F172A;
+            --bg-secondary: #1E293B;
+            --accent: #F59E0B;
+            --accent-hover: #D97706;
+            --accent-light: rgba(245, 158, 11, 0.1);
+            --accent-glow: rgba(245, 158, 11, 0.3);
+            --text-primary: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --border: #334155;
+            --success: #10B981;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .thankyou-container {
+            max-width: 620px;
+            text-align: center;
+            position: relative;
+        }
+
+        .thankyou-container::before {
+            content: '';
+            position: absolute;
+            top: -200px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            opacity: 0.2;
+            pointer-events: none;
+        }
+
+        .success-icon {
+            width: 88px;
+            height: 88px;
+            border-radius: 50%;
+            background: rgba(16, 185, 129, 0.15);
+            border: 3px solid var(--success);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            margin: 0 auto 32px;
+            animation: scaleIn 0.5s ease;
+        }
+
+        @keyframes scaleIn {
+            0% { transform: scale(0); opacity: 0; }
+            60% { transform: scale(1.15); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 900;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            margin-bottom: 16px;
+        }
+
+        h1 .gradient-text {
+            background: linear-gradient(135deg, var(--accent) 0%, #FBBF24 50%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.15rem;
+            color: var(--text-secondary);
+            margin-bottom: 48px;
+            line-height: 1.7;
+        }
+
+        .steps-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 40px 36px;
+            text-align: left;
+            margin-bottom: 40px;
+        }
+
+        .steps-card h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: var(--accent);
+        }
+
+        .step {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .step:last-child {
+            margin-bottom: 0;
+        }
+
+        .step-number {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            background: var(--accent-light);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+        .step-content h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .step-content p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .btn-telegram {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: #2AABEE;
+            color: #fff;
+            padding: 16px 36px;
+            border-radius: 12px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 20px rgba(42, 171, 238, 0.3);
+            margin-bottom: 32px;
+        }
+
+        .btn-telegram:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(42, 171, 238, 0.4);
+        }
+
+        .support-note {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .support-note a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .support-note a:hover {
+            text-decoration: underline;
+        }
+
+        .footer-brand {
+            margin-top: 48px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        @media (max-width: 480px) {
+            .steps-card {
+                padding: 28px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="thankyou-container">
+        <div class="success-icon">&#10003;</div>
+        <h1>
+            Welcome to<br>
+            <span class="gradient-text">Beast Mode Academy</span>
+        </h1>
+        <p class="subtitle">
+            Your payment has been confirmed. You are now part of an elite community of AI-powered traders. Here is how to get started.
+        </p>
+
+        <div class="steps-card">
+            <h2>Your Next Steps</h2>
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Join the Telegram Channel</h3>
+                    <p>Click the button below to join our private signal channel. This is where all trade alerts are delivered in real time.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Enable Notifications</h3>
+                    <p>Turn on push notifications for the channel so you never miss a signal. Timing matters in trading.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Read the Pinned Guide</h3>
+                    <p>Check the pinned message in the channel for our beginner's guide covering how to read signals and manage risk properly.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h3>Start Trading</h3>
+                    <p>Wait for the next signal, follow the entry and exit levels, and start building consistent profits with AI on your side.</p>
+                </div>
+            </div>
+        </div>
+
+        <a href="#telegram" class="btn-telegram">
+            Join Telegram Channel &rarr;
+        </a>
+
+        <p class="support-note">
+            Need help? Contact our support team at<br>
+            <a href="mailto:support@gettraderadar.com">support@gettraderadar.com</a>
+        </p>
+
+        <p class="footer-brand">&copy; 2026 Beast Mode Academy. All rights reserved.</p>
+    </div>
+</body>
+</html>

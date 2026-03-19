@@ -12,7 +12,7 @@ import re
 import random
 from datetime import datetime
 
-from config import GEMINI_API_KEY, ANTHROPIC_API_KEY, NICHES, AFFILIATE_LINKS
+from config import GEMINI_API_KEY, ANTHROPIC_API_KEY, NICHES
 
 
 # ── Niche-Specific Style Guides ────────────────────────────────
@@ -74,6 +74,29 @@ NICHE_STYLE_GUIDES = {
 - Use specific names, dates, and numbers for credibility
 - End with a thought-provoking question or prediction
 - Tone: Confident, knowledgeable news analyst — think independent journalist, NOT corporate anchor""",
+
+    "limitless_you": """NICHE STYLE — Limitless You (AI-Powered Self Improvement):
+- YOU ARE AN AI COACH — speak as an intelligent system that has analyzed thousands of studies and success stories
+- Lead with DATA: "AI analyzed 10,000 morning routines and found ONE thing in common..."
+- Back every claim with specifics: exact numbers, study names, percentages, timeframes
+- Give viewers a SYSTEM, not just motivation — "Here's the 3-step framework AI extracted from..."
+- Create authority through intelligence, not hype — you're a calm, precise AI advisor
+- Include one counterintuitive insight that challenges common self-help advice
+- Reference neuroscience, psychology, behavioral economics — make it SCIENTIFIC
+- End with one specific action the viewer can do in the next 60 seconds
+- NEVER be generic or vague — if you can't put a number on it, reframe until you can
+- Tone: Intelligent AI mentor — calm authority, data-driven, like having a genius coach in your pocket""",
+
+    "shopmo_products": """NICHE STYLE — ShopMO (South Africa's Smartest Online Store):
+- Lead with a PROBLEM the product solves ("Tired of paying Takealot prices? There's a smarter way...")
+- Show genuine excitement about value — emphasize savings, quality, and convenience
+- Include specific prices in Rands (R) and compare to alternatives when possible
+- Reference South African context: load shedding solutions, SA weather, local lifestyle
+- Create URGENCY: limited stock, flash sales, trending items that sell out
+- Use social proof: "South Africans are buying this faster than we can stock it"
+- Always mention free delivery, easy returns, or other ShopMO advantages
+- End with clear CTA: "Link in bio" or "Visit shopmoo.co.za"
+- Tone: Excited friend who found an amazing deal and can't wait to share it""",
 }
 
 
@@ -209,41 +232,28 @@ def _clean_json_response(text: str) -> str:
 
 
 def _add_affiliate_links(description: str, niche: str) -> str:
-    """Add our product CTAs + relevant affiliate links to video description."""
-    from config import PRODUCT_CTA_TEMPLATES, WEBSITE_URL
+    """Add monetization CTAs + affiliate links to video description.
 
-    # ── OUR WEBSITE (always included, above the fold) ─────────
+    Uses the centralized affiliate_manager for all link/CTA data.
+    """
+    from modules.affiliate_manager import get_full_description_footer
+    from config import WEBSITE_URL
+
+    footer = get_full_description_footer(niche)
+
+    # Ensure website URL is present (above the fold, before the footer)
     website_section = ""
-    if WEBSITE_URL and WEBSITE_URL not in description:
+    if WEBSITE_URL and WEBSITE_URL not in description and WEBSITE_URL not in footer:
         website_section = f"\n\n🌐 Visit our website: {WEBSITE_URL}"
 
-    # ── OUR PRODUCT CTA (always first, above the fold) ──────────
-    product_section = ""
-    product_ctas = PRODUCT_CTA_TEMPLATES.get(niche, [])
-    if product_ctas:
-        product_section = f"\n\n{'─' * 40}\n{random.choice(product_ctas)}\n{'─' * 40}"
+    disclaimer = (
+        "\n\n--- Disclaimer ---\n"
+        "This video was created with AI assistance. "
+        "This is not financial advice. Trading involves risk. "
+        "Some links above are affiliate links.\n"
+    )
 
-    # ── Affiliate tools section ─────────────────────────────────
-    niche_links = {
-        "ai_trading": ["traderadar", "tradingview", "binance"],
-        "ai_money": ["traderadar", "chatgpt", "elevenlabs", "midjourney"],
-        "tech_news": ["chatgpt", "midjourney"],
-    }
-
-    links_section = "\n\n--- Tools & Resources ---\n"
-    for link_key in niche_links.get(niche, []):
-        if link_key in AFFILIATE_LINKS:
-            name = link_key.replace("_", " ").title()
-            if link_key == "traderadar":
-                name = "⭐ TradeRadar AI (FREE)"
-            links_section += f"- {name}: {AFFILIATE_LINKS[link_key]}\n"
-
-    links_section += "\n--- Disclaimer ---\n"
-    links_section += "This video was created with AI assistance. "
-    links_section += "This is not financial advice. Trading involves risk. "
-    links_section += "Some links above are affiliate links.\n"
-
-    return description + website_section + product_section + links_section
+    return description + website_section + footer + disclaimer
 
 
 async def generate_script_gemini(

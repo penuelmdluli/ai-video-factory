@@ -241,6 +241,7 @@ async def upload_to_tiktok(
     description: str,
     hashtags: list[str] | None = None,
     schedule_time: datetime | None = None,
+    niche: str = "",
 ) -> dict:
     """
     Upload a video to TikTok via a subprocess (avoids asyncio/Playwright conflict).
@@ -264,14 +265,20 @@ async def upload_to_tiktok(
         }
 
     # Build full description
-    from config import WEBSITE_URL
+    from config import get_website_url
+    from modules.affiliate_manager import get_engagement_cta
+    website = get_website_url(niche)
     full_description = description or ""
     if hashtags:
         tags_str = " ".join(h if h.startswith("#") else f"#{h}" for h in hashtags)
         full_description = f"{full_description}\n\n{tags_str}"
-    # Always include our website
-    if WEBSITE_URL and WEBSITE_URL not in full_description:
-        full_description = f"{full_description}\n\n🌐 {WEBSITE_URL}"
+    # Short engagement CTA (affiliate + product + lead magnet)
+    engagement_cta = get_engagement_cta(niche) if niche else ""
+    if engagement_cta:
+        full_description = f"{full_description}\n\n{engagement_cta}"
+    # Always include niche-specific website
+    if website and website not in full_description:
+        full_description = f"{full_description}\n\n🌐 {website}"
     full_description = full_description[:2200]
 
     auth_method = list(auth.keys())[0]

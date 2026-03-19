@@ -25,6 +25,7 @@ sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(DASHBOARD_DIR))
 
 from auth import DASHBOARD_PASSWORD, create_token, require_auth
+from monetization_api import router as monetization_router
 
 # ── Import pipeline modules ──
 from modules.logger import _load_log, _save_log, get_daily_summary, get_total_stats
@@ -49,6 +50,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Monetization API ──────────────────────────────────────────
+app.include_router(monetization_router)
 
 # Serve video/thumbnail files from output directory
 app.mount("/media", StaticFiles(directory=str(OUTPUT_DIR)), name="media")

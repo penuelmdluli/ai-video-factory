@@ -13,7 +13,7 @@ import random
 import requests
 from pathlib import Path
 
-from config import NICHES
+from config import NICHES, get_website_url
 
 
 # ── Engagement CTAs per niche ─────────────────────────────────
@@ -60,20 +60,41 @@ NICHE_ENGAGEMENT_CTAS = {
         "Save this for a moment when you need calm!",
         "What's ONE thing you're thankful for today?",
     ],
+    "daily_breakdown": [
+        "What's YOUR take on this story? Comment below!",
+        "Did this surprise you? Share your thoughts!",
+        "Tag someone who needs to see this breakdown!",
+        "What topic should we break down next? Comment!",
+        "Save this for your daily news update!",
+    ],
+    "shopmo_products": [
+        "Have you tried this product? Drop a review below! 🛒\n\n🌐 Shop now: https://shopmoo.co.za",
+        "Tag a friend who needs this deal! 🔥\n\n🛍️ Browse more: https://shopmoo.co.za",
+        "Would you buy this? Comment YES or NO! 💰\n\n🌐 Visit ShopMO: https://shopmoo.co.za",
+        "Save this for your next shopping spree! 🛒\n\n🛍️ ShopMO: https://shopmoo.co.za",
+        "What product should we feature next? Comment below! 📦\n\n🌐 https://shopmoo.co.za",
+    ],
+    "limitless_you": [
+        "AI says the #1 habit of high performers is ___. What do YOU think it is? Comment below!",
+        "Type 'LIMITLESS' if you're ready for AI-powered growth!",
+        "Tag someone who needs an AI coach in their life!",
+        "Which area should AI analyze next? A) Morning routine B) Focus C) Habits — Comment!",
+        "Save this — your AI coach just dropped knowledge!",
+    ],
 }
 
 
 def _build_engagement_description(description: str, niche: str) -> str:
-    """Add engagement CTA + product promotion to the video description."""
+    """Add engagement CTA + affiliate links + product promotion to the video description."""
+    from modules.affiliate_manager import get_full_description_footer
+
     ctas = NICHE_ENGAGEMENT_CTAS.get(niche, NICHE_ENGAGEMENT_CTAS["motivation"])
     cta = random.choice(ctas)
 
-    # Always include TradeRadar website in every video description
-    product_line = ""
-    if "gettraderadar.com" not in description and "gettraderadar.com" not in cta:
-        product_line = "\n\n🌐 Visit us: https://www.gettraderadar.com"
+    # Monetization footer: affiliate links + product CTA + signals + lead magnet + website
+    footer = get_full_description_footer(niche)
 
-    return f"{description}\n\n{cta}{product_line}"
+    return f"{description}\n\n{cta}{footer}"
 
 # ── Configuration ──────────────────────────────────────────
 GRAPH_API_VERSION = "v24.0"
