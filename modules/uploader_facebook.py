@@ -84,7 +84,7 @@ NICHE_ENGAGEMENT_CTAS = {
 }
 
 
-def _build_engagement_description(description: str, niche: str) -> str:
+def _build_engagement_description(niche: str, description: str) -> str:
     """Add engagement CTA + affiliate links + product promotion to the video description."""
     from modules.affiliate_manager import get_full_description_footer
 
@@ -94,7 +94,7 @@ def _build_engagement_description(description: str, niche: str) -> str:
     # Monetization footer: affiliate links + product CTA + signals + lead magnet + website
     footer = get_full_description_footer(niche)
 
-    return f"{description}\n\n{cta}{footer}"
+    return f"{description}\n\n{cta}\n\n{footer}"
 
 # ── Configuration ──────────────────────────────────────────
 GRAPH_API_VERSION = "v24.0"
@@ -160,7 +160,7 @@ async def upload_to_facebook(
         }
 
     # Build description with engagement CTA and hashtags
-    full_desc = _build_engagement_description(description, niche)
+    full_desc = _build_engagement_description(niche, description)
     if hashtags:
         tags = " ".join(h if h.startswith("#") else f"#{h}" for h in hashtags)
         full_desc = f"{full_desc}\n\n{tags}"
