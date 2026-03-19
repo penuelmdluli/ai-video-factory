@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="GetTradeRadar - AI-Powered Trading & Content Tools. Trading signals, digital products, and free resources trusted by 100,000+ followers.">
+    <meta name="keywords" content="AI trading, trading signals, crypto signals, forex signals, digital products, trading tools">
+    <meta property="og:title" content="GetTradeRadar | AI-Powered Trading & Content Tools">
+    <meta property="og:description" content="AI-powered trading signals, digital products, and free resources. Trusted by 100,000+ followers across 7 platforms.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://gettraderadar.com">
+    <link rel="canonical" href="https://gettraderadar.com">
+    <title>GetTradeRadar | AI-Powered Trading & Content Tools</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #0F172A;
+            --bg-secondary: #1E293B;
+            --bg-card: #1E293B;
+            --bg-card-hover: #253347;
+            --accent: #F59E0B;
+            --accent-hover: #D97706;
+            --accent-light: rgba(245, 158, 11, 0.1);
+            --accent-glow: rgba(245, 158, 11, 0.3);
+            --text-primary: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --border: #334155;
+            --success: #10B981;
+            --blue: #3B82F6;
+            --purple: #8B5CF6;
+            --orange: #F97316;
+            --teal: #06B6D4;
+            --pink: #EC4899;
+            --green: #059669;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+        /* ── NAV ── */
+        .nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 0;
+        }
+        .nav .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .nav-brand {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--accent);
+            text-decoration: none;
+            letter-spacing: -0.5px;
+        }
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+            flex-wrap: wrap;
+        }
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--accent); }
+
+        /* ── HERO ── */
+        .hero {
+            padding: 100px 0 80px;
+            text-align: center;
+            background: radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.08) 0%, transparent 60%);
+        }
+        .hero-badge {
+            display: inline-block;
+            background: var(--accent-light);
+            color: var(--accent);
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 16px;
+            border-radius: 50px;
+            border: 1px solid rgba(245,158,11,0.2);
+            margin-bottom: 24px;
+        }
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            letter-spacing: -1px;
+        }
+        .hero h1 span { color: var(--accent); }
+        .hero p {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 40px;
+        }
+        .hero-cta {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* ── BUTTONS ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 32px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: #000;
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px var(--accent-glow);
+        }
+        .btn-outline {
+            background: transparent;
+            color: var(--text-primary);
+            border: 2px solid var(--border);
+        }
+        .btn-outline:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* ── STATS ── */
+        .stats {
+            padding: 60px 0;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 40px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: var(--accent);
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        /* ── FEATURED ── */
+        .featured {
+            padding: 80px 0;
+        }
+        .featured-card {
+            background: linear-gradient(135deg, var(--bg-secondary), #253347);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 60px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: center;
+        }
+        .featured-badge {
+            display: inline-block;
+            background: rgba(245,158,11,0.15);
+            color: var(--accent);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 4px 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+        .featured-card h2 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 16px;
+        }
+        .featured-card p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            font-size: 1.05rem;
+        }
+        .featured-features {
+            list-style: none;
+            margin-bottom: 32px;
+        }
+        .featured-features li {
+            padding: 8px 0;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .featured-features li::before {
+            content: "\2713";
+            color: var(--success);
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        .featured-price {
+            background: var(--bg-primary);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        .price-amount {
+            font-size: 3.5rem;
+            font-weight: 900;
+            color: var(--text-primary);
+        }
+        .price-amount span {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .price-desc {
+            color: var(--text-secondary);
+            margin: 8px 0 24px;
+        }
+
+        /* ── SECTION HEADERS ── */
+        .section-header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+        .section-header h2 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+        .section-header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        /* ── PRODUCT GRID ── */
+        .products { padding: 80px 0; }
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 24px;
+        }
+        .product-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            transition: all 0.3s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .product-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+        }
+        .product-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+        }
+        .product-card h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .product-card p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 16px;
+        }
+        .product-tag {
+            display: inline-block;
+            background: var(--accent-light);
+            color: var(--accent);
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+
+        /* ── EMAIL SIGNUP ── */
+        .email-signup {
+            padding: 80px 0;
+        }
+        .signup-card {
+            background: linear-gradient(135deg, #1a2744, #253347);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 60px;
+            text-align: center;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        .signup-card h2 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+        .signup-card p {
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            font-size: 1.05rem;
+        }
+        .signup-form {
+            display: flex;
+            gap: 12px;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+        .signup-form input {
+            flex: 1;
+            padding: 14px 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .signup-form input:focus { border-color: var(--accent); }
+        .signup-form input::placeholder { color: var(--text-muted); }
+        .signup-form .btn { white-space: nowrap; }
+
+        /* ── SOCIAL PROOF ── */
+        .social-proof {
+            padding: 60px 0;
+            text-align: center;
+        }
+        .platforms {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            flex-wrap: wrap;
+            margin-top: 24px;
+        }
+        .platform {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .platform strong {
+            color: var(--text-secondary);
+        }
+
+        /* ── FOOTER ── */
+        .footer {
+            padding: 60px 0 40px;
+            border-top: 1px solid var(--border);
+        }
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 48px;
+            margin-bottom: 40px;
+        }
+        .footer-brand {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--accent);
+            margin-bottom: 12px;
+        }
+        .footer-desc {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+        .footer h4 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+        .footer-links {
+            list-style: none;
+        }
+        .footer-links li { margin-bottom: 10px; }
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.2s;
+        }
+        .footer-links a:hover { color: var(--accent); }
+        .footer-bottom {
+            border-top: 1px solid var(--border);
+            padding-top: 24px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .footer-copyright {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        .footer-disclaimer {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            max-width: 600px;
+            text-align: right;
+            line-height: 1.6;
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 768px) {
+            .featured-card {
+                grid-template-columns: 1fr;
+                padding: 32px;
+            }
+            .footer-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 32px;
+            }
+            .product-grid {
+                grid-template-columns: 1fr;
+            }
+            .signup-form {
+                flex-direction: column;
+            }
+            .nav-links { gap: 16px; }
+            .hero { padding: 60px 0 50px; }
+        }
+        @media (max-width: 480px) {
+            .footer-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAV -->
+    <nav class="nav">
+        <div class="container">
+            <a href="./" class="nav-brand">GetTradeRadar</a>
+            <ul class="nav-links">
+                <li><a href="./signals/">Trading Signals</a></li>
+                <li><a href="./products/">Digital Products</a></li>
+                <li><a href="./free/">Free Resources</a></li>
+                <li><a href="#signup">Get Free Tips</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-badge">Trusted by 100,000+ followers</div>
+            <h1>AI-Powered Trading<br>&amp; <span>Content Tools</span></h1>
+            <p>Real-time trading signals, expert analysis, and premium digital products to help you trade smarter and build wealth.</p>
+            <div class="hero-cta">
+                <a href="./signals/" class="btn btn-primary">Get Trading Signals</a>
+                <a href="./products/" class="btn btn-outline">Browse Products</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="stats">
+        <div class="container">
+            <div class="stats-grid">
+                <div>
+                    <div class="stat-number">100K+</div>
+                    <div class="stat-label">Total Followers</div>
+                </div>
+                <div>
+                    <div class="stat-number">7</div>
+                    <div class="stat-label">Platforms</div>
+                </div>
+                <div>
+                    <div class="stat-number">6</div>
+                    <div class="stat-label">Content Niches</div>
+                </div>
+                <div>
+                    <div class="stat-number">500+</div>
+                    <div class="stat-label">Active Traders</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FEATURED PRODUCT -->
+    <section class="featured">
+        <div class="container">
+            <div class="featured-card">
+                <div>
+                    <div class="featured-badge">Featured Product</div>
+                    <h2>AI Trading Signals</h2>
+                    <p>Get real-time AI-powered entry, stop-loss, and take-profit levels for Crypto, Forex, and Stocks delivered straight to your Telegram.</p>
+                    <ul class="featured-features">
+                        <li>Real-time Telegram alerts</li>
+                        <li>Crypto, Forex, and Stocks coverage</li>
+                        <li>Entry, stop-loss, and take-profit levels</li>
+                        <li>Weekly market analysis reports</li>
+                        <li>Community access with 500+ traders</li>
+                    </ul>
+                    <a href="./signals/" class="btn btn-primary">View Signal Plans</a>
+                </div>
+                <div class="featured-price">
+                    <div class="price-amount">$47<span>/mo</span></div>
+                    <div class="price-desc">Professional tier with unlimited signals</div>
+                    <a href="./subscribe/" class="btn btn-primary" style="width: 100%;">Subscribe Now</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRODUCTS -->
+    <section class="products">
+        <div class="container">
+            <div class="section-header">
+                <h2>Digital Products &amp; Resources</h2>
+                <p>Premium tools and content across all our niches</p>
+            </div>
+            <div class="product-grid">
+                <a href="./signals/" class="product-card">
+                    <div class="product-icon" style="background: rgba(245,158,11,0.15);">
+                        <span style="color: var(--accent);">&#x1F4C8;</span>
+                    </div>
+                    <h3>AI Trading Signals</h3>
+                    <p>Real-time AI-powered signals for Crypto, Forex, and Stocks with entry/exit levels via Telegram.</p>
+                    <span class="product-tag">From $27/mo</span>
+                </a>
+
+                <a href="./products/" class="product-card">
+                    <div class="product-icon" style="background: rgba(16,185,129,0.15);">
+                        <span style="color: var(--success);">&#x1F4B0;</span>
+                    </div>
+                    <h3>AI Money Guides</h3>
+                    <p>Step-by-step guides to building passive income streams using artificial intelligence tools.</p>
+                    <span class="product-tag">eBooks &amp; Courses</span>
+                </a>
+
+                <a href="./products/" class="product-card">
+                    <div class="product-icon" style="background: rgba(59,130,246,0.15);">
+                        <span style="color: var(--blue);">&#x1F4F1;</span>
+                    </div>
+                    <h3>Tech News Reports</h3>
+                    <p>Weekly curated tech industry reports covering AI, blockchain, startups, and emerging technologies.</p>
+                    <span class="product-tag">Weekly Reports</span>
+                </a>
+
+                <a href="./products/" class="product-card">
+                    <div class="product-icon" style="background: rgba(249,115,22,0.15);">
+                        <span style="color: var(--orange);">&#x1F525;</span>
+                    </div>
+                    <h3>Motivation &amp; Mindset</h3>
+                    <p>Personal development content, daily affirmations, and success mindset frameworks.</p>
+                    <span class="product-tag">Free Content</span>
+                </a>
+
+                <a href="./products/" class="product-card">
+                    <div class="product-icon" style="background: rgba(5,150,105,0.15);">
+                        <span style="color: var(--green);">&#x1F33F;</span>
+                    </div>
+                    <h3>Health &amp; Wellness</h3>
+                    <p>Natural health guides, herbal remedies, and holistic wellness resources backed by research.</p>
+                    <span class="product-tag">eBooks</span>
+                </a>
+
+                <a href="./free/" class="product-card">
+                    <div class="product-icon" style="background: rgba(139,92,246,0.15);">
+                        <span style="color: var(--purple);">&#x2728;</span>
+                    </div>
+                    <h3>Free Resources</h3>
+                    <p>Free trading tips, market analysis templates, and beginner guides to get you started.</p>
+                    <span class="product-tag">Free</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- EMAIL SIGNUP -->
+    <section class="email-signup" id="signup">
+        <div class="container">
+            <div class="signup-card">
+                <h2>Get Free Trading Tips</h2>
+                <p>Join our newsletter for weekly market insights, trading strategies, and exclusive deals on our products.</p>
+                <form class="signup-form" action="./free/" method="get">
+                    <input type="email" name="email" placeholder="Enter your email address" required>
+                    <button type="submit" class="btn btn-primary">Subscribe</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- SOCIAL PROOF -->
+    <section class="social-proof">
+        <div class="container">
+            <p style="font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 8px;">Trusted by <strong style="color: var(--accent);">100,000+</strong> followers across 7 platforms</p>
+            <div class="platforms">
+                <span class="platform"><strong>YouTube</strong></span>
+                <span class="platform"><strong>TikTok</strong></span>
+                <span class="platform"><strong>Facebook</strong></span>
+                <span class="platform"><strong>Instagram</strong></span>
+                <span class="platform"><strong>X (Twitter)</strong></span>
+                <span class="platform"><strong>Telegram</strong></span>
+                <span class="platform"><strong>LinkedIn</strong></span>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div>
+                    <div class="footer-brand">GetTradeRadar</div>
+                    <p class="footer-desc">AI-powered trading signals and digital content tools. Helping traders and creators make smarter decisions with data-driven insights.</p>
+                </div>
+                <div>
+                    <h4>Products</h4>
+                    <ul class="footer-links">
+                        <li><a href="./signals/">Trading Signals</a></li>
+                        <li><a href="./products/">Digital Products</a></li>
+                        <li><a href="./free/">Free Resources</a></li>
+                        <li><a href="./subscribe/">Subscribe</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>Community</h4>
+                    <ul class="footer-links">
+                        <li><a href="https://facebook.com/103551448238854" target="_blank" rel="noopener">Beast Mode Academy</a></li>
+                        <li><a href="https://facebook.com/107465491085378" target="_blank" rel="noopener">Smart Money AI</a></li>
+                        <li><a href="https://facebook.com/100919755007786" target="_blank" rel="noopener">Tech Pulse Africa</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>Pages</h4>
+                    <ul class="footer-links">
+                        <li><a href="https://facebook.com/102206758210905" target="_blank" rel="noopener">Elevate You</a></li>
+                        <li><a href="https://facebook.com/106788301081578" target="_blank" rel="noopener">Herbal Organic Life</a></li>
+                        <li><a href="https://facebook.com/112465853843545" target="_blank" rel="noopener">Blissful Moments</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="footer-copyright">&copy; 2026 GetTradeRadar. All rights reserved.</div>
+                <div class="footer-disclaimer">Trading involves risk. Past performance does not guarantee future results. AI-generated signals are for informational purposes only and do not constitute financial advice. Always do your own research before making investment decisions.</div>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

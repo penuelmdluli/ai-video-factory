@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI-powered trading signals for Crypto, Forex, and Stocks. Get real-time entry, stop-loss, and take-profit levels delivered straight to your Telegram.">
+    <meta name="keywords" content="trading signals, AI trading, crypto signals, forex signals, stock signals, trading bot, automated trading">
+    <meta name="author" content="Beast Mode Academy">
+    <meta property="og:title" content="AI-Powered Trading Signals | Beast Mode Academy">
+    <meta property="og:description" content="Join 500+ traders using AI-powered signals with 85%+ historical win rate. Real-time alerts via Telegram.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://gettraderadar.com/signals">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="AI-Powered Trading Signals | Beast Mode Academy">
+    <meta name="twitter:description" content="Stop guessing. Start profiting. AI trading signals delivered to your Telegram in real time.">
+    <link rel="canonical" href="https://gettraderadar.com/signals">
+    <title>AI-Powered Trading Signals | Beast Mode Academy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0F172A;
+            --bg-secondary: #1E293B;
+            --bg-card: #1E293B;
+            --bg-card-hover: #253347;
+            --accent: #F59E0B;
+            --accent-hover: #D97706;
+            --accent-light: rgba(245, 158, 11, 0.1);
+            --accent-glow: rgba(245, 158, 11, 0.3);
+            --text-primary: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --border: #334155;
+            --success: #10B981;
+            --danger: #EF4444;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* ===== NAVIGATION ===== */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 0;
+            transition: box-shadow 0.3s ease;
+        }
+
+        nav.scrolled {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .nav-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-logo {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--accent);
+            text-decoration: none;
+            letter-spacing: -0.02em;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent);
+        }
+
+        .nav-cta {
+            background: var(--accent);
+            color: var(--bg-primary);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            text-decoration: none;
+            transition: background 0.2s, transform 0.2s;
+        }
+
+        .nav-cta:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+
+        .mobile-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        /* ===== HERO ===== */
+        .hero {
+            padding: 160px 0 100px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--accent-light);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            padding: 8px 20px;
+            border-radius: 100px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 32px;
+        }
+
+        .hero-badge .pulse {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.5); }
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 900;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            margin-bottom: 24px;
+            position: relative;
+        }
+
+        .hero h1 .gradient-text {
+            background: linear-gradient(135deg, var(--accent) 0%, #FBBF24 50%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-sub {
+            font-size: clamp(1.1rem, 2.5vw, 1.35rem);
+            color: var(--text-secondary);
+            max-width: 640px;
+            margin: 0 auto 40px;
+            line-height: 1.7;
+        }
+
+        .hero-cta-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, var(--accent) 0%, #D97706 100%);
+            color: var(--bg-primary);
+            padding: 18px 40px;
+            border-radius: 12px;
+            font-size: 1.125rem;
+            font-weight: 700;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 24px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(245, 158, 11, 0.4);
+        }
+
+        .hero-social-proof {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .avatar-stack {
+            display: flex;
+        }
+
+        .avatar-stack span {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid var(--bg-primary);
+            margin-left: -8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--bg-primary);
+        }
+
+        .avatar-stack span:first-child { margin-left: 0; background: #3B82F6; }
+        .avatar-stack span:nth-child(2) { background: #10B981; }
+        .avatar-stack span:nth-child(3) { background: #8B5CF6; }
+        .avatar-stack span:nth-child(4) { background: var(--accent); }
+
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: 48px;
+            margin-top: 64px;
+            padding-top: 48px;
+            border-top: 1px solid var(--border);
+        }
+
+        .hero-stat {
+            text-align: center;
+        }
+
+        .hero-stat .number {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+        .hero-stat .label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* ===== PROBLEM / SOLUTION ===== */
+        .problem-section {
+            padding: 100px 0;
+        }
+
+        .section-label {
+            display: inline-block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 800;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+            margin-bottom: 20px;
+        }
+
+        .section-desc {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 640px;
+            line-height: 1.7;
+        }
+
+        .problem-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 64px;
+            align-items: center;
+            margin-top: 64px;
+        }
+
+        .pain-points {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .pain-point {
+            display: flex;
+            gap: 16px;
+            padding: 20px;
+            background: rgba(239, 68, 68, 0.05);
+            border: 1px solid rgba(239, 68, 68, 0.15);
+            border-radius: 12px;
+            transition: transform 0.2s;
+        }
+
+        .pain-point:hover {
+            transform: translateX(4px);
+        }
+
+        .pain-icon {
+            flex-shrink: 0;
+            width: 44px;
+            height: 44px;
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .pain-point h4 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .pain-point p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .solution-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 48px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .solution-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), #FBBF24);
+        }
+
+        .solution-card h3 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 16px;
+            color: var(--accent);
+        }
+
+        .solution-card p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            line-height: 1.7;
+        }
+
+        .solution-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .solution-list li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .solution-list .check {
+            width: 24px;
+            height: 24px;
+            background: rgba(16, 185, 129, 0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: var(--success);
+            font-size: 0.75rem;
+            font-weight: 800;
+        }
+
+        /* ===== FEATURES ===== */
+        .features-section {
+            padding: 100px 0;
+            background: var(--bg-secondary);
+        }
+
+        .features-section .section-title,
+        .features-section .section-desc {
+            text-align: center;
+        }
+
+        .features-section .section-label {
+            display: block;
+            text-align: center;
+        }
+
+        .features-section .section-desc {
+            margin: 0 auto 64px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 36px 28px;
+            transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent);
+            box-shadow: 0 8px 32px rgba(245, 158, 11, 0.1);
+        }
+
+        .feature-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--accent-light);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+
+        .feature-card h3 {
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .feature-card p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* ===== PRICING ===== */
+        .pricing-section {
+            padding: 100px 0;
+        }
+
+        .pricing-section .section-title,
+        .pricing-section .section-desc {
+            text-align: center;
+        }
+
+        .pricing-section .section-label {
+            display: block;
+            text-align: center;
+        }
+
+        .pricing-section .section-desc {
+            margin: 0 auto 64px;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 32px;
+            max-width: 820px;
+            margin: 0 auto;
+        }
+
+        .pricing-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 44px 36px;
+            position: relative;
+            transition: transform 0.2s;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .pricing-card.featured {
+            border-color: var(--accent);
+            box-shadow: 0 0 48px rgba(245, 158, 11, 0.15);
+        }
+
+        .pricing-card.featured::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), #FBBF24);
+            border-radius: 20px 20px 0 0;
+        }
+
+        .popular-badge {
+            position: absolute;
+            top: -14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--accent) 0%, #D97706 100%);
+            color: var(--bg-primary);
+            padding: 6px 20px;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .pricing-tier {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        .pricing-card h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .price {
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+
+        .price .currency {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        .price .amount {
+            font-size: 3.5rem;
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: -0.03em;
+        }
+
+        .price .period {
+            font-size: 1rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .price-note {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 28px;
+        }
+
+        .pricing-features {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-bottom: 36px;
+        }
+
+        .pricing-features li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.9rem;
+        }
+
+        .pricing-features .icon {
+            flex-shrink: 0;
+            color: var(--success);
+            font-weight: 800;
+            font-size: 0.85rem;
+        }
+
+        .btn-pricing {
+            display: block;
+            width: 100%;
+            text-align: center;
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-pricing.outline {
+            background: transparent;
+            border: 2px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .btn-pricing.outline:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-pricing.filled {
+            background: linear-gradient(135deg, var(--accent) 0%, #D97706 100%);
+            color: var(--bg-primary);
+            box-shadow: 0 4px 24px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-pricing.filled:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(245, 158, 11, 0.4);
+        }
+
+        .guarantee {
+            text-align: center;
+            margin-top: 40px;
+            padding: 24px;
+            background: var(--accent-light);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            border-radius: 12px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .guarantee p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .guarantee strong {
+            color: var(--accent);
+        }
+
+        /* ===== TESTIMONIALS ===== */
+        .testimonials-section {
+            padding: 100px 0;
+            background: var(--bg-secondary);
+        }
+
+        .testimonials-section .section-title,
+        .testimonials-section .section-desc {
+            text-align: center;
+        }
+
+        .testimonials-section .section-label {
+            display: block;
+            text-align: center;
+        }
+
+        .testimonials-section .section-desc {
+            margin: 0 auto 64px;
+        }
+
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .testimonial-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            transition: transform 0.2s;
+        }
+
+        .testimonial-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .testimonial-stars {
+            color: var(--accent);
+            font-size: 1rem;
+            margin-bottom: 16px;
+            letter-spacing: 2px;
+        }
+
+        .testimonial-text {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 24px;
+            font-style: italic;
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .testimonial-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--bg-primary);
+        }
+
+        .testimonial-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .testimonial-role {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* ===== FAQ ===== */
+        .faq-section {
+            padding: 100px 0;
+        }
+
+        .faq-section .section-title,
+        .faq-section .section-desc {
+            text-align: center;
+        }
+
+        .faq-section .section-label {
+            display: block;
+            text-align: center;
+        }
+
+        .faq-section .section-desc {
+            margin: 0 auto 64px;
+        }
+
+        .faq-list {
+            max-width: 720px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .faq-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .faq-item:hover {
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        .faq-toggle {
+            display: none;
+        }
+
+        .faq-question {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            user-select: none;
+            transition: color 0.2s;
+        }
+
+        .faq-question:hover {
+            color: var(--accent);
+        }
+
+        .faq-chevron {
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .faq-answer-inner {
+            padding: 0 24px 20px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+
+        .faq-toggle:checked ~ .faq-question .faq-chevron {
+            transform: rotate(180deg);
+        }
+
+        .faq-toggle:checked ~ .faq-answer {
+            max-height: 300px;
+        }
+
+        .faq-toggle:checked ~ .faq-question {
+            color: var(--accent);
+        }
+
+        /* ===== FINAL CTA ===== */
+        .final-cta-section {
+            padding: 100px 0;
+            background: var(--bg-secondary);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .final-cta-section::before {
+            content: '';
+            position: absolute;
+            bottom: -40%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            opacity: 0.2;
+            pointer-events: none;
+        }
+
+        .final-cta-section .section-title {
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .final-cta-section .section-desc {
+            text-align: center;
+            margin: 0 auto 40px;
+        }
+
+        .cta-urgency {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #F87171;
+            padding: 10px 24px;
+            border-radius: 100px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 32px;
+        }
+
+        /* ===== FOOTER ===== */
+        footer {
+            padding: 48px 0;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+            text-align: center;
+        }
+
+        .footer-brand {
+            font-size: 1.125rem;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            list-style: none;
+        }
+
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent);
+        }
+
+        .footer-disclaimer {
+            max-width: 680px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.7;
+        }
+
+        .footer-copyright {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* ===== MOBILE RESPONSIVE ===== */
+        @media (max-width: 1024px) {
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .mobile-toggle {
+                display: block;
+            }
+
+            .nav-links.open {
+                display: flex;
+                flex-direction: column;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: var(--bg-primary);
+                border-bottom: 1px solid var(--border);
+                padding: 16px 24px;
+                gap: 16px;
+            }
+
+            .hero {
+                padding: 120px 0 64px;
+            }
+
+            .hero-stats {
+                flex-direction: column;
+                gap: 24px;
+            }
+
+            .problem-grid {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .pricing-grid {
+                grid-template-columns: 1fr;
+                max-width: 420px;
+            }
+
+            .testimonials-grid {
+                grid-template-columns: 1fr;
+                max-width: 480px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .footer-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 16px;
+            }
+
+            .btn-primary {
+                padding: 16px 32px;
+                font-size: 1rem;
+            }
+
+            .pricing-card {
+                padding: 32px 24px;
+            }
+
+            .solution-card {
+                padding: 32px 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAVIGATION -->
+    <nav id="navbar">
+        <div class="container nav-inner">
+            <a href="#" class="nav-logo">Beast Mode Academy</a>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#pricing">Pricing</a></li>
+                <li><a href="#testimonials">Reviews</a></li>
+                <li><a href="#faq">FAQ</a></li>
+            </ul>
+            <a href="#pricing" class="nav-cta">Get Started</a>
+            <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle menu">&#9776;</button>
+        </div>
+    </nav>
+
+    <!-- HERO SECTION -->
+    <section class="hero" id="hero">
+        <div class="container">
+            <div class="hero-badge">
+                <span class="pulse"></span>
+                Live signals active now
+            </div>
+            <h1>
+                <span class="gradient-text">AI-Powered</span><br>
+                Trading Signals
+            </h1>
+            <p class="hero-sub">
+                Get precise entry, stop-loss, and take-profit levels delivered straight to your Telegram.
+                Our AI analyzes markets 24/7 with an 85%+ historical win rate.
+            </p>
+            <div class="hero-cta-group">
+                <a href="#pricing" class="btn-primary">
+                    Start Trading Smarter &mdash; $47/mo
+                    <span>&rarr;</span>
+                </a>
+                <div class="hero-social-proof">
+                    <div class="avatar-stack">
+                        <span>JD</span>
+                        <span>MK</span>
+                        <span>RS</span>
+                        <span>+</span>
+                    </div>
+                    Join 500+ traders already profiting
+                </div>
+            </div>
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <div class="number">85%+</div>
+                    <div class="label">Win Rate</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="number">2,400+</div>
+                    <div class="label">Signals Sent</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="number">24/7</div>
+                    <div class="label">AI Monitoring</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="number">3</div>
+                    <div class="label">Markets Covered</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PROBLEM / SOLUTION SECTION -->
+    <section class="problem-section" id="problem">
+        <div class="container">
+            <span class="section-label">The Problem</span>
+            <h2 class="section-title">Stop Guessing. Start Profiting.</h2>
+            <p class="section-desc">
+                Most traders lose money because they rely on emotions, outdated strategies, and incomplete data. There is a better way.
+            </p>
+            <div class="problem-grid">
+                <div class="pain-points">
+                    <div class="pain-point">
+                        <div class="pain-icon">&#128200;</div>
+                        <div>
+                            <h4>Emotional Trading</h4>
+                            <p>Fear and greed drive impulsive decisions that wipe out your account. You enter too late, exit too early, and revenge trade to recover losses.</p>
+                        </div>
+                    </div>
+                    <div class="pain-point">
+                        <div class="pain-icon">&#9200;</div>
+                        <div>
+                            <h4>Information Overload</h4>
+                            <p>Hours spent analyzing charts, reading news, and watching videos only to end up confused and paralyzed when it is time to pull the trigger.</p>
+                        </div>
+                    </div>
+                    <div class="pain-point">
+                        <div class="pain-icon">&#128176;</div>
+                        <div>
+                            <h4>Inconsistent Results</h4>
+                            <p>One good week followed by three bad ones. No system, no edge, no discipline. Your P&L looks like a rollercoaster.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="solution-card">
+                    <h3>The Solution: Trade with AI Precision</h3>
+                    <p>
+                        Our AI engine processes millions of data points across crypto, forex, and stock markets every second. It identifies high-probability setups and delivers clear, actionable signals directly to your phone.
+                    </p>
+                    <ul class="solution-list">
+                        <li>
+                            <span class="check">&#10003;</span>
+                            Remove emotion from your trading decisions
+                        </li>
+                        <li>
+                            <span class="check">&#10003;</span>
+                            Get clear entry, stop-loss, and take-profit levels
+                        </li>
+                        <li>
+                            <span class="check">&#10003;</span>
+                            Trade confidently with AI-backed analysis
+                        </li>
+                        <li>
+                            <span class="check">&#10003;</span>
+                            Spend minutes, not hours, on market research
+                        </li>
+                        <li>
+                            <span class="check">&#10003;</span>
+                            Build consistent, repeatable profits
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FEATURES SECTION -->
+    <section class="features-section" id="features">
+        <div class="container">
+            <span class="section-label">What You Get</span>
+            <h2 class="section-title">Everything You Need to Trade Profitably</h2>
+            <p class="section-desc">
+                Powerful AI analysis delivered in a simple, actionable format. No fluff, no noise &mdash; just signals that work.
+            </p>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">&#9889;</div>
+                    <h3>Real-Time AI Signals</h3>
+                    <p>Instant Telegram alerts the moment our AI identifies a high-probability trade setup. Never miss an opportunity again.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#127919;</div>
+                    <h3>Entry, SL &amp; TP Levels</h3>
+                    <p>Every signal includes precise entry price, stop-loss for risk protection, and multiple take-profit targets to maximize gains.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#127760;</div>
+                    <h3>Multiple Markets</h3>
+                    <p>Signals across Crypto, Forex, and US Stocks. Diversify your trading and capture opportunities wherever they appear.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128737;</div>
+                    <h3>Risk Management</h3>
+                    <p>Built-in position sizing guidance and risk/reward ratios with every signal. Protect your capital while maximizing returns.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128202;</div>
+                    <h3>Daily Market Analysis</h3>
+                    <p>Morning briefings with key levels, market sentiment, and upcoming events that could impact your trades throughout the day.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#129302;</div>
+                    <h3>24/7 AI Monitoring</h3>
+                    <p>Our AI never sleeps. It continuously scans markets around the clock so you can trade any session, any timezone.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRICING SECTION -->
+    <section class="pricing-section" id="pricing">
+        <div class="container">
+            <span class="section-label">Pricing</span>
+            <h2 class="section-title">Choose Your Trading Edge</h2>
+            <p class="section-desc">
+                Simple, transparent pricing. No hidden fees, no long-term contracts. Cancel anytime.
+            </p>
+            <div class="pricing-grid">
+                <!-- STANDARD -->
+                <div class="pricing-card">
+                    <div class="pricing-tier">Standard</div>
+                    <h3>Daily AI Signals</h3>
+                    <div class="price">
+                        <span class="currency">$</span>
+                        <span class="amount">47</span>
+                        <span class="period">/month</span>
+                    </div>
+                    <p class="price-note">Billed monthly. Cancel anytime.</p>
+                    <ul class="pricing-features">
+                        <li><span class="icon">&#10003;</span> 3&ndash;5 daily trading signals</li>
+                        <li><span class="icon">&#10003;</span> Private Telegram channel access</li>
+                        <li><span class="icon">&#10003;</span> Entry, SL &amp; TP levels</li>
+                        <li><span class="icon">&#10003;</span> Crypto, Forex &amp; Stocks</li>
+                        <li><span class="icon">&#10003;</span> Daily market analysis</li>
+                        <li><span class="icon">&#10003;</span> Risk management guidance</li>
+                    </ul>
+                    <a href="#subscribe" class="btn-pricing outline">Get Started</a>
+                </div>
+                <!-- VIP -->
+                <div class="pricing-card featured">
+                    <span class="popular-badge">Most Popular</span>
+                    <div class="pricing-tier">VIP</div>
+                    <h3>Premium AI Trading Suite</h3>
+                    <div class="price">
+                        <span class="currency">$</span>
+                        <span class="amount">97</span>
+                        <span class="period">/month</span>
+                    </div>
+                    <p class="price-note">Billed monthly. Cancel anytime.</p>
+                    <ul class="pricing-features">
+                        <li><span class="icon">&#10003;</span> Everything in Standard</li>
+                        <li><span class="icon">&#10003;</span> 5&ndash;10 priority signals daily</li>
+                        <li><span class="icon">&#10003;</span> Early signal access (15 min ahead)</li>
+                        <li><span class="icon">&#10003;</span> 1-on-1 trading support</li>
+                        <li><span class="icon">&#10003;</span> Advanced technical analysis</li>
+                        <li><span class="icon">&#10003;</span> Weekly live trading session</li>
+                        <li><span class="icon">&#10003;</span> VIP community &amp; networking</li>
+                    </ul>
+                    <a href="#subscribe" class="btn-pricing filled">Get VIP Access</a>
+                </div>
+            </div>
+            <div class="guarantee">
+                <p><strong>7-Day Money-Back Guarantee</strong> &mdash; Try our signals risk-free. If you are not satisfied within the first 7 days, we will refund you in full. No questions asked.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- TESTIMONIALS SECTION -->
+    <section class="testimonials-section" id="testimonials">
+        <div class="container">
+            <span class="section-label">Testimonials</span>
+            <h2 class="section-title">What Our Traders Are Saying</h2>
+            <p class="section-desc">
+                Real results from real traders in our community.
+            </p>
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <p class="testimonial-text">
+                        I was skeptical at first, but the signals are incredibly accurate. I have been following them for three months and my portfolio is up 34%. The Telegram alerts make it so easy to act quickly.
+                    </p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar" style="background: #3B82F6;">DM</div>
+                        <div>
+                            <div class="testimonial-name">David M.</div>
+                            <div class="testimonial-role">Crypto Trader &bull; VIP Member</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <p class="testimonial-text">
+                        As a full-time nurse, I don't have hours to analyze charts. These signals let me trade profitably in just 15 minutes a day. The risk management levels give me peace of mind on every trade.
+                    </p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar" style="background: #10B981;">SK</div>
+                        <div>
+                            <div class="testimonial-name">Sarah K.</div>
+                            <div class="testimonial-role">Forex Trader &bull; Standard Member</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <p class="testimonial-text">
+                        The weekly live sessions alone are worth the VIP price. I have learned more about reading the market in two months here than in two years on my own. The community is incredibly supportive too.
+                    </p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar" style="background: #8B5CF6;">JT</div>
+                        <div>
+                            <div class="testimonial-name">James T.</div>
+                            <div class="testimonial-role">Stock Trader &bull; VIP Member</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ SECTION -->
+    <section class="faq-section" id="faq">
+        <div class="container">
+            <span class="section-label">FAQ</span>
+            <h2 class="section-title">Frequently Asked Questions</h2>
+            <p class="section-desc">
+                Got questions? We have answers. If you need more help, reach out to our support team on Telegram.
+            </p>
+            <div class="faq-list">
+                <div class="faq-item">
+                    <input type="checkbox" id="faq1" class="faq-toggle">
+                    <label for="faq1" class="faq-question">
+                        How are the trading signals generated?
+                        <span class="faq-chevron">&#9660;</span>
+                    </label>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            Our proprietary AI engine analyzes technical indicators, price action patterns, volume data, market sentiment, and macroeconomic factors across multiple timeframes. It identifies high-probability setups and generates signals with precise entry, stop-loss, and take-profit levels. The system is continuously refined using machine learning to adapt to changing market conditions.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <input type="checkbox" id="faq2" class="faq-toggle">
+                    <label for="faq2" class="faq-question">
+                        What markets do you cover?
+                        <span class="faq-chevron">&#9660;</span>
+                    </label>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            We cover three major markets: Cryptocurrency (BTC, ETH, SOL, and top altcoins), Forex (major and minor currency pairs like EUR/USD, GBP/JPY), and US Stocks (large-cap equities and high-volume names). Signals are distributed throughout the day to capture opportunities across different trading sessions.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <input type="checkbox" id="faq3" class="faq-toggle">
+                    <label for="faq3" class="faq-question">
+                        Do I need trading experience to use the signals?
+                        <span class="faq-chevron">&#9660;</span>
+                    </label>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            No prior experience is required. Each signal comes with clear instructions: exactly where to enter, where to place your stop-loss, and where to take profit. We also provide educational content and risk management guidance to help beginners get started. VIP members additionally get access to weekly live sessions where you can ask questions in real time.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <input type="checkbox" id="faq4" class="faq-toggle">
+                    <label for="faq4" class="faq-question">
+                        How are signals delivered?
+                        <span class="faq-chevron">&#9660;</span>
+                    </label>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            All signals are delivered instantly via our private Telegram channel. As soon as the AI identifies a trade setup, you receive a notification with full details including the asset, direction (long/short), entry price, stop-loss level, and one or more take-profit targets. You can enable push notifications on your phone so you never miss a signal.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <input type="checkbox" id="faq5" class="faq-toggle">
+                    <label for="faq5" class="faq-question">
+                        Can I cancel my subscription at any time?
+                        <span class="faq-chevron">&#9660;</span>
+                    </label>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            Absolutely. There are no long-term contracts or commitments. You can cancel your subscription at any time directly from your account settings, and you will retain access until the end of your current billing period. We also offer a 7-day money-back guarantee for new members, so you can try the signals completely risk-free.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FINAL CTA SECTION -->
+    <section class="final-cta-section" id="cta">
+        <div class="container">
+            <span class="section-label">Get Started Today</span>
+            <h2 class="section-title">Ready to Trade with AI?</h2>
+            <p class="section-desc">
+                Join hundreds of traders who have replaced guesswork with data-driven precision. Your next winning trade is one signal away.
+            </p>
+            <div class="cta-urgency">
+                &#9888; Limited spots available for VIP this month
+            </div>
+            <br>
+            <a href="#pricing" class="btn-primary">
+                Start Trading Smarter Now
+                <span>&rarr;</span>
+            </a>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="container footer-inner">
+            <div class="footer-brand">Beast Mode Academy</div>
+            <ul class="footer-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#pricing">Pricing</a></li>
+                <li><a href="#testimonials">Testimonials</a></li>
+                <li><a href="#faq">FAQ</a></li>
+                <li><a href="mailto:support@gettraderadar.com">Contact</a></li>
+            </ul>
+            <p class="footer-disclaimer">
+                <strong>Risk Disclaimer:</strong> Trading cryptocurrencies, forex, and stocks involves substantial risk of loss and is not suitable for every investor. Past performance is not indicative of future results. The trading signals provided are for informational and educational purposes only and should not be considered financial advice. You should consult with a qualified financial advisor before making any investment decisions. Never trade with money you cannot afford to lose. Beast Mode Academy is not a registered broker-dealer or investment advisor.
+            </p>
+            <p class="footer-copyright">
+                &copy; 2026 Beast Mode Academy. All rights reserved.
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        // Navbar scroll effect
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            navbar.classList.toggle('scrolled', window.scrollY > 50);
+        });
+
+        // Mobile menu toggle
+        const mobileToggle = document.getElementById('mobileToggle');
+        const navLinks = document.getElementById('navLinks');
+        mobileToggle.addEventListener('click', () => {
+            navLinks.classList.toggle('open');
+        });
+
+        // Close mobile menu on link click
+        navLinks.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                navLinks.classList.remove('open');
+            });
+        });
+
+        // Close other FAQ items when one is opened
+        document.querySelectorAll('.faq-toggle').forEach(toggle => {
+            toggle.addEventListener('change', function() {
+                if (this.checked) {
+                    document.querySelectorAll('.faq-toggle').forEach(other => {
+                        if (other !== this) other.checked = false;
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Products | GetTradeRadar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0F172A;
+            --bg-card: #1E293B;
+            --bg-card-hover: #263348;
+            --text: #F1F5F9;
+            --text-muted: #94A3B8;
+            --border: #334155;
+            --ai-trading: #F59E0B;
+            --ai-money: #10B981;
+            --tech-news: #3B82F6;
+            --motivation: #F97316;
+            --health-wellness: #059669;
+            --blissful-moments: #8B5CF6;
+            --limitless-you: #06B6D4;
+            --daily-breakdown: #EC4899;
+            --shopmo-products: #EF4444;
+            --gold: #F59E0B;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ── HEADER ── */
+        .site-header {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .site-header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text);
+            text-decoration: none;
+        }
+        .logo span { color: var(--gold); }
+        .header-cta {
+            background: var(--gold);
+            color: #0F172A;
+            padding: 10px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .header-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4);
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+        /* ── FEATURED BANNER ── */
+        .featured-banner {
+            margin: 48px auto;
+            max-width: 1200px;
+            padding: 0 24px;
+        }
+        .featured-inner {
+            background: linear-gradient(135deg, #1E293B 0%, #0F172A 50%, #1E293B 100%);
+            border: 2px solid var(--gold);
+            border-radius: 20px;
+            padding: 60px 48px;
+            display: flex;
+            align-items: center;
+            gap: 48px;
+            position: relative;
+            overflow: hidden;
+        }
+        .featured-inner::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.08) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .featured-badge {
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            background: var(--gold);
+            color: #0F172A;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .featured-icon {
+            font-size: 6rem;
+            flex-shrink: 0;
+            filter: drop-shadow(0 0 30px rgba(245, 158, 11, 0.3));
+        }
+        .featured-content { flex: 1; position: relative; z-index: 1; }
+        .featured-content h2 {
+            font-size: 2.5rem;
+            font-weight: 900;
+            line-height: 1.2;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #F59E0B, #FBBF24, #F59E0B);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .featured-content p {
+            color: var(--text-muted);
+            font-size: 1.15rem;
+            margin-bottom: 24px;
+            max-width: 540px;
+        }
+        .featured-price {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .featured-price .price {
+            font-size: 3rem;
+            font-weight: 900;
+            color: var(--gold);
+        }
+        .featured-price .original {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            text-decoration: line-through;
+        }
+        .featured-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #F59E0B, #D97706);
+            color: #0F172A;
+            padding: 16px 40px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 800;
+            font-size: 1.1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .featured-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(245, 158, 11, 0.4);
+        }
+        .featured-highlights {
+            display: flex;
+            gap: 24px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .featured-highlights span {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        .featured-highlights span::before {
+            content: '\2713';
+            color: var(--gold);
+            font-weight: 700;
+            margin-right: 6px;
+        }
+
+        /* ── FILTER TABS ── */
+        .filter-section {
+            padding: 32px 0 16px;
+            position: sticky;
+            top: 73px;
+            z-index: 90;
+            background: var(--bg);
+        }
+        .filter-tabs {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+        .filter-tabs::-webkit-scrollbar { height: 4px; }
+        .filter-tabs::-webkit-scrollbar-track { background: transparent; }
+        .filter-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        .filter-tab {
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-muted);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.25s;
+        }
+        .filter-tab:hover {
+            background: rgba(241, 245, 249, 0.05);
+            color: var(--text);
+            border-color: rgba(241, 245, 249, 0.2);
+        }
+        .filter-tab.active {
+            background: var(--text);
+            color: var(--bg);
+            border-color: var(--text);
+        }
+
+        /* ── PRODUCT GRID ── */
+        .products-section { padding: 32px 0 64px; }
+        .products-section h2 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin-bottom: 32px;
+            text-align: center;
+        }
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .product-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+            display: flex;
+            flex-direction: column;
+        }
+        .product-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+        .product-card[data-niche="ai_trading"]:hover { border-color: var(--ai-trading); }
+        .product-card[data-niche="ai_money"]:hover { border-color: var(--ai-money); }
+        .product-card[data-niche="tech_news"]:hover { border-color: var(--tech-news); }
+        .product-card[data-niche="motivation"]:hover { border-color: var(--motivation); }
+        .product-card[data-niche="health_wellness"]:hover { border-color: var(--health-wellness); }
+        .product-card[data-niche="blissful_moments"]:hover { border-color: var(--blissful-moments); }
+        .product-card[data-niche="limitless_you"]:hover { border-color: var(--limitless-you); }
+        .product-card[data-niche="daily_breakdown"]:hover { border-color: var(--daily-breakdown); }
+        .product-card[data-niche="shopmo_products"]:hover { border-color: var(--shopmo-products); }
+
+        .card-gradient {
+            height: 6px;
+            width: 100%;
+        }
+        .product-card[data-niche="ai_trading"] .card-gradient { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+        .product-card[data-niche="ai_money"] .card-gradient { background: linear-gradient(90deg, #10B981, #34D399); }
+        .product-card[data-niche="tech_news"] .card-gradient { background: linear-gradient(90deg, #3B82F6, #60A5FA); }
+        .product-card[data-niche="motivation"] .card-gradient { background: linear-gradient(90deg, #F97316, #FB923C); }
+        .product-card[data-niche="health_wellness"] .card-gradient { background: linear-gradient(90deg, #059669, #34D399); }
+        .product-card[data-niche="blissful_moments"] .card-gradient { background: linear-gradient(90deg, #8B5CF6, #A78BFA); }
+        .product-card[data-niche="limitless_you"] .card-gradient { background: linear-gradient(90deg, #06B6D4, #22D3EE); }
+        .product-card[data-niche="daily_breakdown"] .card-gradient { background: linear-gradient(90deg, #EC4899, #F472B6); }
+        .product-card[data-niche="shopmo_products"] .card-gradient { background: linear-gradient(90deg, #EF4444, #F87171); }
+
+        .card-body {
+            padding: 28px 24px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+        .card-icon {
+            font-size: 2.75rem;
+            margin-bottom: 16px;
+        }
+        .card-niche-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 8px;
+        }
+        .product-card[data-niche="ai_trading"] .card-niche-label { color: var(--ai-trading); }
+        .product-card[data-niche="ai_money"] .card-niche-label { color: var(--ai-money); }
+        .product-card[data-niche="tech_news"] .card-niche-label { color: var(--tech-news); }
+        .product-card[data-niche="motivation"] .card-niche-label { color: var(--motivation); }
+        .product-card[data-niche="health_wellness"] .card-niche-label { color: var(--health-wellness); }
+        .product-card[data-niche="blissful_moments"] .card-niche-label { color: var(--blissful-moments); }
+        .product-card[data-niche="limitless_you"] .card-niche-label { color: var(--limitless-you); }
+        .product-card[data-niche="daily_breakdown"] .card-niche-label { color: var(--daily-breakdown); }
+        .product-card[data-niche="shopmo_products"] .card-niche-label { color: var(--shopmo-products); }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            line-height: 1.3;
+        }
+        .card-desc {
+            color: var(--text-muted);
+            font-size: 0.925rem;
+            margin-bottom: 24px;
+            flex: 1;
+        }
+        .card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .card-price {
+            font-size: 1.75rem;
+            font-weight: 900;
+        }
+        .card-btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: #0F172A;
+            transition: transform 0.2s, box-shadow 0.2s;
+            white-space: nowrap;
+        }
+        .card-btn:hover {
+            transform: translateY(-2px);
+        }
+        .product-card[data-niche="ai_trading"] .card-btn { background: var(--ai-trading); }
+        .product-card[data-niche="ai_trading"] .card-btn:hover { box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4); }
+        .product-card[data-niche="ai_money"] .card-btn { background: var(--ai-money); }
+        .product-card[data-niche="ai_money"] .card-btn:hover { box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4); }
+        .product-card[data-niche="tech_news"] .card-btn { background: var(--tech-news); color: #fff; }
+        .product-card[data-niche="tech_news"] .card-btn:hover { box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4); }
+        .product-card[data-niche="motivation"] .card-btn { background: var(--motivation); }
+        .product-card[data-niche="motivation"] .card-btn:hover { box-shadow: 0 4px 20px rgba(249, 115, 22, 0.4); }
+        .product-card[data-niche="health_wellness"] .card-btn { background: var(--health-wellness); color: #fff; }
+        .product-card[data-niche="health_wellness"] .card-btn:hover { box-shadow: 0 4px 20px rgba(5, 150, 105, 0.4); }
+        .product-card[data-niche="blissful_moments"] .card-btn { background: var(--blissful-moments); color: #fff; }
+        .product-card[data-niche="blissful_moments"] .card-btn:hover { box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4); }
+        .product-card[data-niche="limitless_you"] .card-btn { background: var(--limitless-you); }
+        .product-card[data-niche="limitless_you"] .card-btn:hover { box-shadow: 0 4px 20px rgba(6, 182, 212, 0.4); }
+        .product-card[data-niche="daily_breakdown"] .card-btn { background: var(--daily-breakdown); color: #fff; }
+        .product-card[data-niche="daily_breakdown"] .card-btn:hover { box-shadow: 0 4px 20px rgba(236, 72, 153, 0.4); }
+        .product-card[data-niche="shopmo_products"] .card-btn { background: var(--shopmo-products); color: #fff; }
+        .product-card[data-niche="shopmo_products"] .card-btn:hover { box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4); }
+
+        .product-card.hidden {
+            display: none;
+        }
+
+        /* ── BUNDLE SECTION ── */
+        .bundle-section {
+            padding: 80px 0;
+            background: linear-gradient(180deg, transparent 0%, rgba(245, 158, 11, 0.03) 50%, transparent 100%);
+        }
+        .bundle-card {
+            max-width: 800px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #1E293B, #0F172A);
+            border: 2px solid var(--gold);
+            border-radius: 24px;
+            padding: 56px 48px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .bundle-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center top, rgba(245, 158, 11, 0.06) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .bundle-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #F59E0B, #D97706);
+            color: #0F172A;
+            padding: 8px 24px;
+            border-radius: 24px;
+            font-size: 0.8rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 24px;
+        }
+        .bundle-card h2 {
+            font-size: 2.25rem;
+            font-weight: 900;
+            margin-bottom: 12px;
+            position: relative;
+        }
+        .bundle-card .subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            margin-bottom: 32px;
+            position: relative;
+        }
+        .bundle-pricing {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 12px;
+            position: relative;
+        }
+        .bundle-pricing .original {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            text-decoration: line-through;
+        }
+        .bundle-pricing .price {
+            font-size: 4rem;
+            font-weight: 900;
+            color: var(--gold);
+        }
+        .bundle-savings {
+            display: inline-block;
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--gold);
+            padding: 6px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 32px;
+            position: relative;
+        }
+        .bundle-items {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 36px;
+            text-align: left;
+            position: relative;
+        }
+        .bundle-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            padding: 8px 12px;
+            background: rgba(241, 245, 249, 0.03);
+            border-radius: 8px;
+        }
+        .bundle-item .check {
+            color: var(--gold);
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .bundle-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #F59E0B, #D97706);
+            color: #0F172A;
+            padding: 18px 56px;
+            border-radius: 14px;
+            text-decoration: none;
+            font-weight: 800;
+            font-size: 1.2rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+        .bundle-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(245, 158, 11, 0.45);
+        }
+        .bundle-guarantee {
+            margin-top: 20px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            position: relative;
+        }
+
+        /* ── FOOTER ── */
+        .site-footer {
+            border-top: 1px solid var(--border);
+            padding: 40px 0;
+            text-align: center;
+        }
+        .footer-brand {
+            font-size: 1.25rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+        .footer-brand span { color: var(--gold); }
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin: 16px 0;
+        }
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: color 0.2s;
+        }
+        .footer-links a:hover { color: var(--text); }
+        .footer-copy {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-top: 16px;
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 1024px) {
+            .products-grid { grid-template-columns: repeat(2, 1fr); }
+            .featured-inner { padding: 40px 32px; gap: 32px; }
+            .featured-content h2 { font-size: 2rem; }
+            .featured-price .price { font-size: 2.5rem; }
+            .bundle-items { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .products-grid { grid-template-columns: 1fr; }
+            .featured-inner {
+                flex-direction: column;
+                text-align: center;
+                padding: 40px 24px;
+            }
+            .featured-icon { font-size: 4rem; }
+            .featured-content h2 { font-size: 1.75rem; }
+            .featured-content p { margin: 0 auto 20px; }
+            .featured-price { justify-content: center; }
+            .featured-price .price { font-size: 2.25rem; }
+            .featured-highlights { justify-content: center; }
+            .bundle-card { padding: 40px 24px; }
+            .bundle-card h2 { font-size: 1.75rem; }
+            .bundle-pricing .price { font-size: 3rem; }
+            .bundle-items { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 480px) {
+            .filter-tabs { gap: 6px; }
+            .filter-tab { padding: 8px 14px; font-size: 0.8rem; }
+            .card-footer { flex-direction: column; align-items: flex-start; gap: 12px; }
+            .card-btn { width: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="site-header">
+        <div class="container">
+            <a href="https://gettraderadar.com" class="logo">Get<span>Trade</span>Radar</a>
+            <a href="#bundle" class="header-cta">Get All Products &mdash; 60% Off</a>
+        </div>
+    </header>
+
+    <!-- FEATURED BANNER -->
+    <section class="featured-banner">
+        <div class="featured-inner">
+            <span class="featured-badge">Premium Course</span>
+            <div class="featured-icon">&#127891;</div>
+            <div class="featured-content">
+                <h2>Build Your AI Video Empire</h2>
+                <p>Complete course: build an automated AI video business from scratch. Learn the exact system generating thousands of videos across multiple niches and platforms.</p>
+                <div class="featured-price">
+                    <span class="price">$497</span>
+                    <span class="original">$997</span>
+                </div>
+                <a href="https://gettraderadar.com/products/build-your-ai-video-empire" class="featured-btn">Enroll Now</a>
+                <div class="featured-highlights">
+                    <span>Full automation setup</span>
+                    <span>Multi-niche strategy</span>
+                    <span>Lifetime access</span>
+                    <span>Private community</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FILTER TABS -->
+    <section class="filter-section">
+        <div class="container">
+            <div class="filter-tabs" role="tablist">
+                <button class="filter-tab active" data-filter="all" role="tab" aria-selected="true">All Products</button>
+                <button class="filter-tab" data-filter="ai_trading" role="tab" aria-selected="false">Trading</button>
+                <button class="filter-tab" data-filter="ai_money" role="tab" aria-selected="false">AI Money</button>
+                <button class="filter-tab" data-filter="tech_news" role="tab" aria-selected="false">Tech</button>
+                <button class="filter-tab" data-filter="motivation" role="tab" aria-selected="false">Motivation</button>
+                <button class="filter-tab" data-filter="health_wellness" role="tab" aria-selected="false">Health</button>
+                <button class="filter-tab" data-filter="blissful_moments" role="tab" aria-selected="false">Mindfulness</button>
+                <button class="filter-tab" data-filter="limitless_you" role="tab" aria-selected="false">Limitless</button>
+                <button class="filter-tab" data-filter="daily_breakdown" role="tab" aria-selected="false">Productivity</button>
+                <button class="filter-tab" data-filter="shopmo_products" role="tab" aria-selected="false">Shopping</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRODUCT GRID -->
+    <section class="products-section">
+        <div class="container">
+            <h2>Digital Products</h2>
+            <div class="products-grid">
+
+                <!-- 1. AI Trading Starter Kit -->
+                <div class="product-card" data-niche="ai_trading">
+                    <div class="card-gradient"></div>
+                    <div class="card-body">
+                        <div class="card-icon">&#128200;</div>
+                        <div class="card-niche-label">AI Trading</div>
+                        <h3 class="card-title">AI Trading Starter Kit</h3>
+                        <p class="card-desc">Complete trading templates, indicators, and AI setup guide to kickstart your algorithmic trading journey.</p>
+                        <div class="card-footer">
+                            <span class="card-price">$27</span>
+                            <a href="https://gettraderadar.com/products/ai-trading-starter-kit" class="card-btn">Get It Now</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 100 AI Side Hustle Prompts -->
+                <div class="product-card" data-niche="ai_money">
+                    <div class="card-gradient"></div>
+                    <div class="card-body">
+                        <div class="card-icon">&#128161;</div>
+                        <div class="card-niche-label">AI Money</div>
+                        <h3 class="card-title">100 AI Side Hustle Prompts</h3>
+                        <p class="card-desc">Ready-to-use prompts for 100 different AI money-making methods. Copy, paste, and start earning.</p>
+                        <div class="card-footer">
+                            <span class="card-price">$17</span>
+                            <a href="https://gettraderadar.com/products/100-ai-side-hustle-prompts" class="card-btn">Get It Now</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Tech Career Pivot Guide -->
+                <div class="product-card" data-niche="tech_news">
+                    <div class="card-gradient"></div>
+                    <div class="card-body">
+                        <div class="card-icon">&#128187;</div>
+                        <div class="card-niche-label">Tech</div>
+                        <h3 class="card-title">Tech Career Pivot Guide</h3>
+                        <p class="card-desc">Step-by-step guide to landing your dream tech job. Resume templates, interview prep, and networking strategies.</p>
+                        <div class="card-footer">
+                            <span class="card-price">$37</span>
+                            <a href="https://gettraderadar.com/products/tech-career-pivot-guide" class="card-btn">Get It Now</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. 90-Day Transformation Journal -->
+                <div class="product-card" data-niche="motivation">
+                    <div class="card-gradient"></div>
+                    <div class="card-body">
+                        <div class="card-icon">&#128293;</div>
+                        <div class="card-niche-label">Motivation</div>
+                        <h3 class="card-title">90-Day Transformation Journal</h3>
+                        <p class="card-desc">Daily prompts and exercises for personal transformation. Track habits, set goals, and become unstoppable.</p>
+                        <div class="card-footer">
+                            <span class="card-price">$12</span>
+                            <a href="https://gettraderadar.com/products/90-day-transformation-journal" class="card-btn">Get It Now</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. Herbal Remedies Quick Guide -->
+                <div class="product-card" data-niche="health_wellness">
+                    <div class="card-gradient"></div>
+                    <div class="card-body">
+                        <div class="card-icon">&#127807;</div>
+                        <div class="card-niche-label">Health &amp; Wellness</div>
+                        <h3 class="card-title">Herbal Remedies Quick Guide</h3>
+                        <p class="card-desc">50+ natural remedies for common health issues. Evidence-based herbal solutions for everyday wellness.</p>
+                        <div class="card-footer">
+                            <span class="card-price">$17</span>
+                            <a href="https://gettraderadar.com/products/herbal-remedies-quick-guide" class="card-btn">Get It Now</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Mindfulness Meditation Pack -->
+                <div class="product-card" data-niche="blissful_moments">
+                    <div class="card-gradient"></div>
+                    <div class="card-body">
+                        <div class="card-icon">&#128156;</div>
+                        <div class="card-niche-label">Mindfulness</div>
+                        <h3 class="card-title">Mindfulness Meditation Pack</h3>
+                        <p class="card-desc">Guided meditations and mindfulness exercises. Find calm, reduce stress, and build a daily practice.</p>
+                        <div class="card-footer">
+                            <span class="card-price">$12</span>
+                            <a href="https://gettraderadar.com/products/mindfulness-meditation-pack" class="card-btn">Get It Now</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. Limitless Mind Mastery Course -->
+                <div class="product-card" data-niche="limitless_you">
+                    <div class="card-gradient"></div>
+                    <div class="card-body">
+                        <div class="card-icon">&#129504;</div>
+                        <div class="card-niche-label">Limitless You</div>
+                        <h3 class="card-title">Limitless Mind Mastery Course</h3>
+                        <p class="card-desc">Unlock your full potential with proven mindset techniques. Master focus, memory, and mental performance.</p>
+                        <div class="card-footer">
+                            <span class="card-price">$97</span>
+                            <a href="https://gettraderadar.com/products/limitless-mind-mastery-course" class="card-btn">Get It Now</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 8. Daily Productivity System -->
+                <div class="product-card" data-niche="daily_breakdown">
+                    <div class="card-gradient"></div>
+                    <div class="card-body">
+                        <div class="card-icon">&#9889;</div>
+                        <div class="card-niche-label">Productivity</div>
+                        <h3 class="card-title">Daily Productivity System</h3>
+                        <p class="card-desc">Templates and systems for 10x productivity. Time blocking, task management, and deep work frameworks.</p>
+                        <div class="card-footer">
+                            <span class="card-price">$27</span>
+                            <a href="https://gettraderadar.com/products/daily-productivity-system" class="card-btn">Get It Now</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 9. Dropshipping Blueprint -->
+                <div class="product-card" data-niche="shopmo_products">
+                    <div class="card-gradient"></div>
+                    <div class="card-body">
+                        <div class="card-icon">&#128722;</div>
+                        <div class="card-niche-label">Shopmo Products</div>
+                        <h3 class="card-title">Dropshipping Blueprint</h3>
+                        <p class="card-desc">Complete guide to building a profitable dropship store. Product research, supplier sourcing, and marketing playbook.</p>
+                        <div class="card-footer">
+                            <span class="card-price">$47</span>
+                            <a href="https://gettraderadar.com/products/dropshipping-blueprint" class="card-btn">Get It Now</a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- BUNDLE & SAVE -->
+    <section class="bundle-section" id="bundle">
+        <div class="container">
+            <div class="bundle-card">
+                <div class="bundle-badge">Limited Time Offer</div>
+                <h2>Bundle &amp; Save</h2>
+                <p class="subtitle">Get every single product in one package and save over 60%</p>
+                <div class="bundle-pricing">
+                    <span class="original">$710</span>
+                    <span class="price">$297</span>
+                </div>
+                <div class="bundle-savings">You save $413 &mdash; 60% off</div>
+                <div class="bundle-items">
+                    <div class="bundle-item"><span class="check">&#10003;</span> AI Trading Starter Kit</div>
+                    <div class="bundle-item"><span class="check">&#10003;</span> 100 AI Side Hustle Prompts</div>
+                    <div class="bundle-item"><span class="check">&#10003;</span> Tech Career Pivot Guide</div>
+                    <div class="bundle-item"><span class="check">&#10003;</span> 90-Day Transformation Journal</div>
+                    <div class="bundle-item"><span class="check">&#10003;</span> Herbal Remedies Quick Guide</div>
+                    <div class="bundle-item"><span class="check">&#10003;</span> Mindfulness Meditation Pack</div>
+                    <div class="bundle-item"><span class="check">&#10003;</span> Limitless Mind Mastery Course</div>
+                    <div class="bundle-item"><span class="check">&#10003;</span> Daily Productivity System</div>
+                    <div class="bundle-item"><span class="check">&#10003;</span> Dropshipping Blueprint</div>
+                    <div class="bundle-item"><span class="check">&#10003;</span> AI Video Empire Course</div>
+                    <div class="bundle-item"><span class="check">&#10003;</span> All future updates</div>
+                    <div class="bundle-item"><span class="check">&#10003;</span> Private community access</div>
+                </div>
+                <a href="https://gettraderadar.com/products/complete-bundle" class="bundle-btn">Get The Complete Bundle</a>
+                <p class="bundle-guarantee">&#128274; Secure checkout &bull; 30-day money-back guarantee</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-brand">Get<span>Trade</span>Radar</div>
+            <div class="footer-links">
+                <a href="https://gettraderadar.com">Home</a>
+                <a href="https://gettraderadar.com/products">Products</a>
+                <a href="https://gettraderadar.com/about">About</a>
+                <a href="https://gettraderadar.com/contact">Contact</a>
+                <a href="https://gettraderadar.com/terms">Terms</a>
+                <a href="https://gettraderadar.com/privacy">Privacy</a>
+            </div>
+            <p class="footer-copy">&copy; 2026 GetTradeRadar. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        (function() {
+            const tabs = document.querySelectorAll('.filter-tab');
+            const cards = document.querySelectorAll('.product-card');
+
+            tabs.forEach(function(tab) {
+                tab.addEventListener('click', function() {
+                    const filter = this.getAttribute('data-filter');
+
+                    tabs.forEach(function(t) {
+                        t.classList.remove('active');
+                        t.setAttribute('aria-selected', 'false');
+                    });
+                    this.classList.add('active');
+                    this.setAttribute('aria-selected', 'true');
+
+                    cards.forEach(function(card) {
+                        if (filter === 'all' || card.getAttribute('data-niche') === filter) {
+                            card.classList.remove('hidden');
+                        } else {
+                            card.classList.add('hidden');
+                        }
+                    });
+                });
+            });
+        })();
+    </script>
+
+</body>
+</html>
