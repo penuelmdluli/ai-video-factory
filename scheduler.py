@@ -24,6 +24,9 @@ Usage:
     python scheduler.py --status     # Show schedule status
     python scheduler.py --optimize   # Show optimal posting times from data
 """
+import matplotlib
+matplotlib.use("Agg")  # Non-interactive backend — prevent tkinter crash in async pipeline
+
 import asyncio
 import argparse
 import json
@@ -32,7 +35,10 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from config import NICHES, SCHEDULE, ENABLE_NICHE_PRIORITIZATION
+from config import (
+    NICHES, SCHEDULE, ENABLE_NICHE_PRIORITIZATION,
+    ENABLE_ENGAGEMENT_POSTS, ENGAGEMENT_HOURS, ENGAGEMENT_CONTENT_TYPES,
+)
 
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
@@ -76,6 +82,9 @@ OPTIMAL_POST_HOURS = {
         "motivation": [6, 7, 8],
         "health_wellness": [7, 12, 18],
         "blissful_moments": [7, 19, 21],
+        "daily_breakdown": [8, 13, 18],
+        "shopmo_products": [9, 14, 19],
+        "limitless_you": [7, 12, 19],
     },
     "tiktok": {
         "ai_trading": [7, 12, 19],
@@ -84,6 +93,9 @@ OPTIMAL_POST_HOURS = {
         "motivation": [6, 7, 20],
         "health_wellness": [7, 11, 19],
         "blissful_moments": [8, 19, 21],
+        "daily_breakdown": [8, 14, 20],
+        "shopmo_products": [9, 15, 20],
+        "limitless_you": [7, 13, 20],
     },
     "youtube": {
         "ai_trading": [8, 14, 18],
@@ -92,6 +104,9 @@ OPTIMAL_POST_HOURS = {
         "motivation": [5, 6, 7],
         "health_wellness": [8, 12, 18],
         "blissful_moments": [9, 18, 20],
+        "daily_breakdown": [9, 15, 19],
+        "shopmo_products": [10, 15, 20],
+        "limitless_you": [6, 12, 19],
     },
     "instagram": {
         "ai_trading": [11, 14, 19],
@@ -100,6 +115,9 @@ OPTIMAL_POST_HOURS = {
         "motivation": [7, 12, 18],
         "health_wellness": [8, 12, 19],
         "blissful_moments": [9, 18, 21],
+        "daily_breakdown": [10, 14, 19],
+        "shopmo_products": [11, 15, 20],
+        "limitless_you": [7, 13, 19],
     },
 }
 
@@ -218,6 +236,85 @@ def get_optimal_hour_for_niche(niche: str) -> int:
     current_hour = datetime.now().hour
     future = [h for h in defaults if h >= current_hour]
     return future[0] if future else defaults[0]
+
+
+# ── Engagement Phase ────────────────────────────────────
+
+def already_posted_engagement(niche: str, slot_hour: int) -> bool:
+    """Check if engagement was already posted for this niche/hour today."""
+    log = load_schedule_log()
+    today = get_today_key()
+    key = f"{niche}_engagement_h{slot_hour}"
+    entry = log.get(today, {}).get(key, {})
+    return entry.get("status") == "posted"
+
+
+def mark_engagement_done(niche: str, slot_hour: int, result: dict):
+    """Mark an engagement post as done for today."""
+    log = load_schedule_log()
+    today = get_today_key()
+    if today not in log:
+        log[today] = {}
+    key = f"{niche}_engagement_h{slot_hour}"
+    log[today][key] = {
+        "status": "posted" if result.get("success") else "failed",
+        "type": result.get("content_type", ""),
+        "completed_at": datetime.now().isoformat(),
+    }
+    save_schedule_log(log)
+
+
+async def run_engagement_phase(slot_hour: int | None = None):
+    """
+    Run engagement posts for all configured Facebook pages.
+
+    Args:
+        slot_hour: The engagement hour slot (9, 12, 15, 18, 21).
+                  Determines content type rotation. None = auto-detect.
+    """
+    if not ENABLE_ENGAGEMENT_POSTS:
+        print("[Engagement] Disabled via ENABLE_ENGAGEMENT_POSTS=false")
+        return []
+
+    from modules.engagement_poster import run_engagement_round
+
+    if slot_hour is None:
+        slot_hour = datetime.now().hour
+
+    # Determine content type based on slot index
+    try:
+        slot_idx = ENGAGEMENT_HOURS.index(slot_hour)
+    except ValueError:
+        slot_idx = slot_hour % len(ENGAGEMENT_CONTENT_TYPES)
+
+    content_type = ENGAGEMENT_CONTENT_TYPES[slot_idx % len(ENGAGEMENT_CONTENT_TYPES)]
+
+    # Filter niches that haven't been posted yet
+    import os
+    niches = [n for n in NICHES.keys()
+              if os.getenv(f"FB_PAGE_ID_{n}", "")
+              and not already_posted_engagement(n, slot_hour)]
+
+    if not niches:
+        print(f"[Engagement] All niches already posted for hour {slot_hour}")
+        return []
+
+    print(f"\n{'#'*60}")
+    print(f"# ENGAGEMENT PHASE — {content_type.upper()} posts")
+    print(f"# Hour: {slot_hour}:00 | Niches: {len(niches)}")
+    print(f"# {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{'#'*60}\n")
+
+    results = await run_engagement_round(niches=niches, content_type=content_type)
+
+    for r in results:
+        niche = r.get("niche", "")
+        if niche:
+            mark_engagement_done(niche, slot_hour, r)
+
+    posted = sum(1 for r in results if r.get("success"))
+    print(f"\n[Engagement] Phase complete: {posted}/{len(results)} posted")
+    return results
 
 
 # ── Build Phase ──────────────────────────────────────────
@@ -432,6 +529,9 @@ async def scheduler_loop():
         bh = BUILD_HOURS[slot_idx]
         uh = UPLOAD_HOURS[slot_idx]
         print(f"    Slot {slot_idx+1}: BUILD {bh:02d}:00 -> UPLOAD {uh:02d}:00  ({fmt})")
+    if ENABLE_ENGAGEMENT_POSTS:
+        eng_str = ", ".join(f"{h:02d}:00" for h in ENGAGEMENT_HOURS)
+        print(f"    Engagement: {eng_str}")
     print()
 
     completed_phases = set()  # Track (date, hour, phase) to avoid re-running
@@ -466,6 +566,18 @@ async def scheduler_loop():
                     print(f"[Scheduler] Upload failed: {e}")
                     await _send_alert(f"Scheduler upload failed: {e}")
                 completed_phases.add(phase_key)
+
+        # Check ENGAGEMENT slots
+        if ENABLE_ENGAGEMENT_POSTS:
+            for eng_hour in ENGAGEMENT_HOURS:
+                phase_key = (today, eng_hour, "engagement", 0)
+                if current_hour == eng_hour and phase_key not in completed_phases:
+                    print(f"\n[Scheduler] {now.strftime('%H:%M')} — ENGAGEMENT phase (hour {eng_hour})")
+                    try:
+                        await run_engagement_phase(eng_hour)
+                    except Exception as e:
+                        print(f"[Scheduler] Engagement failed: {e}")
+                    completed_phases.add(phase_key)
 
         # Reset tracking at midnight
         if current_hour == 0:
@@ -568,6 +680,7 @@ def main():
     parser.add_argument("--slot", type=int, choices=[0, 1, 2], help="Specific slot to build (0=shorts, 1=podcast, 2=long)")
     parser.add_argument("--status", action="store_true", help="Show schedule status")
     parser.add_argument("--optimize", action="store_true", help="Show optimal posting times")
+    parser.add_argument("--engagement", action="store_true", help="Run one round of engagement posts to all FB pages")
     parser.add_argument("--niche-heat", action="store_true", help="Show current niche trend heat rankings")
     args = parser.parse_args()
 
@@ -582,6 +695,10 @@ def main():
 
     if args.optimize:
         show_optimization()
+        return
+
+    if args.engagement:
+        asyncio.run(run_engagement_phase())
         return
 
     if args.build:

@@ -20,6 +20,7 @@ from config import (
     THUMBNAIL_ACCENT_COLOR,
     THUMBNAIL_FONT_SIZE,
     ASSETS_DIR,
+    SHOPMO_LOGO_PATH,
 )
 
 
@@ -108,6 +109,8 @@ NICHE_COLORS = {
     "health_wellness": {"accent": (100, 220, 100), "secondary": (0, 200, 100)},
     "blissful_moments": {"accent": (255, 180, 100), "secondary": (255, 130, 200)},
     "daily_breakdown": {"accent": (220, 40, 40), "secondary": (255, 255, 255)},  # News red + white
+    "shopmo_products": {"accent": (255, 100, 0), "secondary": (0, 200, 255)},  # Orange + blue (e-commerce)
+    "limitless_you": {"accent": (0, 180, 255), "secondary": (255, 200, 0)},  # Blue + gold (self-improvement)
 }
 
 
@@ -407,6 +410,21 @@ def generate_thumbnail(
     accent_upper = accent_text.upper() if accent_text else None
     draw = ImageDraw.Draw(img)
     img = layout_fn(img, draw, title_upper, accent_upper, colors, has_avatar, max_text_w, x_margin)
+
+    # ShopMO logo overlay for shopmo_products niche
+    if niche == "shopmo_products" and SHOPMO_LOGO_PATH.exists():
+        try:
+            logo = Image.open(str(SHOPMO_LOGO_PATH)).convert("RGBA")
+            logo_w = 200
+            ratio = logo_w / logo.width
+            logo = logo.resize((logo_w, int(logo.height * ratio)), Image.LANCZOS)
+            x = THUMBNAIL_WIDTH - logo_w - 20
+            y = 20
+            img_rgba = img.convert("RGBA")
+            img_rgba.paste(logo, (x, y), logo)
+            img = img_rgba.convert("RGB")
+        except Exception:
+            pass
 
     # Save
     img.save(str(output_path), quality=95)

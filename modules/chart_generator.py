@@ -4,6 +4,9 @@ Chart Generator — Creates professional trading charts from live market data.
 Used specifically for the ai_trading niche.
 Generates candlestick charts, volume bars, and dashboard-style images.
 """
+import matplotlib
+matplotlib.use("Agg")  # Non-interactive backend — avoids tkinter threading crash
+
 from datetime import datetime
 from pathlib import Path
 
@@ -67,6 +70,9 @@ def generate_candlestick_chart(
             figsize=(width, height),
             savefig=save_config,
         )
+        # Close all figures to prevent memory leaks in async pipeline
+        import matplotlib.pyplot as plt
+        plt.close("all")
 
         print(f"[Chart] Generated: {output_path.name} ({symbol})")
         return str(output_path)

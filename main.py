@@ -36,6 +36,9 @@ Usage:
     python main.py --ab-summary        # Show A/B test results
     python main.py --trends            # Show current trending topics
 """
+import matplotlib
+matplotlib.use("Agg")  # Non-interactive backend — MUST be before any matplotlib import to prevent tkinter crash
+
 import asyncio
 import argparse
 import json
@@ -420,6 +423,7 @@ async def create_video(
                 description=script.get("caption", title),
                 hashtags=tt_hashtags,
                 schedule_time=tiktok_schedule_time,
+                niche=niche,
             )
             uploads.append(tt_result)
 
@@ -1179,6 +1183,7 @@ async def create_podcast_video(
                     description=script.get("caption", title),
                     hashtags=niche_config.get("hashtags", []),
                     schedule_time=tiktok_schedule_time,
+                    niche=niche,
                 )
                 uploads.append(tt_result)
             except Exception:
@@ -1368,6 +1373,7 @@ async def upload_prebuilt_videos(
                 video_path=str(video_path),
                 description=caption,
                 hashtags=tags,
+                niche=niche,
             )
             uploads.append(tt_result)
         except Exception:
@@ -1556,7 +1562,7 @@ async def run_daily_pipeline(
 
 def main():
     parser = argparse.ArgumentParser(description="AI Video Factory v2")
-    parser.add_argument("--niche", choices=list(NICHES.keys()) + ["daily_breakdown"], help="Run specific niche only")
+    parser.add_argument("--niche", choices=list(NICHES.keys()), help="Run specific niche only")
     parser.add_argument("--format", choices=["long", "short", "podcast", "news_anchor"], help="Run specific format only")
     parser.add_argument("--dry-run", action="store_true", help="Generate videos but don't upload")
     parser.add_argument("--stats", action="store_true", help="Show statistics")
@@ -1569,6 +1575,7 @@ def main():
     parser.add_argument("--niche-heat", action="store_true", help="Show niche trend heat rankings")
     parser.add_argument("--build-only", action="store_true", help="Build videos without uploading (for scheduled deferred upload)")
     parser.add_argument("--upload-prebuilt", action="store_true", help="Upload pre-built videos from previous build phase")
+    parser.add_argument("--engagement", action="store_true", help="Run one round of engagement posts to all FB pages")
     args = parser.parse_args()
 
     if args.update_metrics:
@@ -1659,6 +1666,14 @@ def main():
         print(f"  Videos: {total['total_videos']} (OK: {total['successful']}, Fail: {total['failed']})")
         print(f"  Uploads: {total['total_uploads']}")
         print(f"  By niche: {total['by_niche']}")
+        return
+
+    if args.engagement:
+        async def run_eng():
+            from modules.engagement_poster import run_engagement_round
+            niches = [args.niche] if args.niche else None
+            return await run_engagement_round(niches=niches, dry_run=args.dry_run)
+        asyncio.run(run_eng())
         return
 
     if args.upload_prebuilt:

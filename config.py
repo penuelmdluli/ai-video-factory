@@ -34,6 +34,15 @@ CF_API_TOKEN = os.getenv("CF_API_TOKEN", "")
 # ── Website URL (included in all video descriptions) ─────────
 WEBSITE_URL = os.getenv("WEBSITE_URL", "https://www.gettraderadar.com")
 
+# Per-niche website URL override (ShopMO uses its own domain)
+NICHE_WEBSITE_URL = {
+    "shopmo_products": "https://shopmoo.co.za",
+}
+
+def get_website_url(niche: str = "") -> str:
+    """Get the website URL for a niche (ShopMO uses shopmoo.co.za)."""
+    return NICHE_WEBSITE_URL.get(niche, WEBSITE_URL)
+
 # ── Stock Footage ──────────────────────────────────────────────
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
 
@@ -81,6 +90,8 @@ FB_PAGE_ID_DAILY_BREAKDOWN = os.getenv("FB_PAGE_ID_daily_breakdown", "")
 FB_PAGE_TOKEN_DAILY_BREAKDOWN = os.getenv("FB_PAGE_TOKEN_daily_breakdown", "")
 FB_PAGE_ID_SHOPMO_PRODUCTS = os.getenv("FB_PAGE_ID_shopmo_products", "61582171693722")
 FB_PAGE_TOKEN_SHOPMO_PRODUCTS = os.getenv("FB_PAGE_TOKEN_shopmo_products", "")
+FB_PAGE_ID_LIMITLESS_YOU = os.getenv("FB_PAGE_ID_limitless_you", "")
+FB_PAGE_TOKEN_LIMITLESS_YOU = os.getenv("FB_PAGE_TOKEN_limitless_you", "")
 
 # ── Cloud Storage (for Instagram Reels upload) ───────────────
 R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID", "")
@@ -122,6 +133,10 @@ INSTAGRAM_ACCOUNTS = {
     "shopmo_products": {
         "user_id": os.getenv("IG_USER_ID_shopmo_products", os.getenv("INSTAGRAM_USER_ID", "")),
         "access_token": os.getenv("IG_TOKEN_shopmo_products", os.getenv("INSTAGRAM_ACCESS_TOKEN", "")),
+    },
+    "limitless_you": {
+        "user_id": os.getenv("IG_USER_ID_limitless_you", os.getenv("INSTAGRAM_USER_ID", "")),
+        "access_token": os.getenv("IG_TOKEN_limitless_you", os.getenv("INSTAGRAM_ACCESS_TOKEN", "")),
     },
 }
 
@@ -498,6 +513,37 @@ NICHES = {
         "generate_charts": False,
         "edge_voice": "en-US-AriaNeural",  # Warm female voice — engaging for product reviews
     },
+    "limitless_you": {
+        "name": "Limitless You - AI-Powered Self Improvement",
+        "topics_bank": [
+            "AI analyzed 10000 morning routines and found this one habit matters most",
+            "AI scanned every productivity study from the last decade here is what actually works",
+            "we fed 5000 success stories into AI and found the one pattern they all share",
+            "AI reveals the exact minute your willpower dies each day and how to fix it",
+            "the neuroscience of habit formation what AI found in 300 brain studies",
+            "AI tracked 1000 people who quit social media for 30 days here is what happened",
+            "why AI says your goals are failing and the scientific fix nobody talks about",
+            "AI analyzed every self help book ever written these 3 rules actually work",
+            "the 2 minute brain hack AI found in cognitive behavioral therapy research",
+            "AI discovered why some people bounce back from failure and others don't",
+            "we asked AI to design the perfect morning routine based on sleep science",
+            "AI reveals the hidden cost of saying yes to everything backed by data",
+            "the compound effect AI calculated exactly how small habits create massive results",
+            "AI found the optimal learning technique that 95 percent of people ignore",
+            "how AI coaches are replacing therapists for daily mindset training",
+            "AI analyzed stoic philosophy and modern psychology here is where they agree",
+            "the focus formula AI extracted from studying elite performers",
+            "AI predicts your biggest obstacle to success based on behavioral patterns",
+            "cold exposure vs meditation AI compared 200 studies to find the better habit",
+            "AI decoded emotional intelligence into 5 trainable micro skills",
+        ],
+        "search_keywords": ["AI self improvement", "personal development science", "habit formation research", "mindset growth AI", "discipline neuroscience", "productivity data"],
+        "pexels_queries": ["personal growth", "reading book", "meditation", "sunrise", "journal writing", "mountain climbing", "fitness", "focused person", "nature peace", "running athlete", "brain science", "data analysis", "AI technology"],
+        "hashtags": ["#LimitlessYou", "#AICoach", "#SelfImprovement", "#PersonalGrowth", "#MindsetScience", "#Discipline", "#HabitScience", "#Productivity", "#GrowthMindset", "#AIWisdom", "#LevelUp", "#BecomeUnstoppable"],
+        "cpm_estimate": 11,
+        "generate_charts": False,
+        "edge_voice": "en-US-ChristopherNeural",  # Deep male voice — authoritative for self-improvement
+    },
 }
 
 # ── Schedule (videos per day per niche) ────────────────────────
@@ -510,7 +556,17 @@ SCHEDULE = {
     "blissful_moments": {"long_form": 1, "shorts": 1, "podcast": 1}, # 3 videos/day — 58K followers!
     "daily_breakdown": {"shorts": 2},  # 2 news analysis clips/day
     "shopmo_products": {"long_form": 1, "shorts": 2},  # 1 product review + 2 shorts/day — pure sales machine
+    "limitless_you": {"long_form": 1, "shorts": 1, "podcast": 1},  # 3 videos/day — self improvement
 }
+
+# ── Facebook Engagement Posts (images + text between videos) ──
+ENABLE_ENGAGEMENT_POSTS = os.getenv("ENABLE_ENGAGEMENT_POSTS", "true").lower() in ("true", "1", "yes")
+ENGAGEMENT_POSTS_PER_DAY = int(os.getenv("ENGAGEMENT_POSTS_PER_DAY", "5"))
+ENGAGEMENT_HOURS = [9, 12, 15, 18, 21]  # 5 slots spread across the day
+ENGAGEMENT_CONTENT_TYPES = ["quote", "tip", "fact", "poll", "mixed"]
+
+# ShopMO branding — always show logo and website on ShopMO content
+SHOPMO_LOGO_PATH = ASSETS_DIR / "logos" / "shopmo_logo.png"
 
 # ── Affiliate Links (auto-inserted in descriptions) ───────────
 AFFILIATE_LINKS = {
