@@ -9,6 +9,37 @@ append monetization CTAs to video descriptions.
 import random
 from typing import Optional
 
+# ═══════════════════════════════════════════════════════════
+# OUR OWN PRODUCTS & SERVICES (100% profit - always promote first!)
+# ═══════════════════════════════════════════════════════════
+
+OWN_PRODUCTS = {
+    "traderadar": {
+        "name": "TradeRadar AI",
+        "url": "https://gettraderadar.com",
+        "tagline": "Free AI Stock Analysis - Try 3 stocks free/day",
+        "best_for": ["ai_trading", "ai_money"],
+    },
+    "traderadar_signals": {
+        "name": "AI Trading Signals",
+        "url": "https://gettraderadar.com/signals",
+        "tagline": "AI-Powered Trading Signals - $47/mo",
+        "best_for": ["ai_trading"],
+    },
+    "replyflow": {
+        "name": "ReplyFlow",
+        "url": "https://tryreplyflow.com",
+        "tagline": "AI Review Management - Automate Your Reputation",
+        "best_for": ["ai_money", "tech_news", "shopmo_products", "daily_breakdown"],
+    },
+    "gaptogold": {
+        "name": "Gap-to-Gold",
+        "url": "https://gaptogold.com",
+        "tagline": "Professional Web Development - Free Website Audit",
+        "best_for": ["tech_news", "ai_money", "shopmo_products"],
+    },
+}
+
 # ---------------------------------------------------------------------------
 # Affiliate links per niche (sorted by priority, 1 = highest)
 # ---------------------------------------------------------------------------
@@ -214,20 +245,31 @@ def get_affiliate_links(niche: str, max_links: int = 3) -> str:
 def get_product_cta(niche: str) -> str:
     """Return a product promotion call-to-action for the given niche.
 
+    Includes both digital products (ebooks, courses) and our own SaaS
+    products (TradeRadar, ReplyFlow, Gap-to-Gold) for maximum revenue.
+
     Args:
         niche: The channel niche key.
 
     Returns:
         Formatted CTA string, or empty string if niche has no product.
     """
-    product = NICHE_PRODUCTS.get(niche)
-    if not product:
-        return ""
+    lines = []
 
-    return (
-        f"GET MY {product['name'].upper()} ({product['price']})\n"
-        f"{product['url']}"
-    )
+    # Our SaaS products (100% profit)
+    relevant_own = _get_relevant_own_products(niche)
+    for own in relevant_own:
+        lines.append(f"TRY {own['name'].upper()} - {own['tagline']}\n{own['url']}")
+
+    # Digital product
+    product = NICHE_PRODUCTS.get(niche)
+    if product:
+        lines.append(
+            f"GET MY {product['name'].upper()} ({product['price']})\n"
+            f"{product['url']}"
+        )
+
+    return "\n".join(lines)
 
 
 def get_signals_cta() -> str:
@@ -265,6 +307,45 @@ def get_lead_magnet_cta(niche: str) -> str:
     )
 
 
+def _get_relevant_own_products(niche: str) -> list:
+    """Return OWN_PRODUCTS relevant to the given niche, ordered by specificity.
+
+    Args:
+        niche: The channel niche key.
+
+    Returns:
+        List of own product dicts whose ``best_for`` includes *niche*.
+    """
+    results = []
+    for _key, product in OWN_PRODUCTS.items():
+        if niche in product["best_for"]:
+            results.append(product)
+    return results
+
+
+def get_own_products_cta(niche: str) -> str:
+    """Return a formatted CTA block for our own products relevant to *niche*.
+
+    These are 100% profit products (TradeRadar, ReplyFlow, Gap-to-Gold) and
+    should always be promoted above third-party affiliates.
+
+    Args:
+        niche: The channel niche key.
+
+    Returns:
+        Formatted multi-line string, or empty string if no products match.
+    """
+    relevant = _get_relevant_own_products(niche)
+    if not relevant:
+        return ""
+
+    lines = ["OUR TOOLS (Built by us!)"]
+    for product in relevant:
+        lines.append(f">> {product['name']} - {product['tagline']}")
+        lines.append(f"   {product['url']}")
+    return "\n".join(lines)
+
+
 def get_full_description_footer(niche: str) -> str:
     """Build a complete monetization footer for video descriptions.
 
@@ -279,6 +360,11 @@ def get_full_description_footer(niche: str) -> str:
         Ready-to-append description footer string.
     """
     sections = []
+
+    # OWN products first (100% profit!)
+    own_cta = get_own_products_cta(niche)
+    if own_cta:
+        sections.append(own_cta)
 
     # Affiliate links
     aff_links = get_affiliate_links(niche, max_links=3)
@@ -327,6 +413,12 @@ def get_engagement_cta(niche: str) -> str:
     ]
 
     lines = []
+
+    # OWN product first (100% profit)
+    relevant_own = _get_relevant_own_products(niche)
+    if relevant_own:
+        top_own = relevant_own[0]
+        lines.append(f"{random.choice(openers)}: {top_own['url']} ({top_own['tagline']})")
 
     # Top affiliate
     affiliates = NICHE_AFFILIATES.get(niche, [])
