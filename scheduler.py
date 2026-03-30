@@ -76,7 +76,6 @@ SLOT_NAMES = {
 # Kept for performance tracking and optimization data.
 OPTIMAL_POST_HOURS = {
     "facebook": {
-        "ai_trading": [9, 13, 16],
         "ai_money": [8, 12, 17],
         "tech_news": [9, 13, 18],
         "motivation": [6, 7, 8],
@@ -87,7 +86,6 @@ OPTIMAL_POST_HOURS = {
         "limitless_you": [7, 12, 19],
     },
     "tiktok": {
-        "ai_trading": [7, 12, 19],
         "ai_money": [8, 13, 20],
         "tech_news": [9, 14, 20],
         "motivation": [6, 7, 20],
@@ -98,7 +96,6 @@ OPTIMAL_POST_HOURS = {
         "limitless_you": [7, 13, 20],
     },
     "youtube": {
-        "ai_trading": [8, 14, 18],
         "ai_money": [9, 15, 19],
         "tech_news": [10, 15, 19],
         "motivation": [5, 6, 7],
@@ -109,7 +106,6 @@ OPTIMAL_POST_HOURS = {
         "limitless_you": [6, 12, 19],
     },
     "instagram": {
-        "ai_trading": [11, 14, 19],
         "ai_money": [10, 14, 20],
         "tech_news": [11, 15, 19],
         "motivation": [7, 12, 18],
@@ -505,6 +501,49 @@ async def _send_alert(message: str):
 
 # ── Two-Phase Scheduler Loop ────────────────────────────
 
+async def _run_engagement_background(eng_hour: int):
+    """Run engagement phase in the background so it doesn't block build/upload."""
+    try:
+        await run_engagement_phase(eng_hour)
+    except Exception as e:
+        print(f"[Scheduler] Engagement failed (hour {eng_hour}): {e}")
+
+
+async def _check_and_run_engagement(completed_phases: set, today: str):
+    """
+    Check for any engagement slots that should run NOW or were MISSED.
+
+    Catches up on missed slots (e.g., if a long build/upload blocked the loop)
+    by running any slot whose hour has passed but wasn't completed today.
+    """
+    if not ENABLE_ENGAGEMENT_POSTS:
+        return
+
+    current_hour = datetime.now().hour
+    tasks = []
+
+    for eng_hour in ENGAGEMENT_HOURS:
+        phase_key = (today, eng_hour, "engagement", 0)
+        if phase_key in completed_phases:
+            continue
+
+        # Run if we're at this hour OR if we've passed it (catch-up)
+        if eng_hour <= current_hour:
+            if eng_hour == current_hour:
+                print(f"\n[Scheduler] {datetime.now().strftime('%H:%M')} — ENGAGEMENT phase (hour {eng_hour})")
+            else:
+                print(f"\n[Scheduler] {datetime.now().strftime('%H:%M')} — ENGAGEMENT catch-up (hour {eng_hour}, missed)")
+            tasks.append((eng_hour, phase_key))
+
+    # Run missed engagement slots sequentially (each is quick ~2-3 min)
+    for eng_hour, phase_key in tasks:
+        try:
+            await run_engagement_phase(eng_hour)
+        except Exception as e:
+            print(f"[Scheduler] Engagement failed (hour {eng_hour}): {e}")
+        completed_phases.add(phase_key)
+
+
 async def scheduler_loop():
     """
     Main scheduler daemon — two-phase scheduling.
@@ -513,6 +552,9 @@ async def scheduler_loop():
         5:00 AM  BUILD shorts      ->  8:00 AM  UPLOAD shorts
         11:00 AM BUILD podcasts    ->  2:00 PM  UPLOAD podcasts
         5:00 PM  BUILD long-form   ->  8:00 PM  UPLOAD long-form
+
+    Engagement posts run at 9, 12, 15, 18, 21 and catch up on missed slots
+    after long-running build/upload phases complete.
 
     Checks every 15 minutes. Each phase runs once per slot per day.
     """
@@ -531,7 +573,7 @@ async def scheduler_loop():
         print(f"    Slot {slot_idx+1}: BUILD {bh:02d}:00 -> UPLOAD {uh:02d}:00  ({fmt})")
     if ENABLE_ENGAGEMENT_POSTS:
         eng_str = ", ".join(f"{h:02d}:00" for h in ENGAGEMENT_HOURS)
-        print(f"    Engagement: {eng_str}")
+        print(f"    Engagement: {eng_str} (with catch-up)")
     print()
 
     completed_phases = set()  # Track (date, hour, phase) to avoid re-running
@@ -541,7 +583,11 @@ async def scheduler_loop():
         current_hour = now.hour
         today = now.strftime("%Y-%m-%d")
 
-        # Check BUILD slots
+        # ── ENGAGEMENT: check FIRST and catch up on missed slots ──
+        # This runs before build/upload so engagement isn't blocked.
+        await _check_and_run_engagement(completed_phases, today)
+
+        # ── BUILD slots ──
         for slot_idx, build_hour in enumerate(BUILD_HOURS):
             phase_key = (today, build_hour, "build", slot_idx)
             if current_hour == build_hour and phase_key not in completed_phases:
@@ -554,7 +600,10 @@ async def scheduler_loop():
                     await _send_alert(f"Scheduler build failed: {e}")
                 completed_phases.add(phase_key)
 
-        # Check UPLOAD slots
+                # After long build, catch up on any missed engagement slots
+                await _check_and_run_engagement(completed_phases, today)
+
+        # ── UPLOAD slots ──
         for slot_idx, upload_hour in enumerate(UPLOAD_HOURS):
             phase_key = (today, upload_hour, "upload", slot_idx)
             if current_hour == upload_hour and phase_key not in completed_phases:
@@ -567,17 +616,8 @@ async def scheduler_loop():
                     await _send_alert(f"Scheduler upload failed: {e}")
                 completed_phases.add(phase_key)
 
-        # Check ENGAGEMENT slots
-        if ENABLE_ENGAGEMENT_POSTS:
-            for eng_hour in ENGAGEMENT_HOURS:
-                phase_key = (today, eng_hour, "engagement", 0)
-                if current_hour == eng_hour and phase_key not in completed_phases:
-                    print(f"\n[Scheduler] {now.strftime('%H:%M')} — ENGAGEMENT phase (hour {eng_hour})")
-                    try:
-                        await run_engagement_phase(eng_hour)
-                    except Exception as e:
-                        print(f"[Scheduler] Engagement failed: {e}")
-                    completed_phases.add(phase_key)
+                # After long upload, catch up on any missed engagement slots
+                await _check_and_run_engagement(completed_phases, today)
 
         # Reset tracking at midnight
         if current_hour == 0:

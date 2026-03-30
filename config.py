@@ -74,8 +74,6 @@ TREND_SOURCE_STALE_HOURS = float(os.getenv("TREND_SOURCE_STALE_HOURS", "6"))
 # ── Facebook Pages (MOTIVATIONS App ID: 591543017174198) ─────
 FB_APP_ID = os.getenv("FB_APP_ID", "591543017174198")
 # Per-niche page tokens and IDs
-FB_PAGE_ID_AI_TRADING = os.getenv("FB_PAGE_ID_ai_trading", "")
-FB_PAGE_TOKEN_AI_TRADING = os.getenv("FB_PAGE_TOKEN_ai_trading", "")
 FB_PAGE_ID_AI_MONEY = os.getenv("FB_PAGE_ID_ai_money", "")
 FB_PAGE_TOKEN_AI_MONEY = os.getenv("FB_PAGE_TOKEN_ai_money", "")
 FB_PAGE_ID_TECH_NEWS = os.getenv("FB_PAGE_ID_tech_news", "")
@@ -102,10 +100,6 @@ R2_PUBLIC_URL = os.getenv("R2_PUBLIC_URL", "")
 # ── Per-Niche Instagram Business Accounts ─────────────────
 # Each niche IG Business Account is connected to its FB Page
 INSTAGRAM_ACCOUNTS = {
-    "ai_trading": {
-        "user_id": os.getenv("IG_USER_ID_ai_trading", os.getenv("INSTAGRAM_USER_ID", "")),
-        "access_token": os.getenv("IG_TOKEN_ai_trading", os.getenv("INSTAGRAM_ACCESS_TOKEN", "")),
-    },
     "ai_money": {
         "user_id": os.getenv("IG_USER_ID_ai_money", os.getenv("INSTAGRAM_USER_ID", "")),
         "access_token": os.getenv("IG_TOKEN_ai_money", os.getenv("INSTAGRAM_ACCESS_TOKEN", "")),
@@ -150,7 +144,7 @@ GOOGLE_SHEETS_ID = os.getenv("GOOGLE_SHEETS_ID", "")
 # ── Voice Routing ──────────────────────────────────────────────
 # "elevenlabs" for premium, "edge-tts" for free
 VOICE_YOUTUBE_LONG = os.getenv("DEFAULT_VOICE_YOUTUBE", "elevenlabs")
-VOICE_SHORTS = os.getenv("DEFAULT_VOICE_SHORTS", "edge-tts")
+VOICE_SHORTS = os.getenv("DEFAULT_VOICE_SHORTS", "elevenlabs")
 
 # ── Edge-TTS Voices (free, natural-sounding) ──────────────────
 EDGE_TTS_VOICES = {
@@ -258,6 +252,26 @@ ENABLE_SFX = True  # Always try SFX; will use cached files or skip gracefully
 TRANSITION_DURATION = 0.4
 KEN_BURNS_ZOOM_RANGE = (1.0, 1.50)  # Cinematic zoom (was 1.20, now 1.50 for stronger effect)
 
+# ── AI Image Generation (Local Stable Diffusion XL) ──────────
+# Runs on GPU (RTX 2080 Ti 11GB) for unlimited, copyright-free images
+ENABLE_LOCAL_SD = os.getenv("ENABLE_LOCAL_SD", "true").lower() in ("true", "1", "yes")
+SD_STEPS = int(os.getenv("SD_STEPS", "20"))  # 20 = good quality + 33% faster
+SD_CFG_SCALE = float(os.getenv("SD_CFG_SCALE", "7.5"))
+# Set to false to disable stock footage fallback (100% AI images)
+USE_STOCK_FOOTAGE = os.getenv("USE_STOCK_FOOTAGE", "false").lower() in ("true", "1", "yes")
+
+# ── AI Image-to-Video (Stable Video Diffusion) ──────────────
+# Converts AI images into video clips with natural camera motion
+# Uses SVD-XT (25 frames) with CPU offloading for 11GB VRAM
+ENABLE_IMG2VID = os.getenv("ENABLE_IMG2VID", "false").lower() in ("true", "1", "yes")
+IMG2VID_FPS = int(os.getenv("IMG2VID_FPS", "7"))
+IMG2VID_NUM_FRAMES = int(os.getenv("IMG2VID_NUM_FRAMES", "25"))
+
+# ── AI Music Generation (MusicGen) ───────────────────────────
+# Generates copyright-free background music per niche via Meta MusicGen
+ENABLE_AI_MUSIC = os.getenv("ENABLE_AI_MUSIC", "true").lower() in ("true", "1", "yes")
+AI_MUSIC_CACHE_DIR = ASSETS_DIR / "ai_music_cache"
+
 # ── Talking Head Avatar APIs ─────────────────────────────────
 # D-ID (primary) — Lite plan: 400 credits/month
 DID_API_KEY = os.getenv("DID_API_KEY", "")
@@ -275,40 +289,7 @@ SFX_CACHE_DIR = ASSETS_DIR / "sfx_cache"
 
 # ── Niche Configurations ──────────────────────────────────────
 NICHES = {
-    "ai_trading": {
-        "name": "AI Trading & Markets",
-        "topics_bank": [
-            "AI trading bot results today",
-            "stock market AI prediction",
-            "crypto AI analysis today",
-            "best AI trading strategies",
-            "AI vs human traders",
-            "automated trading results",
-            "AI market analysis daily",
-            "top stocks AI recommends",
-            "crypto market AI signals",
-            "forex AI trading bot",
-            "AI portfolio management",
-            "day trading with AI bots",
-            "swing trading AI strategy",
-            "AI predicts market crash",
-            "AI identifies breakout stocks",
-            "I let AI analyze 50 stocks and found these hidden gems",
-            "This FREE AI tool explains any stock in plain English",
-            "AI stock analysis that actually makes sense for beginners",
-            "How AI reads the market better than most traders",
-            "Stop guessing — let AI analyze your stocks for free",
-            "AI just flagged these 3 stocks as breakout candidates",
-            "The AI stock analyzer Wall Street doesn't want you to know about",
-        ],
-        "search_keywords": ["AI trading", "stock market", "crypto", "trading bot", "algorithm trading", "AI stock analysis"],
-        "pexels_queries": ["stock market", "trading", "cryptocurrency", "finance chart", "stock exchange", "money growth", "business graph", "data analysis"],
-        "hashtags": ["#AITrading", "#StockMarket", "#Crypto", "#Trading", "#DayTrading", "#AI", "#Finance", "#Investing", "#TradingBot", "#Stocks", "#TradeRadarAI", "#AIStockAnalysis"],
-        "cpm_estimate": 22,
-        "generate_charts": True,
-        "chart_symbols": ["SPY", "QQQ", "AAPL", "TSLA", "NVDA", "BTC-USD", "ETH-USD"],
-        "edge_voice": "en-US-JennyNeural",  # Female — matches D-ID Alice avatar
-    },
+    # "ai_trading" removed — Mzansi Baby Stars page repurposed for baby dance content
     "ai_money": {
         "name": "Make Money With AI",
         "topics_bank": [
@@ -548,7 +529,7 @@ NICHES = {
 
 # ── Schedule (videos per day per niche) ────────────────────────
 SCHEDULE = {
-    "ai_trading": {"long_form": 1, "shorts": 1, "podcast": 1},    # 3 videos/day
+    # "ai_trading" removed — Mzansi Baby Stars page repurposed for baby dance content
     "ai_money": {"long_form": 1, "shorts": 1, "podcast": 1},       # 3 videos/day
     "tech_news": {"long_form": 1, "shorts": 1, "podcast": 1},      # 3 videos/day
     "motivation": {"long_form": 1, "shorts": 1, "podcast": 1},     # 3 videos/day
@@ -587,7 +568,7 @@ OUR_PRODUCTS = {
         "url": "https://www.gettraderadar.com",
         "tagline": "Free AI-powered stock analysis — plain English, no jargon",
         "cta": "Try TradeRadar AI FREE",
-        "niches": ["ai_trading", "ai_money"],  # Which niches promote this
+        "niches": ["ai_money"],  # Which niches promote this
         "hashtags": ["#TradeRadarAI", "#AITrading", "#StockAnalysis"],
     },
     "shopmo": {
@@ -602,13 +583,6 @@ OUR_PRODUCTS = {
 
 # ── Product CTA Templates (inserted in video descriptions) ────
 PRODUCT_CTA_TEMPLATES = {
-    "ai_trading": [
-        "🚀 Try TradeRadar AI — FREE AI stock analysis in plain English!\n👉 https://www.gettraderadar.com",
-        "📊 Get AI-powered stock analysis FREE at TradeRadar AI\n👉 https://www.gettraderadar.com",
-        "🤖 Want AI to analyze ANY stock for you? Try TradeRadar FREE!\n👉 https://www.gettraderadar.com",
-        "💡 Stop guessing. Let AI analyze the market for you — FREE\n👉 https://www.gettraderadar.com",
-        "⚡ TradeRadar AI: Your free AI trading analyst. No jargon, just insights.\n👉 https://www.gettraderadar.com",
-    ],
     "ai_money": [
         "🤖 FREE AI tool that analyzes stocks for you — TradeRadar AI\n👉 https://www.gettraderadar.com",
         "💰 Want to make smarter investment decisions? Try TradeRadar AI FREE\n👉 https://www.gettraderadar.com",
@@ -640,7 +614,6 @@ YOUTUBE_CATEGORY_NEWS = "25"
 YOUTUBE_CATEGORY_ENTERTAINMENT = "24"
 
 NICHE_YOUTUBE_CATEGORY = {
-    "ai_trading": YOUTUBE_CATEGORY_EDUCATION,
     "ai_money": YOUTUBE_CATEGORY_HOWTO,
     "tech_news": YOUTUBE_CATEGORY_SCIENCE_TECH,
     "motivation": YOUTUBE_CATEGORY_EDUCATION,
