@@ -18,13 +18,6 @@ from config import NICHES, get_website_url
 
 # ── Engagement CTAs per niche ─────────────────────────────────
 NICHE_ENGAGEMENT_CTAS = {
-    "ai_trading": [
-        "What's YOUR best AI trading strategy? Drop it below! 👇\n\n🚀 Try TradeRadar AI FREE → https://www.gettraderadar.com",
-        "Are you using AI to trade? Comment YES or NO! 🤖\n\n📊 Get FREE AI stock analysis → https://www.gettraderadar.com",
-        "What stock should AI analyze next? Comment below! 📈\n\n⚡ Try it FREE → https://www.gettraderadar.com",
-        "Tag a friend who needs AI-powered trading insights! 🔥\n\n💡 FREE AI analysis → https://www.gettraderadar.com",
-        "Save this for your next trading session! 💰\n\n🤖 TradeRadar AI — Free stock analysis → https://www.gettraderadar.com",
-    ],
     "ai_money": [
         "What AI tool are YOU using to make money? Comment below! 💰\n\n📊 Try TradeRadar AI FREE → https://www.gettraderadar.com",
         "Would you try this? Drop a YES in the comments! 🚀\n\n🤖 FREE AI investing tool → https://www.gettraderadar.com",
@@ -104,8 +97,8 @@ GRAPH_API_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 FB_APP_ID = os.getenv("FB_APP_ID", "591543017174198")
 
 # Page tokens: one per page we post to (long-lived page access tokens)
-# Format in .env: FB_PAGE_TOKEN_ai_trading=<token>
-# The page ID is also needed: FB_PAGE_ID_ai_trading=<page_id>
+# Format in .env: FB_PAGE_TOKEN_<niche>=<token>
+# The page ID is also needed: FB_PAGE_ID_<niche>=<page_id>
 def _get_page_config(niche: str) -> dict:
     """Get Facebook page ID and token for a niche."""
     page_id = os.getenv(f"FB_PAGE_ID_{niche}", "")
@@ -117,7 +110,7 @@ async def upload_to_facebook(
     video_path: str,
     title: str,
     description: str,
-    niche: str = "ai_trading",
+    niche: str = "ai_money",
     hashtags: list[str] | None = None,
     is_reel: bool = False,
     thumbnail_path: str | None = None,

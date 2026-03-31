@@ -129,7 +129,18 @@ async def create_video(
         script = await generate_script(topic, niche, format_type)
         title = script.get("title", topic)
         description = script.get("description", "")
-        tags = script.get("tags", [])
+        # Fallback: auto-generate description from title + scenes if empty
+        if not description or len(description.strip()) < 20:
+            scene_texts = " ".join(s.get("narration", "")[:80] for s in script.get("scenes", [])[:3])
+            description = f"{title}. {scene_texts}".strip()[:500]
+            print(f"[2/10] Auto-generated description (script had none)")
+        # Always use niche-configured hashtags as base, then append AI-generated ones
+        niche_tags = niche_config.get("hashtags", [])
+        ai_tags = script.get("tags", [])
+        # Deduplicate: niche tags first, then AI tags that aren't duplicates
+        seen = {t.lower().lstrip("#") for t in niche_tags}
+        extra_tags = [t for t in ai_tags if t.lower().lstrip("#") not in seen]
+        tags = niche_tags + extra_tags[:5]  # Cap AI extras at 5
         print(f"[2/10] Script: {_safe(title[:60])}... ({len(script['scenes'])} scenes)")
 
         # ── Step 2.5: Get Dynamic Hashtags ─────────────────────
@@ -202,33 +213,9 @@ async def create_video(
             work_dir / "visuals",
             niche_queries=niche_config.get("pexels_queries"),
             orientation=orientation,
+            niche=niche,
         )
-
-        # Generate AI images for weak scenes
-        ai_image_count = 0
-        from modules.ai_images import generate_image
-        has_free_ai = bool(GEMINI_API_KEY) or bool(os.getenv("CF_ACCOUNT_ID") and os.getenv("CF_API_TOKEN"))
-
-        if has_free_ai or OPENAI_API_KEY:
-            weak_scenes = [
-                v for v in visuals
-                if v.get("type") in ("placeholder", "photo") or v.get("local_path") is None
-            ]
-            for v in weak_scenes:
-                sn = v["scene_number"]
-                desc = ""
-                for sv in scene_visuals:
-                    if sv.get("scene_number") == sn:
-                        desc = sv.get("visual", sv.get("visual_description", ""))
-                        break
-                if not desc:
-                    continue
-                ai_path = work_dir / "ai_images" / f"ai_scene_{sn:02d}.png"
-                result = await generate_image(desc, ai_path, niche=niche, orientation=orientation)
-                if result:
-                    v["local_path"] = result
-                    v["type"] = "photo"
-                    ai_image_count += 1
+        ai_image_count = sum(1 for v in visuals if v.get("type") == "ai_image")
 
         # Generate trading charts if applicable
         chart_paths = []
@@ -1317,6 +1304,9 @@ async def upload_prebuilt_videos(
 
         niche = manifest["niche"]
         format_type = manifest["format_type"]
+        if niche not in NICHES:
+            print(f"[SKIP] {niche}/{format_type}: Niche removed from pipeline")
+            continue
         if niche_filter and niche != niche_filter:
             continue
         if format_filter and format_type != format_filter:
