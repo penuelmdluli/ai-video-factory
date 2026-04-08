@@ -222,6 +222,24 @@ async def fetch_trends_for_brand(brand: str) -> dict | None:
             if isinstance(r, list):
                 all_results.extend(r)
 
+    # ── Real-time sources (Google Trends, Twitter, TikTok) ──
+    try:
+        from genesis.intelligence import fetch_google_trends, fetch_twitter_trending, fetch_tiktok_trending, cross_platform_boost
+        realtime_tasks = [
+            fetch_google_trends(brand),
+            fetch_twitter_trending(),
+            fetch_tiktok_trending(),
+        ]
+        realtime_results = await asyncio.gather(*realtime_tasks, return_exceptions=True)
+        for r in realtime_results:
+            if isinstance(r, list):
+                all_results.extend(r)
+
+        # Cross-platform boost: topics on 2+ platforms get score multiplied
+        all_results = cross_platform_boost(all_results)
+    except Exception as e:
+        print(f"  [Intelligence] Real-time sources failed: {e}")
+
     duration = time.time() - start
 
     if not all_results:

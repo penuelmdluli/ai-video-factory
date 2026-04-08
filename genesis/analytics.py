@@ -139,6 +139,18 @@ async def pull_all_analytics():
             brand_name = BRANDS.get(post["brand"], {}).get("name", post["brand"])
             print(f"  📈 {brand_name} ({post['platform']}): {metrics['views']} views, score: {metrics['performance_score']}")
 
+    # Recalculate engagement scores using intelligence layer
+    try:
+        from genesis.intelligence import update_all_performance_scores, generate_performance_report
+        scored = update_all_performance_scores()
+        if scored > 0:
+            print(f"\n  Recalculated engagement scores for {scored} posts")
+        # Print performance report
+        report = generate_performance_report()
+        print(report)
+    except Exception as e:
+        print(f"  Intelligence scoring failed: {e}")
+
     log_pipeline("analytics", "all", "success", f"Updated {updated}/{len(posts)} posts")
     print(f"\n  Updated {updated} / {len(posts)} posts")
 

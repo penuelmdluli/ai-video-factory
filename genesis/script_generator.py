@@ -27,10 +27,17 @@ def generate_script(brand: str, trend: dict) -> dict | None:
     try:
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
+        # Use adaptive prompt if we have performance data
+        try:
+            from genesis.intelligence import get_adaptive_prompt
+            system_prompt = get_adaptive_prompt(brand)
+        except Exception:
+            system_prompt = prompt_config["system"]
+
         message = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=1024,
-            system=prompt_config["system"],
+            system=system_prompt,
             messages=[{
                 "role": "user",
                 "content": f"Write a script about: {trend['headline']}. Topic: {trend['topic']}"
