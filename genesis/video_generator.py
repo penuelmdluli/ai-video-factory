@@ -24,13 +24,19 @@ load_dotenv(override=True)
 CRON_SECRET = os.getenv("CRON_SECRET", "")
 
 
-async def generate_video(brand: str, script_data: dict) -> dict | None:
+MAX_RETRIES = 2  # Retry each brand up to 2 times
+
+
+async def generate_video(brand: str, script_data: dict, attempt: int = 1) -> dict | None:
     """Generate a full Brain Studio production for a brand."""
     start = time.time()
 
     script = script_data["script"]
     script_id = script_data["script_id"]
     hook_line = script_data.get("hook_line", "")
+
+    if attempt > 1:
+        print(f"    [RETRY {attempt}/{MAX_RETRIES}] {brand}")
 
     # Create video record
     video_id = save_video(script_id, brand)
@@ -91,16 +97,19 @@ async def generate_video(brand: str, script_data: dict) -> dict | None:
                 "productionId": production_id,
             }
 
-            max_polls = 80  # 80 * 15s = 20 minutes max
+            max_polls = 120  # 120 * 15s = 30 minutes max
             last_status = ""
             last_progress = 0
+            assembly_polls = 0  # Track how long we've been in assembly
 
-            for attempt in range(max_polls):
+            for poll_num in range(max_polls):
                 await asyncio.sleep(15)
 
                 try:
                     async with session.post(api_url, json=status_payload, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                         if resp.status != 200:
+                            resp_text = await resp.text()
+                            print(f"    [{brand}] Poll {poll_num}: HTTP {resp.status} — {resp_text[:200]}")
                             continue
 
                         status_data = await resp.json()
@@ -115,6 +124,12 @@ async def generate_video(brand: str, script_data: dict) -> dict | None:
                             print(f"    [{brand}] {status} {progress}%{scene_info}")
                             last_status = status
                             last_progress = progress
+
+                        # Track assembly phase
+                        if status == "assembling":
+                            assembly_polls += 1
+                            if assembly_polls % 4 == 0:
+                                print(f"    [{brand}] Assembly in progress... ({assembly_polls * 15}s)")
 
                         if status == "completed":
                             output_urls = status_data.get("outputVideoUrls", {})
@@ -174,20 +189,29 @@ async def generate_video(brand: str, script_data: dict) -> dict | None:
 
                         elif status == "failed":
                             error = status_data.get("errorMessage", "Unknown error")
+                            print(f"    [{brand}] FAILED — Full response: {status_data}")
                             raise Exception(f"Production failed: {error}")
 
                 except aiohttp.ClientError as ce:
-                    if attempt % 4 == 0:
+                    if poll_num % 4 == 0:
                         print(f"    [{brand}] Poll error (retrying): {ce}")
                     continue
 
-            raise Exception("Timed out waiting for Brain Studio production (20 minutes)")
+            raise Exception("Timed out waiting for Brain Studio production (30 minutes)")
 
     except Exception as e:
         duration = time.time() - start
         update_video(video_id, status="failed", error_message=str(e))
         log_pipeline("video_generate", brand, "failed", str(e), duration)
-        print(f"  FAIL {BRANDS[brand]['name']}: {e}")
+        error_str = str(e) if str(e) else "Unknown error (empty exception)"
+        print(f"  FAIL {BRANDS[brand]['name']}: {error_str}")
+
+        # Retry logic
+        if attempt < MAX_RETRIES:
+            print(f"  Retrying {BRANDS[brand]['name']} (attempt {attempt + 1}/{MAX_RETRIES})...")
+            await asyncio.sleep(10)
+            return await generate_video(brand, script_data, attempt + 1)
+
         return None
 
 
