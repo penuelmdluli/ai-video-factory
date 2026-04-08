@@ -24,30 +24,70 @@ YOUTUBE_SCOPES = [
 ]
 
 
+import os
+
+# Maps brand niche_key to env var name for cloud token loading
+_YT_TOKEN_ENV = {
+    "tech_news": "YT_TOKEN_TECH_NEWS",
+    "ai_money": "YT_TOKEN_AI_MONEY",
+    "motivation": "YT_TOKEN_MOTIVATION",
+    "blissful_moments": "YT_TOKEN_BLISSFUL_MOMENTS",
+}
+
+
 def _get_credentials(brand: str) -> Credentials | None:
-    """Get YouTube credentials for a brand, refreshing if needed."""
+    """Get YouTube credentials for a brand, refreshing if needed.
+
+    Tries two methods:
+    1. Token file on disk (local development)
+    2. Environment variable with JSON token (cloud / GitHub Actions)
+    """
     config = BRANDS[brand]
+    niche_key = config.get("niche_key", brand)
     token_file = config["youtube"]["token_file"]
 
-    if not token_file.exists():
-        print(f"  ⚠️  YouTube token not found for {brand}: {token_file}")
+    creds = None
+
+    # Method 1: Token file on disk
+    if token_file.exists():
+        try:
+            creds = Credentials.from_authorized_user_file(str(token_file), YOUTUBE_SCOPES)
+        except Exception as e:
+            print(f"  YouTube token file error for {brand}: {e}")
+
+    # Method 2: Environment variable (cloud runs)
+    if not creds:
+        env_key = _YT_TOKEN_ENV.get(niche_key, "")
+        token_json = os.getenv(env_key, "")
+        if token_json:
+            try:
+                import json as _json
+                token_data = _json.loads(token_json)
+                creds = Credentials.from_authorized_user_info(token_data, YOUTUBE_SCOPES)
+            except Exception as e:
+                print(f"  YouTube env token error for {brand}: {e}")
+
+    if not creds:
+        print(f"  YouTube credentials not found for {brand}")
         return None
 
     try:
-        creds = Credentials.from_authorized_user_file(str(token_file), YOUTUBE_SCOPES)
-
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())
-            # Save refreshed token
-            with open(token_file, "w") as f:
-                f.write(creds.to_json())
+            # Save refreshed token back to file if possible
+            if token_file.parent.exists():
+                try:
+                    with open(token_file, "w") as f:
+                        f.write(creds.to_json())
+                except Exception:
+                    pass  # Can't save in cloud, that's fine
 
         if not creds.valid:
             return None
 
         return creds
     except Exception as e:
-        print(f"  ⚠️  YouTube auth error for {brand}: {e}")
+        print(f"  YouTube auth refresh error for {brand}: {e}")
         return None
 
 

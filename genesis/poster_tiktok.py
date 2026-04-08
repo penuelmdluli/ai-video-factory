@@ -1,168 +1,164 @@
 """
-Genesis Content Engine — TikTok Poster
+Genesis Content Engine — TikTok Poster (Official Content Posting API)
 
-Posts branded videos to TikTok using the existing Playwright-based uploader.
-Reuses session cookies from ai-video-factory/tokens/.
+Posts branded videos to TikTok using the official Content Posting API.
+No browser automation needed — works fully in the cloud.
+
+Setup required:
+1. Create app at https://developers.tiktok.com
+2. Request video.publish and video.upload scopes
+3. Complete app audit for public posting
+4. Store user access token as TIKTOK_ACCESS_TOKEN env var
 """
 import asyncio
+import aiohttp
 import json
-import sys
 import os
-import subprocess
-import tempfile
 import time
+import math
 from pathlib import Path
 
-from genesis.genesis_config import BRANDS, TOKENS_DIR
+from genesis.genesis_config import BRANDS
 from genesis.db import save_post, update_post, log_pipeline
 
-FACTORY_DIR = Path(__file__).parent.parent
 
+TIKTOK_API_BASE = "https://open.tiktokapis.com/v2"
+TIKTOK_ACCESS_TOKEN = os.getenv("TIKTOK_ACCESS_TOKEN", "")
 
-# The upload script runs in a subprocess to avoid async/sync conflicts with Playwright
-_TIKTOK_UPLOAD_SCRIPT = r'''
-import json, sys, os, time
-from dotenv import load_dotenv
-load_dotenv(override=True)
-
-args = json.loads(sys.argv[1])
-video_path = args["video_path"]
-description = args["description"]
-cookies_file = args.get("cookies_file", "")
-session_id = args.get("session_id", "")
-
-
-def dismiss_joyride(page):
-    time.sleep(1.5)
-    try:
-        page.evaluate("document.querySelectorAll('[data-test-id=overlay],.react-joyride__overlay').forEach(function(e){e.remove()})")
-    except Exception:
-        pass
-    try:
-        for sel in ["button:has-text('Skip')", "button:has-text('Got it')", "[data-e2e='joyride-close']"]:
-            try:
-                btn = page.query_selector(sel)
-                if btn:
-                    btn.click()
-                    time.sleep(0.3)
-                    break
-            except Exception:
-                pass
-    except Exception:
-        pass
-
-
-try:
-    from tiktok_uploader.upload import upload_video
-    from tiktok_uploader.auth import AuthBackend
-
-    # Determine auth method
-    if session_id:
-        auth = AuthBackend(cookies=f"sessionid={session_id}")
-    elif cookies_file and os.path.exists(cookies_file):
-        auth = AuthBackend(cookies=cookies_file)
-    else:
-        print(json.dumps({"error": "No TikTok auth available"}))
-        sys.exit(1)
-
-    # Upload
-    result = upload_video(
-        video_path,
-        description=description[:150],  # TikTok caption limit
-        cookies=auth.cookies if hasattr(auth, 'cookies') else session_id,
-        headless=True,
-        on_page_load=dismiss_joyride,
-    )
-
-    print(json.dumps({"success": True, "result": str(result)}))
-
-except Exception as e:
-    print(json.dumps({"error": str(e)}))
-    sys.exit(1)
-'''
+# Chunk size for file uploads (10 MB)
+CHUNK_SIZE = 10 * 1024 * 1024
 
 
 async def post_to_tiktok(brand: str, video_data: dict) -> dict | None:
-    """Post a branded video to TikTok."""
+    """Post a branded video to TikTok using the Content Posting API."""
     start = time.time()
 
-    config = BRANDS[brand]
-    tt = config["tiktok"]
+    if not TIKTOK_ACCESS_TOKEN:
+        log_pipeline("post_tiktok", brand, "skipped", "TIKTOK_ACCESS_TOKEN not set")
+        print(f"    TikTok: Skipped (no access token)")
+        return None
 
     video_path = Path(video_data.get("branded_path", ""))
     if not video_path.exists():
         log_pipeline("post_tiktok", brand, "failed", f"Video file not found: {video_path}")
         return None
 
-    caption = video_data.get("script_data", {}).get("caption", "")
-    # TikTok: shorter caption
-    caption_short = caption.split("\n")[0][:150] if caption else ""
+    script_data = video_data.get("script_data", {})
+    hook_line = script_data.get("hook_line", "")
+    config = BRANDS[brand]
+    hashtags = " ".join(config["hashtags"][:5])
 
-    post_id = save_post(video_data["video_id"], brand, "tiktok", caption_short)
+    # TikTok caption: hook + hashtags (max 2200 chars)
+    title = f"{hook_line[:150]} {hashtags}"[:2200]
+
+    post_id = save_post(video_data["video_id"], brand, "tiktok", title)
 
     try:
-        # Write upload script to temp file
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, dir=str(FACTORY_DIR)) as f:
-            f.write(_TIKTOK_UPLOAD_SCRIPT)
-            script_path = f.name
+        file_size = video_path.stat().st_size
+        total_chunks = max(1, math.ceil(file_size / CHUNK_SIZE))
 
-        args = {
-            "video_path": str(video_path),
-            "description": caption_short,
-            "cookies_file": str(tt.get("cookies_file", "")),
-            "session_id": tt.get("session_id", ""),
+        headers = {
+            "Authorization": f"Bearer {TIKTOK_ACCESS_TOKEN}",
+            "Content-Type": "application/json; charset=UTF-8",
         }
 
-        result = subprocess.run(
-            [sys.executable, script_path, json.dumps(args)],
-            capture_output=True,
-            text=True,
-            timeout=180,  # 3 min max
-            cwd=str(FACTORY_DIR),
-        )
+        async with aiohttp.ClientSession() as session:
+            # Step 1: Initialize upload
+            init_payload = {
+                "post_info": {
+                    "title": title,
+                    "privacy_level": "PUBLIC_TO_EVERYONE",
+                    "disable_duet": False,
+                    "disable_stitch": False,
+                    "disable_comment": False,
+                    "is_aigc": True,  # AI-generated content disclosure
+                },
+                "source_info": {
+                    "source": "FILE_UPLOAD",
+                    "video_size": file_size,
+                    "chunk_size": min(CHUNK_SIZE, file_size),
+                    "total_chunk_count": total_chunks,
+                },
+            }
 
-        # Clean up temp file
-        try:
-            os.unlink(script_path)
-        except Exception:
-            pass
+            async with session.post(
+                f"{TIKTOK_API_BASE}/post/publish/video/init/",
+                headers=headers,
+                json=init_payload,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                init_data = await resp.json()
 
-        if result.returncode != 0:
-            stderr = result.stderr[-300:] if result.stderr else ""
-            stdout = result.stdout[-300:] if result.stdout else ""
-            raise Exception(f"TikTok upload failed: {stderr or stdout}")
+                if resp.status != 200 or init_data.get("error", {}).get("code") != "ok":
+                    error_msg = init_data.get("error", {}).get("message", str(init_data))
+                    raise Exception(f"TikTok init failed: {error_msg}")
 
-        # Parse output
-        output_lines = result.stdout.strip().split("\n")
-        last_line = output_lines[-1] if output_lines else "{}"
+                publish_id = init_data["data"]["publish_id"]
+                upload_url = init_data["data"]["upload_url"]
 
-        try:
-            output = json.loads(last_line)
-        except json.JSONDecodeError:
-            output = {"success": True, "result": result.stdout[-200:]}
+            # Step 2: Upload video in chunks
+            with open(video_path, "rb") as f:
+                for chunk_num in range(total_chunks):
+                    chunk_data = f.read(CHUNK_SIZE)
+                    chunk_start = chunk_num * CHUNK_SIZE
+                    chunk_end = chunk_start + len(chunk_data) - 1
 
-        if output.get("error"):
-            raise Exception(output["error"])
+                    upload_headers = {
+                        "Content-Type": "video/mp4",
+                        "Content-Length": str(len(chunk_data)),
+                        "Content-Range": f"bytes {chunk_start}-{chunk_end}/{file_size}",
+                    }
 
+                    async with session.put(
+                        upload_url,
+                        headers=upload_headers,
+                        data=chunk_data,
+                        timeout=aiohttp.ClientTimeout(total=120),
+                    ) as upload_resp:
+                        if upload_resp.status not in (200, 201, 206):
+                            raise Exception(f"TikTok upload chunk {chunk_num} failed: {upload_resp.status}")
+
+            # Step 3: Check publish status
+            await asyncio.sleep(3)  # Give TikTok a moment to process
+
+            status_payload = {"publish_id": publish_id}
+            for _ in range(10):
+                async with session.post(
+                    f"{TIKTOK_API_BASE}/post/publish/status/fetch/",
+                    headers=headers,
+                    json=status_payload,
+                    timeout=aiohttp.ClientTimeout(total=15),
+                ) as status_resp:
+                    status_data = await status_resp.json()
+                    pub_status = status_data.get("data", {}).get("status", "")
+
+                    if pub_status == "PUBLISH_COMPLETE":
+                        break
+                    elif pub_status in ("FAILED", "PUBLISH_FAILED"):
+                        fail_reason = status_data.get("data", {}).get("fail_reason", "Unknown")
+                        raise Exception(f"TikTok publish failed: {fail_reason}")
+
+                await asyncio.sleep(5)
+
+        # Success
         update_post(post_id,
+            platform_post_id=publish_id,
             status="posted",
-            posted_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            posted_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         )
 
         duration = time.time() - start
-        log_pipeline("post_tiktok", brand, "success", "Posted to TikTok", duration)
+        log_pipeline("post_tiktok", brand, "success", f"Posted: {publish_id}", duration)
 
         return {
             "post_id": post_id,
+            "platform_post_id": publish_id,
             "platform": "tiktok",
         }
 
-    except subprocess.TimeoutExpired:
-        update_post(post_id, status="failed", error_message="TikTok upload timed out (3 min)")
-        log_pipeline("post_tiktok", brand, "failed", "Timed out", time.time() - start)
-        return None
     except Exception as e:
+        duration = time.time() - start
         update_post(post_id, status="failed", error_message=str(e))
-        log_pipeline("post_tiktok", brand, "failed", str(e), time.time() - start)
-        print(f"  ❌ TikTok post failed for {brand}: {e}")
+        log_pipeline("post_tiktok", brand, "failed", str(e), duration)
+        print(f"    TikTok failed for {brand}: {e}")
         return None

@@ -79,7 +79,22 @@ jobs:
           FB_PAGE_TOKEN_motivation: ${{ secrets.FB_PAGE_TOKEN_MOTIVATION }}
           FB_PAGE_ID_blissful_moments: ${{ secrets.FB_PAGE_ID_BLISSFUL_MOMENTS }}
           FB_PAGE_TOKEN_blissful_moments: ${{ secrets.FB_PAGE_TOKEN_BLISSFUL_MOMENTS }}
+
+          # YouTube OAuth Tokens (JSON strings)
+          YT_TOKEN_TECH_NEWS: ${{ secrets.YT_TOKEN_TECH_NEWS }}
+          YT_TOKEN_AI_MONEY: ${{ secrets.YT_TOKEN_AI_MONEY }}
+          YT_TOKEN_MOTIVATION: ${{ secrets.YT_TOKEN_MOTIVATION }}
+          YT_TOKEN_BLISSFUL_MOMENTS: ${{ secrets.YT_TOKEN_BLISSFUL_MOMENTS }}
+
+          # TikTok Content Posting API
+          TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
         run: |
+          # Restore YouTube tokens to files (google API client needs files)
+          mkdir -p tokens
+          if [ -n "$YT_TOKEN_TECH_NEWS" ]; then echo "$YT_TOKEN_TECH_NEWS" > tokens/youtube_token_tech_news.json; fi
+          if [ -n "$YT_TOKEN_AI_MONEY" ]; then echo "$YT_TOKEN_AI_MONEY" > tokens/youtube_token_ai_money.json; fi
+          if [ -n "$YT_TOKEN_MOTIVATION" ]; then echo "$YT_TOKEN_MOTIVATION" > tokens/youtube_token_motivation.json; fi
+          if [ -n "$YT_TOKEN_BLISSFUL_MOMENTS" ]; then echo "$YT_TOKEN_BLISSFUL_MOMENTS" > tokens/youtube_token_blissful_moments.json; fi
           BATCH="${{ steps.batch.outputs.type }}"
           echo "========================================"
           echo " Genesis Content Engine — $BATCH batch"
