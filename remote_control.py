@@ -57,6 +57,11 @@ GITHUB_REPO = os.getenv("GITHUB_REPO", "penuelmdluli/ai-video-factory").strip()
 GENESIS_WORKFLOW_FILE = os.getenv("GENESIS_WORKFLOW_FILE", "genesis-content-engine.yml").strip()
 GENESIS_WORKFLOW_REF = os.getenv("GENESIS_WORKFLOW_REF", "main").strip()
 
+# Genesis Studio (Brain Studio) — the Vercel app that renders the videos.
+# The factory authenticates to /api/internal/brain with the shared CRON_SECRET.
+GENESIS_STUDIO_URL = os.getenv("GENESIS_STUDIO_URL", "https://genesis-studio-hazel.vercel.app").rstrip("/")
+CRON_SECRET = os.getenv("CRON_SECRET", "").strip()
+
 # Valid batch options — must match the workflow_dispatch inputs in
 # .github/workflows/genesis-content-engine.yml
 VALID_BATCHES = ["full", "morning", "evening", "trends-only", "post-only"]
@@ -238,6 +243,62 @@ def format_runs(limit=5):
     return "\n".join(lines)
 
 
+# ── Genesis Studio connection ─────────────────────────────────
+def studio_health():
+    """
+    Verify the factory → Genesis Studio connection (URL + shared CRON_SECRET).
+
+    Side-effect free: we ask the Brain API for the status of a production id
+    that cannot exist. The server checks auth *before* looking it up, so:
+      • 401                         → CRON_SECRET rejected (secrets don't match)
+      • 404 "Production not found"  → secret accepted + Studio reachable ✅
+      • 404 (other body)            → endpoint missing (wrong URL / not deployed)
+      • 500 "Owner user not found"  → secret ok but OWNER_CLERK_IDS unset on Studio
+    """
+    if not CRON_SECRET:
+        return (
+            "⚠️ `CRON_SECRET` is not set locally — can't authenticate to Genesis "
+            "Studio. Set it to the same value configured on the Studio (Vercel)."
+        )
+    url = f"{GENESIS_STUDIO_URL}/api/internal/brain"
+    headers = {"Content-Type": "application/json", "x-cron-secret": CRON_SECRET}
+    body = {"action": "status", "productionId": "healthcheck-nonexistent"}
+    try:
+        r = requests.post(url, json=body, headers=headers, timeout=30)
+    except requests.RequestException as e:
+        return f"❌ Genesis Studio unreachable at `{GENESIS_STUDIO_URL}`\n{e}"
+
+    text = (r.text or "")[:200]
+    if r.status_code == 402 or "DEPLOYMENT_DISABLED" in text:
+        return (
+            f"🔴 *Genesis Studio is DISABLED* (402) at `{GENESIS_STUDIO_URL}`.\n"
+            f"Vercel has paused the deployment (usually a billing/payment issue). "
+            f"The factory can't render videos until it's re-enabled."
+        )
+    if r.status_code == 401:
+        return (
+            f"🔴 Reached Studio but `CRON_SECRET` was *rejected* (401).\n"
+            f"The factory's secret doesn't match `{GENESIS_STUDIO_URL}`."
+        )
+    if r.status_code == 404 and "Production not found" in text:
+        return (
+            f"🟢 *Genesis Studio connected* ✅\n"
+            f"URL: `{GENESIS_STUDIO_URL}`\n"
+            f"`CRON_SECRET` accepted — the factory can render videos."
+        )
+    if r.status_code == 404:
+        return (
+            f"🟠 Reached `{GENESIS_STUDIO_URL}` but `/api/internal/brain` returned 404 "
+            f"(wrong URL or Studio not deployed there)."
+        )
+    if r.status_code == 500 and "Owner" in text:
+        return (
+            f"🟠 `CRON_SECRET` accepted, but Studio has no `OWNER_CLERK_IDS` "
+            f"configured.\nSet it on the Studio (Vercel) to enable productions."
+        )
+    return f"Studio responded *{r.status_code}*: {text}"
+
+
 # ── Command handling ──────────────────────────────────────────
 HELP_TEXT = (
     "🎬 *AI Video Factory — Remote Control*\n\n"
@@ -245,6 +306,7 @@ HELP_TEXT = (
     "    batches: `full` (default), `morning`, `evening`, `trends-only`, `post-only`\n"
     "*/status* — latest workflow run\n"
     "*/runs* — recent runs\n"
+    "*/studio* — check the Genesis Studio connection\n"
     "*/id* — show your chat id\n"
     "*/ping* — check the bot is alive\n"
     "*/help* — this message"
@@ -294,6 +356,9 @@ def handle_command(text, chat_id):
     if cmd == "runs":
         return format_runs()
 
+    if cmd == "studio":
+        return studio_health()
+
     if cmd == "run":
         batch = args[0].lower() if args else "full"
         ok, msg = dispatch_workflow(batch)
@@ -314,6 +379,7 @@ def poll_loop():
     print(f"   repo:      {GITHUB_REPO}")
     print(f"   workflow:  {GENESIS_WORKFLOW_FILE} (ref {GENESIS_WORKFLOW_REF})")
     print(f"   github:    {'configured' if GITHUB_TOKEN else 'MISSING (set GITHUB_TOKEN)'}")
+    print(f"   studio:    {GENESIS_STUDIO_URL} ({'secret set' if CRON_SECRET else 'CRON_SECRET missing'})")
     if allowed:
         print(f"   owners:    {', '.join(sorted(allowed))}")
     else:

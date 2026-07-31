@@ -19,6 +19,7 @@ extra dependencies beyond `requests` (already in `requirements.txt`).
 | `/run [batch]` | Trigger the Genesis pipeline. `batch` = `full` (default), `morning`, `evening`, `trends-only`, `post-only` |
 | `/status` | Show the latest workflow run (status + result) |
 | `/runs` | List the last few runs with links |
+| `/studio` | Check the factory → Genesis Studio connection (URL + `CRON_SECRET`) |
 | `/id` | Show your Telegram chat id (used to authorise you) |
 | `/ping` | Check the bot is alive |
 | `/help` | Show the command list |
@@ -54,6 +55,8 @@ GITHUB_TOKEN=ghp_...
 GITHUB_REPO=penuelmdluli/ai-video-factory
 GENESIS_WORKFLOW_FILE=genesis-content-engine.yml
 GENESIS_WORKFLOW_REF=main
+GENESIS_STUDIO_URL=https://genesis-studio-hazel.vercel.app
+CRON_SECRET=your_shared_cron_secret
 ```
 
 ### 4. Get your chat id
@@ -118,6 +121,22 @@ notify("✅ Evening batch finished — 4 videos posted.")
 ```
 
 ---
+
+## Genesis Studio connection
+
+The factory renders videos by calling **Genesis Studio** (`/api/internal/brain`
+on the Vercel app) with a shared `CRON_SECRET`. `/studio` verifies that link
+from your phone — with **no side effects** (it queries a non-existent
+production id, so nothing is created or charged):
+
+- 🟢 **connected** — `CRON_SECRET` accepted, Studio reachable.
+- 🔴 **secret rejected (401)** — the factory's `CRON_SECRET` doesn't match the
+  Studio's. Set both to the same value.
+- 🟠 **404 / owner missing** — wrong `GENESIS_STUDIO_URL`, or the Studio is
+  missing `OWNER_CLERK_IDS`.
+
+The connection lives when the factory's `CRON_SECRET` (a GitHub Actions secret,
+also in your `.env`) equals the `CRON_SECRET` set on the Studio in Vercel.
 
 ## Security notes
 
