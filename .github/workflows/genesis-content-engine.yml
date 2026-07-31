@@ -134,3 +134,22 @@ jobs:
           RAW=$(ls genesis/output/*raw*.mp4 2>/dev/null | wc -l)
           echo "**Videos generated:** $RAW" >> $GITHUB_STEP_SUMMARY
           echo "**Videos branded:** $VIDEOS" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify Telegram
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ALLOWED_CHAT_IDS: ${{ secrets.TELEGRAM_ALLOWED_CHAT_IDS }}
+        run: |
+          # Opt-in: skip silently if the Telegram secrets aren't configured.
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_ALLOWED_CHAT_IDS" ]; then
+            echo "Telegram secrets not set — skipping notification."
+            exit 0
+          fi
+          pip install requests >/dev/null 2>&1 || true
+          BATCH="${{ steps.batch.outputs.type }}"
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then ICON="✅"; else ICON="❌"; fi
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          python remote_control.py --notify "$ICON Genesis *$BATCH* batch finished — status: $STATUS
+          $RUN_URL"
