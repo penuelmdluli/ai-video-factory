@@ -285,7 +285,13 @@ async def post(video, cfg, mtype, visual_img):
             if pl:
                 yt.playlistItems().insert(part="snippet", body={"snippet": {"playlistId": pl,
                     "resourceId": {"kind": "youtube#video", "videoId": vid}}}).execute()
-            th = str(Path(video).with_name("thumb.jpg")); make_thumb(visual_img, cfg["title"], th)
+            th = str(Path(video).with_name("thumb.jpg"))
+            try:
+                from modules.thumbnail_pro import make_pro_thumbnail
+                make_pro_thumbnail(visual_img, cfg["title"], th, accent="#22d3ee",
+                                   eyebrow=str(mtype).upper(), brand="AlphaZone Sounds", kind="music")
+            except Exception:
+                make_thumb(visual_img, cfg["title"], th)   # fallback to the simple one
             yt.thumbnails().set(videoId=vid, media_body=MediaFileUpload(th, mimetype="image/jpeg")).execute()
             log("playlist + thumbnail set")
         except Exception as e:

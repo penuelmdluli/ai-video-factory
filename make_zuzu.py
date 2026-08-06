@@ -353,16 +353,20 @@ def main():
     # auto thumbnail — bright hero scene + big title (needs verified channel to upload)
     thumb = None
     try:
-        from modules.zuzu_thumbnail import make_thumbnail
+        from modules.thumbnail_pro import make_pro_thumbnail
+        zstills = sorted((ROOT / "zuzu_lora" / "dataset").glob("zuzu_0*.png"))
         hero = None
         if imgs:
-            hero = str(imgs[0])
+            hero = str(imgs[0])                       # SDXL scene still
+        elif zstills:
+            hero = str(zstills[0])                    # Zuzu character still (best for kids)
         elif Path(out16).exists():
-            # Remotion path has no SDXL stills — grab a bright teaching frame from the render
-            hero = str(work / "hero.png")
+            hero = str(work / "hero.png")             # fallback: a bright teaching frame
             run([FF, "-y", "-ss", "3", "-i", str(out16), "-frames:v", "1", hero])
         if hero and Path(hero).exists():
-            thumb = str(work / "thumb.jpg"); make_thumbnail(hero, lesson["title"], thumb)
+            thumb = str(work / "thumb.jpg")
+            make_pro_thumbnail(hero, lesson["title"], thumb, accent="#E85D9E",
+                               eyebrow="LEARN", brand="Zuzu & Friends", kind="kids")
     except Exception as e:
         log(f"thumbnail gen skipped: {e}")
     _lennote = "teaching, single outro" if learn_remotion else "looped ~3min"
