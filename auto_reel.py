@@ -110,6 +110,22 @@ def main():
     clips = [p for p in paths if p]
     if len(clips) < 4:
         raise SystemExit(f"only {len(clips)} shots — aborting post")
+
+    # Map-zoom OPENER: if the story is about a country, prepend a cinematic map-zoom shot
+    # (Vox/Johnny-Harris style). Offline + ~free; entirely optional — any failure just skips it.
+    try:
+        from modules.map_zoom import detect_country, make_map_zoom_clip
+        country = (detect_country(pkg.get("title", "")) or detect_country(pkg.get("ticker", ""))
+                   or detect_country(pkg.get("narration", "")))
+        if country:
+            mzp = out / "map_opener.mp4"
+            if make_map_zoom_clip(country, str(mzp), duration=3.5, size=(W, HGT),
+                                  accent="#FF3131", label=country.upper(), fps=FPS):
+                clips = [mzp] + clips
+                print(f"  + map-zoom opener: {country}", flush=True)
+    except Exception as e:
+        print(f"  map-zoom opener skipped ({e})", flush=True)
+
     final = assemble(clips, str(wav), str(music) if music else None, words, pkg["narration"], out, W, HGT, FPS,
                      target=28.0, flags=tuple(pkg.get("flags", ["ZA", "US"]))[:2],
                      lowerthird_label=pkg.get("lowerthird_label", "Breaking"),
