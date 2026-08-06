@@ -108,6 +108,60 @@ def detect_country(text):
     return None
 
 
+# Region views: (center_lat, center_lon, span_deg, LABEL, [member country NAMEs to fill]).
+# Names match Natural Earth 110m; a name that doesn't match just isn't filled (harmless).
+REGIONS = {
+    "sahel":          (15,   8,  46, "SAHEL",           ["Mali", "Niger", "Chad", "Burkina Faso", "Mauritania", "Sudan", "Nigeria", "Senegal"]),
+    "middle east":    (28,  45,  40, "MIDDLE EAST",     ["Iran", "Iraq", "Saudi Arabia", "Syria", "Yemen", "Israel", "Jordan", "United Arab Emirates", "Egypt", "Turkey", "Lebanon", "Oman", "Qatar", "Kuwait"]),
+    "horn of africa": (8,   44,  36, "HORN OF AFRICA",  ["Ethiopia", "Somalia", "Eritrea", "Djibouti", "Kenya", "Sudan", "South Sudan"]),
+    "west africa":    (11,  -4,  42, "WEST AFRICA",     ["Nigeria", "Ghana", "Mali", "Senegal", "Niger", "Burkina Faso", "Côte d'Ivoire", "Guinea", "Benin", "Togo", "Sierra Leone", "Liberia"]),
+    "east africa":    (0,   37,  46, "EAST AFRICA",     ["Kenya", "Tanzania", "Uganda", "Ethiopia", "Somalia", "Rwanda", "Burundi", "South Sudan"]),
+    "north africa":   (28,  15,  36, "NORTH AFRICA",    ["Egypt", "Libya", "Algeria", "Morocco", "Tunisia", "Sudan"]),
+    "southern africa":(-25, 25,  40, "SOUTHERN AFRICA", ["South Africa", "Zimbabwe", "Zambia", "Mozambique", "Botswana", "Namibia", "Angola"]),
+    "balkans":        (43,  20,  22, "THE BALKANS",     ["Serbia", "Croatia", "Bosnia and Herz.", "Kosovo", "Albania", "North Macedonia", "Montenegro", "Bulgaria", "Greece"]),
+    "brics":          (5,   50, 150, "BRICS",           ["Brazil", "Russia", "India", "China", "South Africa"]),
+    "europe":         (52,  15,  55, "EUROPE",          []),
+    "asia":           (35,  90,  95, "ASIA",            []),
+    "africa":         (2,   20, 118, "AFRICA",          []),   # continent view — the fallback
+}
+
+_REGION_ALIASES = {
+    "sahel": "sahel", "middle east": "middle east", "mideast": "middle east",
+    "the gulf": "middle east", "persian gulf": "middle east", "red sea": "horn of africa",
+    "horn of africa": "horn of africa", "west africa": "west africa", "east africa": "east africa",
+    "north africa": "north africa", "maghreb": "north africa", "southern africa": "southern africa",
+    "sub-saharan": "africa", "sub saharan": "africa", "the balkans": "balkans", "balkans": "balkans",
+    "brics": "brics", "european union": "europe", "the eu": "europe",
+}
+
+
+def detect_region(text):
+    """Find a REGION mentioned in a headline → region key (or None). Word-boundary matched."""
+    if not text:
+        return None
+    low = text.lower()
+    for k in sorted(_REGION_ALIASES, key=len, reverse=True):
+        if _has_word(low, k):
+            return _REGION_ALIASES[k]
+    return None
+
+
+def make_news_map(headline, out_path, duration=3.5, size=(1080, 1920),
+                  accent="#FF3131", fps=30):
+    """ALWAYS returns a map-zoom for a news headline: a specific country if one is named,
+    else the named region, else an Africa continent zoom (the Tech Pulse Africa fallback).
+    Returns the path or None."""
+    country = detect_country(headline)
+    if country:
+        return make_map_zoom_clip(country, out_path, duration=duration, size=size,
+                                  accent=accent, label=country.upper(), fps=fps)
+    key = detect_region(headline) or "africa"
+    lat, lon, span, label, members = REGIONS[key]
+    return make_map_zoom_clip((lat, lon), out_path, duration=duration, size=size,
+                              accent=accent, label=label, fps=fps,
+                              span_deg=span, fill_names=members)
+
+
 def _rings(geom):
     """Exterior rings of a Polygon / MultiPolygon as lists of (lon, lat)."""
     t = geom.get("type"); c = geom.get("coordinates") or []
@@ -155,9 +209,11 @@ def _bbox(feature):
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def _render_base_map(features, target_feat, accent, map_w=4800, map_h=2400):
+def _render_base_map(features, fill_names, accent, map_w=4800, map_h=2400):
     """Render the styled world map ONCE → (numpy RGB array HxWx3). Square-degree pixels
-    (map_w == 2*map_h) so geographic and pixel aspect match for clean cropping."""
+    (map_w == 2*map_h) so geographic and pixel aspect match for clean cropping.
+    fill_names: set of country NAMEs to highlight in the accent colour (one for a single
+    country, several for a region, or empty for a plain continent/region view)."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -165,6 +221,7 @@ def _render_base_map(features, target_feat, accent, map_w=4800, map_h=2400):
     from matplotlib.collections import PatchCollection
     import numpy as np
 
+    fill_set = set(fill_names or [])
     dpi = 100
     fig, ax = plt.subplots(figsize=(map_w / dpi, map_h / dpi), dpi=dpi)
     fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
@@ -173,9 +230,10 @@ def _render_base_map(features, target_feat, accent, map_w=4800, map_h=2400):
 
     land, tgt = [], []
     for f in features:
+        is_fill = f.get("properties", {}).get("NAME", "") in fill_set
         for ring in _rings(f["geometry"]):
             if len(ring) >= 3:
-                (tgt if f is target_feat else land).append(MplPoly(ring, closed=True))
+                (tgt if is_fill else land).append(MplPoly(ring, closed=True))
     ax.add_collection(PatchCollection(land, facecolor=LAND, edgecolor=BORDER, linewidths=0.25))
     if tgt:
         ax.add_collection(PatchCollection(tgt, facecolor=accent, edgecolor="#ffffff", linewidths=0.7))
@@ -192,10 +250,12 @@ def _ease(t):
 
 
 def make_map_zoom_clip(target, out_path, duration=4.0, size=(1080, 1920),
-                       accent="#FF3131", label=None, fps=30, start_zoom=3.2):
+                       accent="#FF3131", label=None, fps=30, start_zoom=3.2,
+                       span_deg=None, fill_names=None):
     """Render a cinematic map-zoom clip to `target` (country name or (lat, lon)).
-    Returns out_path on success, or None. label=None auto-uses the country name;
-    label="" hides it."""
+    span_deg overrides the zoom extent (degrees tall) for regions/points; fill_names is a
+    list of country NAMEs to highlight (e.g. all members of a region). Returns out_path or
+    None. label=None auto-uses the country name; label="" hides it."""
     from PIL import Image, ImageDraw
     import numpy as np
 
@@ -204,22 +264,25 @@ def make_map_zoom_clip(target, out_path, duration=4.0, size=(1080, 1920),
     features = _load_features()
     feat, (clon, clat) = _match(features, target)
 
-    base, map_w, map_h = _render_base_map(features, feat, accent)
+    fill_set = set(fill_names) if fill_names else ({feat["properties"].get("NAME", "")} if feat else set())
+    base, map_w, map_h = _render_base_map(features, fill_set, accent)
     base_img = Image.fromarray(base)
 
     def lon2x(lon): return (lon + 180.0) / 360.0 * map_w
     def lat2y(lat): return (90.0 - lat) / 180.0 * map_h
     cx, cy = lon2x(clon), lat2y(clat)
 
-    # end crop height (px): fit the country bbox padded, with a sane minimum for tiny nations
-    if feat is not None:
+    # end crop height (px): explicit span (regions), else fit the country bbox, else a default
+    if span_deg:
+        end_h = span_deg / 180.0 * map_h
+    elif feat is not None:
         mnlon, mnlat, mxlon, mxlat = _bbox(feat)
         bbox_h = (lat2y(mnlat) - lat2y(mxlat))
         bbox_w = (lon2x(mxlon) - lon2x(mnlon))
         end_h = max(bbox_h * 1.7, bbox_w * 1.7 / aspect)
     else:
         end_h = map_h * 0.16          # point target → a ~29° tall view
-    end_h = max(map_h * 0.10, min(end_h, map_h * 0.9))
+    end_h = max(map_h * 0.06, min(end_h, map_h * 0.98))
     start_h = min(map_h * 0.98, end_h * start_zoom)
 
     label_text = (feat["properties"].get("NAME", "") if (label is None and feat) else (label or "")).upper()

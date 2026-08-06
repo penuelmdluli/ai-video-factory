@@ -114,15 +114,13 @@ def main():
     # Map-zoom OPENER: if the story is about a country, prepend a cinematic map-zoom shot
     # (Vox/Johnny-Harris style). Offline + ~free; entirely optional — any failure just skips it.
     try:
-        from modules.map_zoom import detect_country, make_map_zoom_clip
-        country = (detect_country(pkg.get("title", "")) or detect_country(pkg.get("ticker", ""))
-                   or detect_country(pkg.get("narration", "")))
-        if country:
-            mzp = out / "map_opener.mp4"
-            if make_map_zoom_clip(country, str(mzp), duration=3.5, size=(W, HGT),
-                                  accent="#FF3131", label=country.upper(), fps=FPS):
-                clips = [mzp] + clips
-                print(f"  + map-zoom opener: {country}", flush=True)
+        from modules.map_zoom import make_news_map
+        headline = " ".join(str(pkg.get(k, "")) for k in ("title", "ticker", "narration"))
+        mzp = out / "map_opener.mp4"
+        # ALWAYS opens with a map: named country → region → Africa fallback.
+        if make_news_map(headline, str(mzp), duration=3.5, size=(W, HGT), accent="#FF3131", fps=FPS):
+            clips = [mzp] + clips
+            print("  + map-zoom opener added", flush=True)
     except Exception as e:
         print(f"  map-zoom opener skipped ({e})", flush=True)
 
