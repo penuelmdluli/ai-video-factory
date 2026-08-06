@@ -16,15 +16,20 @@ Full strategy + competitor analysis: the "Content Network — Strategy & Gap Pla
 
 ## 🔧 Yours to flip (needs your account / credentials / a go-live decision)
 
-### 1. Deploy the two TTS voices to RunPod (turns on the voice upgrade)
-Self-host a Chatterbox-TTS server (news) and an Orpheus server (kids) on your RunPod fleet
-(the `devnen/Chatterbox-TTS-Server` image gives an OpenAI-compatible endpoint). Then set in `.env`:
+### 1. Deploy the warm TTS voice to RunPod (turns on the voice upgrade)
+A ready-to-deploy worker is in **`chatterbox-tts-worker/`** — one image serves both the
+warm kids voice (`warm_teacher`) and the news voice (`news_anchor`); the pipeline's `voice`
+field picks the preset. Full build/deploy steps: [chatterbox-tts-worker/BUILD.md](chatterbox-tts-worker/BUILD.md).
+In short: `docker build` + push → create a RunPod serverless endpoint (attach a network
+volume) → set in `.env`:
 ```
-RUNPOD_TTS_ENDPOINT_NEWS=https://api.runpod.ai/v2/<news_endpoint_id>
-RUNPOD_TTS_ENDPOINT_KIDS=https://api.runpod.ai/v2/<kids_endpoint_id>
 RUNPOD_API_KEY=<your key>   # already set for video
+RUNPOD_TTS_ENDPOINT_KIDS=https://api.runpod.ai/v2/<id>
+RUNPOD_TTS_ENDPOINT_NEWS=https://api.runpod.ai/v2/<id>   # can be the SAME endpoint
 ```
-Until these are set, voice behaves exactly as today (Kokoro → edge-tts). Any endpoint error auto-falls-back.
+Until these are set, voice behaves exactly as today (Kokoro → edge-tts). Any endpoint error
+auto-falls-back to Kokoro, so it can never break a build. The client↔worker contract is
+verified; drop optional `voices/*.wav` reference clips to clone a consistent character.
 
 ### 2. Verify the Facebook page token (so posts don't silently fail)
 ```bash
