@@ -93,19 +93,80 @@ def _phrases_from_srt(path, per=4):
     return phrases
 
 
+def _fit_narration(text, max_words=52):
+    """Trim narration to the last full sentence under `max_words` — keeps reels punchy and
+    stops a long voiceover from overrunning the scenes (voice would otherwise get cut off)."""
+    import re as _re
+    sents = _re.split(r"(?<=[.!?])\s+", (text or "").strip())
+    out, n = [], 0
+    for s in sents:
+        w = len(s.split())
+        if out and n + w > max_words:
+            break
+        out.append(s); n += w
+    return " ".join(out) if out else (text or "")
+
+
+# per-device default seconds; hook/outro are fixed, the rest stretch to fill the voiceover
+_FIXED = {"hook": 1.7, "outro": 2.0}
+_FLEX = {"map": 4.0, "route": 4.0, "news_map": 4.0, "stat": 2.6, "bars": 3.6, "quote": 3.2,
+         "timeline": 5.0, "chart": 4.0, "flow": 4.0, "versus": 4.0}
+
+
+def _plan_durations(spec, audio_dur, cap=2.6):
+    """Return per-scene seconds. If the voiceover is longer than the default scene total,
+    stretch the flexible scenes (up to `cap`x) so the voice fits; hook/outro stay fixed."""
+    base = []
+    for sc in spec:
+        t = sc.get("type")
+        base.append(sc.get("seconds") or _FIXED.get(t) or _FLEX.get(t, 3.0))
+    total = sum(base)
+    if not audio_dur or audio_dur <= total + 0.3:
+        return base
+    fixed_sum = sum(d for sc, d in zip(spec, base) if sc.get("type") in _FIXED)
+    flex_i = [i for i, sc in enumerate(spec) if sc.get("type") not in _FIXED]
+    flex_sum = total - fixed_sum
+    if flex_sum > 0 and flex_i:
+        scale = min(cap, max(1.0, (audio_dur - fixed_sum) / flex_sum))
+        for i in flex_i:
+            base[i] = round(base[i] * scale, 2)
+    return base
+
+
 def make_story_reel(spec, out_path, narration_text=None, size=(1080, 1920),
-                    accent="#FF3131", fps=30, music=None, breaking=True, captions=False):
+                    accent="#FF3131", fps=30, music=None, breaking=True, captions=False,
+                    label="BREAKING", handle="", follow=False, comment_prompt=""):
     """Render + concatenate device scenes into a data-documentary reel. Returns out_path.
     captions=False by default — every scene already carries its own on-screen text, so
-    running subtitles would only clutter it (keep it clean)."""
+    running subtitles would only clutter it (keep it clean). label/handle/follow/
+    comment_prompt fill the corners (breaking badge, watermark, follow button, comment bait)."""
     from moviepy import (VideoFileClip, concatenate_videoclips, ImageClip,
                          AudioFileClip, CompositeVideoClip, CompositeAudioClip, afx)
     W, H = int(size[0]), int(size[1])
     work = Path(tempfile.mkdtemp(prefix="story_"))
     try:
+        # 1. voice FIRST — so scene durations can be planned to fit the voiceover exactly
+        narr_audio, audio_dur, sub_path = None, None, ""
+        if narration_text:
+            narration_text = _fit_narration(narration_text)
+            import asyncio
+            from modules.voice_generator import generate_voice
+            try:
+                res = asyncio.run(generate_voice(narration_text, work, "narr",
+                                                 format_type="short", niche="tech_news"))
+            except Exception:
+                res = None
+            if res and Path(res["audio_path"]).exists():
+                narr_audio = AudioFileClip(res["audio_path"])
+                audio_dur = narr_audio.duration
+                sub_path = res.get("subtitle_path", "")
+
+        # 2. render scenes at durations that fill the voiceover
+        durations = _plan_durations(spec, audio_dur)
         paths = []
         for i, sc in enumerate(spec):
-            p = _render_scene(sc, str(work / f"scene_{i}.mp4"), size, accent, fps)
+            sc2 = dict(sc); sc2["seconds"] = durations[i]
+            p = _render_scene(sc2, str(work / f"scene_{i}.mp4"), size, accent, fps)
             if p:
                 paths.append(p)
         if not paths:
@@ -115,26 +176,25 @@ def make_story_reel(spec, out_path, narration_text=None, size=(1080, 1920),
         base = concatenate_videoclips(vclips, method="compose")
         total = base.duration
 
+        # 3. if the voice still runs slightly longer, hold the last frame so nothing gets cut
+        if audio_dur and audio_dur > total + 0.15:
+            last = base.get_frame(max(0.0, total - 0.05))
+            freeze = ImageClip(last).with_duration(audio_dur - total).with_fps(fps)
+            base = concatenate_videoclips([base, freeze], method="compose")
+            total = base.duration
+
         overlays, audio_tracks = [], []
-        if narration_text:
-            import asyncio
-            from modules.voice_generator import generate_voice
-            try:
-                res = asyncio.run(generate_voice(narration_text, work, "narr",
-                                                 format_type="short", niche="tech_news"))
-            except Exception:
-                res = None
-            if res and Path(res["audio_path"]).exists():
-                audio_tracks.append(AudioFileClip(res["audio_path"]))
-                if captions:   # off by default — scenes already carry their own text
-                    from assemble_full import render_caption_png, CAP_H
-                    for j, (s, e, txt) in enumerate(_phrases_from_srt(res.get("subtitle_path", ""))):
-                        if s >= total:
-                            break
-                        png = render_caption_png(txt, W, str(work / f"cap_{j}.png"))
-                        overlays.append(ImageClip(png).with_start(s)
-                                        .with_duration(max(0.4, min(e, total) - s))
-                                        .with_position(("center", int(H * 0.62) - CAP_H // 2)))
+        if narr_audio is not None:
+            audio_tracks.append(narr_audio)
+            if captions:   # off by default — scenes already carry their own text
+                from assemble_full import render_caption_png, CAP_H
+                for j, (s, e, txt) in enumerate(_phrases_from_srt(sub_path)):
+                    if s >= total:
+                        break
+                    png = render_caption_png(txt, W, str(work / f"cap_{j}.png"))
+                    overlays.append(ImageClip(png).with_start(s)
+                                    .with_duration(max(0.4, min(e, total) - s))
+                                    .with_position(("center", int(H * 0.62) - CAP_H // 2)))
         if music and Path(music).exists():
             try:
                 m = AudioFileClip(music).with_effects([afx.AudioLoop(duration=total),
@@ -159,7 +219,8 @@ def make_story_reel(spec, out_path, narration_text=None, size=(1080, 1920),
         out_path = str(out_path); Path(out_path).parent.mkdir(parents=True, exist_ok=True)
         if breaking:
             from modules.overlays import add_news_overlays
-            r = add_news_overlays(str(base_out), out_path, label="BREAKING", accent=accent)
+            r = add_news_overlays(str(base_out), out_path, label=label, accent=accent,
+                                  handle=handle, follow=follow, comment_prompt=comment_prompt)
             if not r:
                 shutil.copy(str(base_out), out_path)
         else:

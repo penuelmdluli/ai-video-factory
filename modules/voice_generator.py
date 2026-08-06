@@ -527,9 +527,9 @@ async def generate_voice(
     kokoro_voices = {
         "blissful_moments": ("af_bella", 1.0),    # Best voice — warm, clear, professional
         "health_wellness":  ("af_bella", 1.0),    # Same quality — trustworthy for health
-        "tech_news":        ("bf_emma", 1.0),     # British female — crisp, clear for tech
-        "ai_money":         ("bf_emma", 1.0),     # Crisp, professional for money content
-        "motivation":       ("af_bella", 1.0),    # Warm but with energy for motivation
+        "tech_news":        ("af_heart", 1.0),    # Kokoro flagship — warmest, most natural (best voice)
+        "ai_money":         ("af_heart", 1.0),    # Kokoro flagship — warm, trustworthy for money
+        "motivation":       ("af_heart", 1.0),    # Kokoro flagship — warm, natural for motivation
         "limitless_you":    ("bm_george", 1.0),   # British male — authoritative for Africa 2050
         "daily_breakdown":  ("am_adam", 1.0),     # Deep, warm — proudly SA voice
         "shopmo_products":  ("af_bella", 1.0),    # Friendly, engaging for products
