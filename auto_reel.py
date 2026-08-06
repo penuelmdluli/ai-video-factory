@@ -154,18 +154,29 @@ def main():
                      lowerthird_label=pkg.get("lowerthird_label", "Breaking"),
                      ticker=pkg.get("ticker", pkg["title"]), live=True, tag_text="AI", shot_audios=None)
     dest = Path(rf"C:\Users\PenuelM\Desktop\AI_Videos\auto_{stamp}.mp4")
-    # Burn in a progress bar (watch-to-end nudge); fall back to a plain encode on failure.
-    _bar = None
+    # Final polish: BREAKING badge + progress bar (one pass), then a whoosh riser at the open.
+    ok = None
     try:
-        from modules.overlays import add_progress_bar
-        _bar = add_progress_bar(str(final), str(dest), accent="#FF3131", height=max(6, HGT // 150))
+        from modules.overlays import add_news_overlays, add_sfx
+        ok = add_news_overlays(str(final), str(dest), label="BREAKING", accent="#FF3131")
+        if ok:
+            try:
+                from modules.sfx_manager import get_sfx_sync
+                wh = get_sfx_sync("whoosh") or get_sfx_sync("riser") or get_sfx_sync("swoosh")
+                if wh:
+                    ts = out / "sfx.mp4"
+                    if add_sfx(str(dest), str(ts), [(wh, 0.0, 0.7), (wh, 1.6, 0.5)]):
+                        import shutil; shutil.move(str(ts), str(dest))
+                        print("  + sfx risers added", flush=True)
+            except Exception as se:
+                print(f"  sfx risers skipped ({se})", flush=True)
     except Exception as e:
-        print(f"  progress bar skipped ({e})", flush=True)
-    if not _bar:
+        print(f"  overlays skipped ({e})", flush=True)
+    if not ok:
         subprocess.run([_ff(), "-y", "-i", str(final), "-c:v", "libx264", "-pix_fmt", "yuv420p",
                         "-movflags", "+faststart", "-c:a", "aac", "-b:a", "160k", str(dest)], capture_output=True)
     else:
-        print("  + progress bar added", flush=True)
+        print("  + breaking badge + progress bar added", flush=True)
     print(f"  built -> {dest}", flush=True)
 
     print("[7] POST reel", flush=True)
