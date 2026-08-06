@@ -468,6 +468,84 @@ LESSONS = [
         ],
         "tags": ["addition for kids","adding to 10","learn to add","kids maths","math facts","preschool"],
     },
+    # ── SOUTH AFRICAN LANGUAGE lessons ────────────────────────────────────────────
+    # reviewed=False -> gated OUT of the auto-rotation until a NATIVE SPEAKER verifies the
+    # words (spelling + the correct counting concord forms). Run explicitly for review:
+    #   python make_zuzu.py --lesson count_zulu --remotion --dry-run
+    # `lang` routes narration: zu/af use the authentic edge-tts voice; xh has NO TTS voice
+    # yet, so isiXhosa renders the on-screen words but SILENT (needs a cloned Xhosa voice).
+    {
+        "id": "count_zulu",
+        "title": "Count in isiZulu 1-10",
+        "category": "numbers counting isizulu",
+        "mode": "learn", "lang": "zu", "reviewed": False,
+        "song_prompt": "gentle happy children's counting song, warm, wholesome",
+        "lyrics": "[verse]\nAsibaleni ndawonye!\nkunye, kubili, kuthathu...\n",
+        "captions": ["Kunye","Kubili","Kuthathu","Kune","Kuhlanu","Isithupha",
+                     "Isikhombisa","Isishiyagalombili","Isishiyagalolunye","Ishumi","1-10","Yay!"],
+        "edu": [
+            {"type": "counting", "count": 1,  "emoji": "🍎", "label": "kunye"},
+            {"type": "counting", "count": 2,  "emoji": "⭐", "label": "kubili"},
+            {"type": "counting", "count": 3,  "emoji": "🎈", "label": "kuthathu"},
+            {"type": "counting", "count": 4,  "emoji": "🐟", "label": "kune"},
+            {"type": "counting", "count": 5,  "emoji": "🌸", "label": "kuhlanu"},
+            {"type": "counting", "count": 6,  "emoji": "🍌", "label": "isithupha"},
+            {"type": "counting", "count": 7,  "emoji": "⚽", "label": "isikhombisa"},
+            {"type": "counting", "count": 8,  "emoji": "🐝", "label": "isishiyagalombili"},
+            {"type": "counting", "count": 9,  "emoji": "🚗", "label": "isishiyagalolunye"},
+            {"type": "counting", "count": 10, "emoji": "🎉", "label": "ishumi"},
+        ],
+        "scenes": ["counting objects with big numbers 1 to 10, joyful"] * 6,
+        "tags": ["isizulu","learn to count zulu","kids zulu","south africa kids","counting","preschool"],
+    },
+    {
+        "id": "count_xhosa",
+        "title": "Count in isiXhosa 1-10",
+        "category": "numbers counting isixhosa",
+        "mode": "learn", "lang": "xh", "reviewed": False,   # no TTS voice yet -> visual only
+        "song_prompt": "gentle happy children's counting song, warm, wholesome",
+        "lyrics": "[verse]\nMasibale kunye!\ninye, zimbini, zintathu...\n",
+        "captions": ["Inye","Zimbini","Zintathu","Zine","Zintlanu","Zintandathu",
+                     "Isixhenxe","Isibhozo","Ithoba","Ishumi","1-10","Yay!"],
+        "edu": [
+            {"type": "counting", "count": 1,  "emoji": "🍎", "label": "inye"},
+            {"type": "counting", "count": 2,  "emoji": "⭐", "label": "zimbini"},
+            {"type": "counting", "count": 3,  "emoji": "🎈", "label": "zintathu"},
+            {"type": "counting", "count": 4,  "emoji": "🐟", "label": "zine"},
+            {"type": "counting", "count": 5,  "emoji": "🌸", "label": "zintlanu"},
+            {"type": "counting", "count": 6,  "emoji": "🍌", "label": "zintandathu"},
+            {"type": "counting", "count": 7,  "emoji": "⚽", "label": "isixhenxe"},
+            {"type": "counting", "count": 8,  "emoji": "🐝", "label": "isibhozo"},
+            {"type": "counting", "count": 9,  "emoji": "🚗", "label": "ithoba"},
+            {"type": "counting", "count": 10, "emoji": "🎉", "label": "ishumi"},
+        ],
+        "scenes": ["counting objects with big numbers 1 to 10, joyful"] * 6,
+        "tags": ["isixhosa","learn to count xhosa","kids xhosa","south africa kids","counting","preschool"],
+    },
+    {
+        "id": "count_afrikaans",
+        "title": "Count in Afrikaans 1-10",
+        "category": "numbers counting afrikaans",
+        "mode": "learn", "lang": "af", "reviewed": False,
+        "song_prompt": "gentle happy children's counting song, warm, wholesome",
+        "lyrics": "[verse]\nKom ons tel saam!\neen, twee, drie...\n",
+        "captions": ["Een","Twee","Drie","Vier","Vyf","Ses",
+                     "Sewe","Agt","Nege","Tien","1-10","Jippie!"],
+        "edu": [
+            {"type": "counting", "count": 1,  "emoji": "🍎", "label": "een"},
+            {"type": "counting", "count": 2,  "emoji": "⭐", "label": "twee"},
+            {"type": "counting", "count": 3,  "emoji": "🎈", "label": "drie"},
+            {"type": "counting", "count": 4,  "emoji": "🐟", "label": "vier"},
+            {"type": "counting", "count": 5,  "emoji": "🌸", "label": "vyf"},
+            {"type": "counting", "count": 6,  "emoji": "🍌", "label": "ses"},
+            {"type": "counting", "count": 7,  "emoji": "⚽", "label": "sewe"},
+            {"type": "counting", "count": 8,  "emoji": "🐝", "label": "agt"},
+            {"type": "counting", "count": 9,  "emoji": "🚗", "label": "nege"},
+            {"type": "counting", "count": 10, "emoji": "🎉", "label": "tien"},
+        ],
+        "scenes": ["counting objects with big numbers 1 to 10, joyful"] * 6,
+        "tags": ["afrikaans","learn to count afrikaans","kids afrikaans","south africa kids","counting","preschool"],
+    },
 ]
 
 def build_description(lesson: dict) -> str:

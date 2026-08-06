@@ -324,6 +324,16 @@ _NUM_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "ei
               "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
               "sixteen", "seventeen", "eighteen", "nineteen", "twenty"]
 
+# Authentic South-African-language narration voices (edge-tts). A lesson's `lang` field
+# routes narration here so the words are pronounced correctly. isiXhosa has NO TTS voice
+# available yet → those lessons render visually (on-screen words) but silent until a cloned
+# Xhosa voice is added via the RunPod Chatterbox worker.
+LANG_EDGE_VOICE = {
+    "zu": "zu-ZA-ThandoNeural",    # isiZulu — warm female
+    "af": "af-ZA-AdriNeural",      # Afrikaans
+    "en-za": "en-ZA-LeahNeural",   # South African English
+}
+
 
 def _ff_exe():
     try:
@@ -346,10 +356,18 @@ def _num_word(n: int) -> str:
     return _NUM_WORDS[n] if 0 <= n < len(_NUM_WORDS) else str(n)
 
 
-def _scene_narration(sc: dict, title: str) -> str:
+def _scene_narration(sc: dict, title: str, lang: str = "en") -> str:
     """The spoken line for a teaching scene — this is what the child HEARS while the
     matching visual plays, so it must describe exactly what is on screen."""
     t = sc.get("type")
+    if lang != "en":
+        # SA-language lessons: speak ONLY the reviewable words (the number/greeting word),
+        # never machine-built grammar we can't verify. title/outro are visual-only.
+        if t == "counting":
+            return str(sc.get("label", "")).strip()
+        if t in ("title", "outro"):
+            return ""
+        return str(sc.get("say", sc.get("label", ""))).strip()
     if t == "title":
         return f"{title}! Let's learn with Zuzu!"
     if t == "phonics":
@@ -426,16 +444,26 @@ def _render_narrated_learning(lesson: dict, out_path: str, portrait: bool,
     work = Path(out_path).parent / "narration"
     work.mkdir(parents=True, exist_ok=True)
 
+    lang = lesson.get("lang", "en")
+    edge_voice = LANG_EDGE_VOICE.get(lang)
+    voiceless = (lang != "en" and not edge_voice)   # e.g. isiXhosa: no TTS → visual only
+
     async def _gen_all():
-        from modules.voice_generator import generate_voice
+        from modules.voice_generator import generate_voice, generate_voice_edge_tts
         cache = {}          # narration text -> audio path; repeated beats reuse the clip
         clips = []
         for sc in scenes:
-            txt = _scene_narration(sc, title)
+            txt = _scene_narration(sc, title, lang)
+            if voiceless or not txt.strip():
+                clips.append(None); continue        # silent scene (padded to its length)
             if txt in cache:
                 clips.append(cache[txt]); continue
             try:
-                res = await generate_voice(txt, work, f"nar{len(cache)}", format_type="short", niche="kids_songs")
+                if edge_voice:                        # authentic SA-language voice
+                    out_mp3 = work / f"nar{len(cache)}.mp3"
+                    res = await generate_voice_edge_tts(txt, out_mp3, voice=edge_voice)
+                else:                                 # English → normal warm kids router
+                    res = await generate_voice(txt, work, f"nar{len(cache)}", format_type="short", niche="kids_songs")
                 ap = res.get("audio_path") if res else None
             except Exception as e:
                 print(f"[zuzu-remotion] narration failed ({e})"); ap = None

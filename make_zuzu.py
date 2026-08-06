@@ -119,12 +119,15 @@ def get_lesson_for_run(forced=None, use_static=False):
         if not l: raise SystemExit(f"unknown lesson {forced}")
         return _normalize_static(l)
     if use_static:                               # rotate the fixed library
+        # Only REVIEWED lessons auto-rotate — keeps unverified content (e.g. SA-language
+        # lessons pending native-speaker check) from ever auto-posting.
+        pool = [l for l in LESSONS if l.get("reviewed", True)]
         idx = 0
         if STATE.exists():
             try: idx = json.loads(STATE.read_text()).get("next", 0)
             except Exception: idx = 0
-        STATE.write_text(json.dumps({"next": (idx + 1) % len(LESSONS)}))
-        return _normalize_static(LESSONS[idx % len(LESSONS)])
+        STATE.write_text(json.dumps({"next": (idx + 1) % max(1, len(pool))}))
+        return _normalize_static(pool[idx % len(pool)])
     return generate_lesson()                     # DEFAULT: fresh dynamic lesson
 
 # ---------- 2. images (local SDXL, 16:9) ----------
