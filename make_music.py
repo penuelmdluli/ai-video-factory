@@ -167,7 +167,7 @@ def gen_music_ace(prompt, out, seed):
         r = subprocess.run(
             [str(acepy), str(acegen), "--prompt", prompt, "--lyrics", str(lyr),
              "--out", str(out), "--model", str(acemodel),
-             "--duration", "120", "--seed", str(seed)],   # longer single song = fewer loop seams
+             "--duration", "45", "--seed", str(seed)],   # 45s is ACE-Step's reliable length (120s timed out)
             capture_output=True, text=True, timeout=900,
         )
         if "SONG_OK" in (r.stdout or "") and Path(out).exists():
