@@ -58,17 +58,73 @@ def _fallback_phrases(text, dur):
     return [(i * per, (i + 1) * per, " ".join(c)) for i, c in enumerate(chunks)]
 
 
-def render_caption_png(text, W, path):
-    text = text.upper(); fs = 58; font = _font(fs)
-    img = Image.new("RGBA", (W, 160), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
-    tw = d.textbbox((0, 0), text, font=font)[2]
-    while tw > W - 80 and fs > 30:
-        fs -= 4; font = _font(fs); tw = d.textbbox((0, 0), text, font=font)[2]
-    x = (W - tw) // 2; y = 40
-    for dx in (-3, 0, 3):
-        for dy in (-3, 0, 3):
-            d.text((x + dx, y + dy), text, font=font, fill=(0, 0, 0, 235))
-    d.text((x, y), text, font=font, fill=(255, 226, 89, 255))
+CAP_H = 260   # fixed caption band (text vertically centered) — fits up to 2 wrapped lines
+_TWIMG = ImageDraw.Draw(Image.new("RGBA", (4, 4)))
+def _tw(t, font):
+    return _TWIMG.textlength(t, font=font)
+
+# Words that carry the punch — highlighted in the accent colour per phrase.
+_POWER_WORDS = {
+    "WAR", "CRISIS", "ATTACK", "STRIKE", "STRIKES", "DEAD", "KILLED", "NUCLEAR", "ALERT",
+    "URGENT", "COLLAPSE", "SANCTIONS", "THREAT", "POWER", "OIL", "TRADE", "MILITARY",
+    "MISSILE", "DRONE", "TROOPS", "ESCALATE", "ESCALATES", "TENSIONS", "CONFLICT",
+    "BREAKING", "EXPLOSION", "CHAOS", "SHOCK", "WARNING", "DANGER", "BILLION", "MILLION",
+    "TRILLION", "AFRICA", "CHINA", "RUSSIA", "IRAN", "ISRAEL", "NATO", "BRICS", "CONTROL",
+}
+
+
+def _is_key(word):
+    wc = word.strip(".,!?:;\"'()").upper()
+    if not wc:
+        return False
+    if any(ch.isdigit() for ch in wc) or "%" in word or "$" in word:
+        return True
+    return wc in _POWER_WORDS
+
+
+def render_caption_png(text, W, path, accent=(255, 226, 89)):
+    """Wrapped (<=2 lines, never cut off), upscaled, with only the KEY words in accent."""
+    words = text.upper().split()
+    if not words:
+        Image.new("RGBA", (W, CAP_H), (0, 0, 0, 0)).save(path); return path
+    max_w = int(W * 0.86)
+
+    def layout(font):
+        lines, cur = [], []
+        for w in words:
+            if _tw(" ".join(cur + [w]), font) <= max_w or not cur:
+                cur.append(w)
+            else:
+                lines.append(cur); cur = [w]
+        if cur:
+            lines.append(cur)
+        return lines
+
+    fs = 72; font = _font(fs); lines = layout(font)
+    while len(lines) > 2 and fs > 44:                       # keep it big; wrap not shrink
+        fs -= 4; font = _font(fs); lines = layout(font)
+    while any(_tw(" ".join(l), font) > max_w for l in lines) and fs > 32:
+        fs -= 3; font = _font(fs); lines = layout(font)
+
+    keys = set(w for line in lines for w in line if _is_key(w))
+    if not keys:
+        keys = {max(words, key=len)}                        # fall back: highlight the longest
+
+    lh = int(fs * 1.16); total = lh * len(lines)
+    img = Image.new("RGBA", (W, CAP_H), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    space = _tw(" ", font)
+    y = (CAP_H - total) // 2
+    for line in lines:
+        lw = sum(_tw(w, font) for w in line) + space * (len(line) - 1)
+        x = (W - lw) // 2
+        for w in line:
+            col = accent if w in keys else (255, 255, 255)
+            for dx in (-3, 0, 3):
+                for dy in (-3, 0, 3):
+                    d.text((x + dx, y + dy), w, font=font, fill=(0, 0, 0, 235))
+            d.text((x, y), w, font=font, fill=col + (255,))
+            x += _tw(w, font) + space
+        y += lh
     img.save(path); return path
 
 
@@ -289,7 +345,7 @@ def assemble(clip_paths, narration_wav, music_wav, words, text, out_dir, W, H, F
             break
         png = render_caption_png(txt, W, str(tmp / f"cap_{i}.png"))
         overlays.append(ImageClip(png).with_start(s).with_duration(max(0.4, min(e, vdur) - s))
-                        .with_position(("center", int(H * 0.60))))
+                        .with_position(("center", int(H * 0.62) - CAP_H // 2)))
     # flag lower-third (bottom-left, above ticker)
     lt = render_lowerthird_png(list(flags), lowerthird_label, W, str(tmp / "lt.png"))
     overlays.append(ImageClip(lt).with_duration(vdur).with_position((0, int(H * 0.74))))
