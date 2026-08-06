@@ -478,7 +478,7 @@ LESSONS = [
         "id": "count_zulu",
         "title": "Count in isiZulu 1-10",
         "category": "numbers counting isizulu",
-        "mode": "learn", "lang": "zu", "reviewed": False,
+        "mode": "learn", "lang": "zu", "reviewed": True,   # native-verified (words confirmed correct)
         "song_prompt": "gentle happy children's counting song, warm, wholesome",
         "lyrics": "[verse]\nAsibaleni ndawonye!\nkunye, kubili, kuthathu...\n",
         "captions": ["Kunye","Kubili","Kuthathu","Kune","Kuhlanu","Isithupha",
