@@ -1,0 +1,26 @@
+{
+  "name": "remotion-zuzu",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Data-driven Zuzu kids episodes: feed a lesson JSON -> animated MP4 (Remotion).",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "node render.mjs",
+    "upgrade": "remotion upgrade"
+  },
+  "dependencies": {
+    "@remotion/bundler": "^4.0.0",
+    "@remotion/cli": "^4.0.0",
+    "@remotion/renderer": "^4.0.0",
+    "@remotion/zod-types": "^4.0.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "^4.0.0",
+    "zod": "3.22.3"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.3",
+    "typescript": "5.4.5"
+  }
+}
