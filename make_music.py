@@ -167,7 +167,7 @@ def gen_music_ace(prompt, out, seed):
         r = subprocess.run(
             [str(acepy), str(acegen), "--prompt", prompt, "--lyrics", str(lyr),
              "--out", str(out), "--model", str(acemodel),
-             "--duration", "45", "--seed", str(seed)],
+             "--duration", "120", "--seed", str(seed)],   # longer single song = fewer loop seams
             capture_output=True, text=True, timeout=900,
         )
         if "SONG_OK" in (r.stdout or "") and Path(out).exists():
@@ -178,7 +178,7 @@ def gen_music_ace(prompt, out, seed):
     return None
 
 
-def build_base_track(cfg, work, n_clips=4):
+def build_base_track(cfg, work, n_clips=1):
     clips = []
     for i in range(n_clips):
         c = work / f"m{i}.wav"
@@ -302,7 +302,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--type", default="rotate", choices=list(CONTENT) + ["rotate"])
     ap.add_argument("--minutes", type=float, default=0)  # 0 = per-type default length
-    ap.add_argument("--clips", type=int, default=6)
+    ap.add_argument("--clips", type=int, default=1)   # ONE consistent song, looped (default)
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     # rotate through types daily for a varied channel
