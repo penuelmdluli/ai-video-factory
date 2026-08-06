@@ -114,7 +114,7 @@ async def scrape_google_news(
         {"headline", "summary", "source", "region", "published", "url"}
     """
     if regions is None:
-        regions = ["iran", "south_africa", "world", "africa"]
+        regions = ["world", "conflict", "africa", "south_africa"]
 
     articles = []
 
@@ -330,7 +330,7 @@ async def select_news_stories(
         {"headline", "summary", "source", "region", "visual_score", "suggested_pexels_queries"}
     """
     if regions is None:
-        regions = ["iran", "south_africa", "world", "africa", "conflict"]
+        regions = ["world", "conflict", "africa", "south_africa"]
 
     print(f"\n[NewsScraper] Scraping news for: {', '.join(regions)}")
 

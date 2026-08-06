@@ -14,7 +14,7 @@ import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from config import NICHES, GEMINI_API_KEY, OUTPUT_DIR, VIRAL_SCORE_THRESHOLD, VIRAL_SCORE_MAX_RETRIES
+from config import NICHES, GEMINI_API_KEY, ANTHROPIC_API_KEY, OUTPUT_DIR, VIRAL_SCORE_THRESHOLD, VIRAL_SCORE_MAX_RETRIES
 
 # Track recently used topics to avoid repeats
 HISTORY_FILE = OUTPUT_DIR / "topic_history.json"
@@ -41,26 +41,72 @@ def _topic_hash(topic: str) -> str:
 
 
 def _get_recent_topics(niche: str, days: int = 7) -> set:
-    """Get topics used in the last N days for a niche."""
+    """Get topic hashes used in the last N days for a niche."""
     history = _load_history()
     niche_history = history.get(niche, {})
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     return {
-        h for h, date in niche_history.items()
-        if date > cutoff
+        h for h, info in niche_history.items()
+        if (info if isinstance(info, str) else info.get("date", "")) > cutoff
     }
 
 
+def _get_recent_topic_titles(niche: str, days: int = 14) -> list[str]:
+    """Get full topic titles used in the last N days for dedup + AI prompt."""
+    history = _load_history()
+    niche_history = history.get(niche, {})
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+    titles = []
+    for h, info in niche_history.items():
+        if isinstance(info, dict):
+            date = info.get("date", "")
+            title = info.get("title", "")
+            if date > cutoff and title:
+                titles.append(title)
+        # Legacy format (hash -> date string) has no title, skip
+    return titles
+
+
+def _is_too_similar(new_topic: str, recent_titles: list[str], threshold: int = 3,
+                    ignore_words: set | None = None) -> bool:
+    """
+    Check if a new topic is too similar to recent ones using keyword overlap.
+
+    ignore_words: terms to exclude from the comparison (e.g. a focused page's
+    recurring core subject words — such as the current conflict's country/leader
+    names or a niche's theme words — which recur in every title and would
+    otherwise cause every on-theme topic to look like a duplicate).
+    """
+    stop = {"the", "a", "an", "is", "are", "to", "for", "in", "of", "and", "or",
+            "how", "why", "what", "your", "you", "this", "that", "with", "from",
+            "it", "its", "not", "can", "do", "does", "will", "be", "on", "at"}
+    stop = stop | {w.lower() for w in (ignore_words or set())}
+
+    def _words(s: str) -> set:
+        ws = {w.lower().strip(".,!?:;'\"()") for w in s.split()} - stop
+        return {w for w in ws if len(w) > 2}
+
+    new_words = _words(new_topic)
+    for title in recent_titles:
+        if len(new_words & _words(title)) >= threshold:
+            return True
+    return False
+
+
 def _record_topic(niche: str, topic: str):
-    """Record that a topic was used."""
+    """Record that a topic was used (stores full title for dedup)."""
     history = _load_history()
     if niche not in history:
         history[niche] = {}
-    history[niche][_topic_hash(topic)] = datetime.now().isoformat()
+    history[niche][_topic_hash(topic)] = {
+        "date": datetime.now().isoformat(),
+        "title": topic,
+    }
     # Prune entries older than 30 days
     cutoff = (datetime.now() - timedelta(days=30)).isoformat()
     history[niche] = {
-        h: d for h, d in history[niche].items() if d > cutoff
+        h: info for h, info in history[niche].items()
+        if (info if isinstance(info, str) else info.get("date", "")) > cutoff
     }
     _save_history(history)
 
@@ -76,7 +122,24 @@ async def _fetch_trending_context(niche: str) -> str:
     try:
         from modules.trend_detector import get_trending_topics
         trend_data = await get_trending_topics(niche)
-        if trend_data["context_string"]:
+
+        # Rotate the trend seed: the trend cache has a 2h TTL, so back-to-back
+        # runs would otherwise see the SAME #1 trend and produce the same topic.
+        # Shuffle the trend pool so a DIFFERENT signal leads each run → variety.
+        trends = trend_data.get("trends") or []
+        keywords = [t.get("keyword", "").strip() for t in trends if t.get("keyword")]
+        keywords = list(dict.fromkeys(keywords))  # de-dup, preserve first-seen
+        if keywords:
+            random.shuffle(keywords)
+            picked = keywords[:6]
+            sources = ", ".join(trend_data.get("active_sources", []))
+            lines = "\n".join(f"- {k}" for k in picked)
+            return (
+                f"[Live data from: {sources}]\n"
+                f"Trending signals right now (a rotating sample — pick a FRESH angle "
+                f"and vary the subject from previous runs):\n{lines}"
+            )
+        if trend_data.get("context_string"):
             sources = ", ".join(trend_data.get("active_sources", []))
             return f"[Live data from: {sources}]\n{trend_data['context_string']}"
     except Exception as e:
@@ -116,6 +179,7 @@ async def generate_trending_topic_ai(
     perf_keywords: list[str] | None = None,
     hook_style: str = "",
     title_style: str = "",
+    recent_titles: list[str] | None = None,
 ) -> str | None:
     """
     Use Gemini to generate a fresh trending topic for the niche.
@@ -126,27 +190,43 @@ async def generate_trending_topic_ai(
     - A/B tested hook and title style instructions
     - Negative filter to avoid repetitive/sensitive content
     """
-    if not GEMINI_API_KEY:
+    if not GEMINI_API_KEY and not ANTHROPIC_API_KEY:
         return None
 
     try:
         from google import genai
 
-        client = genai.Client(api_key=GEMINI_API_KEY)
+        client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
         niche_config = NICHES[niche]
         today = datetime.now().strftime("%B %d, %Y")
+
+        # Hard subject lock for pages that only perform on one theme.
+        focus = niche_config.get("topic_focus", "")
 
         # Fetch real trending data
         trending_context = ""
         try:
-            trending_context = await _fetch_trending_context(niche)
-            if trending_context:
+            if focus:
+                # Focused page: DON'T inject the rotating multi-topic trend feed —
+                # it would pull the topic off-subject. Stay strictly on-theme and
+                # vary the angle within it instead.
                 trending_context = (
-                    f"\n\nCURRENT TRENDING DATA (REAL, live from YouTube + Google Trends + Reddit):\n"
-                    f"{trending_context}\n\n"
-                    f"IMPORTANT: Use these REAL trending topics as your foundation. Pick one that's HOT right now "
-                    f"and create a video angle on it that will get MORE views than the existing content."
+                    f"\n\n## MANDATORY TOPIC FOCUS (do not deviate):\n{focus}\n\n"
+                    f"Every topic MUST be about the subject above. Today is {today} — "
+                    f"pick a FRESH angle within this focus (a different event, figure, "
+                    f"consequence, or question) that differs from the ALREADY COVERED list."
                 )
+            else:
+                trending_context = await _fetch_trending_context(niche)
+                if trending_context:
+                    trending_context = (
+                        f"\n\nCURRENT TRENDING DATA (REAL, live from YouTube + Google Trends + Reddit):\n"
+                        f"{trending_context}\n\n"
+                        f"IMPORTANT: Use these as inspiration, but pick a DIFFERENT signal/subject than "
+                        f"recent videos (see ALREADY COVERED below). Explore a fresh angle — a different "
+                        f"entity, region, or question — rather than the most obvious headline. Variety across "
+                        f"videos matters more than chasing the single hottest keyword."
+                    )
         except Exception:
             pass
 
@@ -173,60 +253,60 @@ async def generate_trending_topic_ai(
             except Exception:
                 pass
 
-        prompt = f"""You are an elite YouTube strategist who has studied every viral video formula. Your job: generate ONE video topic for the "{niche_config['name']}" niche that will MAXIMIZE views and subscriber growth.
+        prompt = f"""Generate ONE helpful video topic for the "{niche_config['name']}" channel.
 
 Today's date: {today}
 {trending_context}
 {perf_context}
-{hook_instruction}
-{title_instruction}
 
-## VIRAL VIDEO FORMULAS THAT WORK (use one):
+## GOOD TOPIC FORMATS:
 
-1. **"I Tested X So You Don't Have To"** — Personal experiment with surprising results
-   "I gave AI $1000 to trade stocks for 30 days — here's what happened"
-
-2. **"The Hidden Truth About X"** — Expose or reveal something the audience doesn't know
-   "The stock your broker doesn't want you to know about just got flagged by AI"
-
-3. **"X Just Changed Everything"** — Breaking news angle with real impact
-   "OpenAI just released a tool that replaces $50K analysts — and it's free"
-
-4. **"Why X Is Doing Y (And What It Means For You)"** — Connect trending news to viewer's life
-   "Why Goldman Sachs just went all-in on AI trading — and what it means for your portfolio"
-
-5. **"I Found X And It Actually Works"** — Discovery/proof format
-   "I found an AI that predicts stock breakouts 3 days early — here's the proof"
-
-6. **"Stop Doing X, Do This Instead"** — Contrarian advice with authority
-   "Stop using ChatGPT for trading — this AI tool actually understands markets"
-
-7. **"X vs Y — The Results Shocked Me"** — Comparison with surprising outcome
-   "AI trading bot vs my own picks for 7 days — the results will shock you"
+1. "How to [solve a real problem]" — practical, actionable
+2. "The truth about [common misconception]" — educational, honest
+3. "[Current event]: what it means for you" — timely, relevant
+4. "Why [thing people do] doesn't work (and what to do instead)" — contrarian but helpful
+5. "[Number] ways to [achieve something specific]" — concrete value
 
 ## RULES:
 
-1. MUST be based on something ACTUALLY trending or newsworthy right now ({today})
-2. Use SPECIFIC names, numbers, tools, or events — never generic
-3. The first 5 words must create an IRRESISTIBLE curiosity gap
-4. Must provide real VALUE — not empty clickbait (the viewer should learn something)
-5. Keep it under 15 words — punchy, not wordy
-6. Must feel URGENT — like they'll miss out if they don't watch NOW
-
-## AVOID (instant skip for viewers):
-
-- Generic "AI is amazing" or "AI changes everything" (too vague)
-- "Top 5/10 things" lists (overplayed)
-- Unverifiable claims or fake statistics
-- Topics with no trending news hook (stale content)
-- Anything that sounds like every other channel
+1. Must be genuinely HELPFUL — teach something real
+2. Be SPECIFIC — use real names, places, numbers, current events
+3. Keep it under 15 words — clear and direct
+4. Must be relevant to TODAY ({today}) — not generic evergreen
+5. No fake claims, no manufactured urgency, no clickbait
+6. The viewer should feel SMARTER after watching
 
 ## NICHE KEYWORDS: {', '.join(niche_config['search_keywords'])}
 
-Return ONLY the topic as a single line. No quotes. No explanation. No numbering."""
+## ALREADY COVERED (DO NOT repeat these topics or anything similar):
+{chr(10).join('- ' + t for t in (recent_titles or [])[-15:]) or '(none yet)'}
 
-        # Try multiple models for rate limit resilience
-        for model_name in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]:
+Return ONLY the topic as a single line. No quotes. No explanation. Must be a COMPLETELY DIFFERENT subject from the list above."""
+
+        # Strategy: Claude FIRST (reliable), Gemini fallback (free but rate-limited)
+
+        # 1. Try Claude first
+        if ANTHROPIC_API_KEY:
+            try:
+                import anthropic
+                claude_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+                msg = claude_client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=100,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                if msg.content:
+                    topic = msg.content[0].text.strip().strip('"').strip("'")
+                    if topic and len(topic) > 10:
+                        return topic
+            except Exception as e:
+                print(f"[TopicGen] Claude failed: {e}")
+
+        # 2. Try Gemini models (if client available)
+        if not client:
+            return None
+        models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+        for model_name in models:
             try:
                 response = client.models.generate_content(
                     model=model_name,
@@ -237,12 +317,12 @@ Return ONLY the topic as a single line. No quotes. No explanation. No numbering.
                     return topic
             except Exception as model_err:
                 if "429" in str(model_err) or "RESOURCE_EXHAUSTED" in str(model_err):
-                    import asyncio
-                    await asyncio.sleep(2)
+                    print(f"[TopicGen] {model_name} rate limited, trying next...")
                     continue
-                raise
+                print(f"[TopicGen] {model_name} failed: {model_err}")
+                continue
     except Exception as e:
-        print(f"[TopicGen] Gemini topic generation failed: {e}")
+        print(f"[TopicGen] Topic generation failed: {e}")
 
     return None
 
@@ -269,6 +349,7 @@ async def pick_topic(
     """
     niche_config = NICHES[niche]
     recent = _get_recent_topics(niche)
+    recent_titles = _get_recent_topic_titles(niche, days=14)
 
     # Get top-performing keywords for this niche (feedback loop)
     perf_keywords = []
@@ -294,6 +375,18 @@ async def pick_topic(
     best_candidate = None
     best_score = -1
 
+    # For a focused page, the core subject words recur in every title, so exclude
+    # them from the dedup comparison and require more overlap before rejecting —
+    # otherwise every on-theme angle looks like a duplicate.
+    focus = niche_config.get("topic_focus", "")
+    if focus:
+        focus_ignore = {w.lower().strip(".,!?:;'\"()") for w in
+                        (focus + " " + " ".join(niche_config.get("search_keywords", []))).split()}
+        sim_threshold = 4
+    else:
+        focus_ignore = None
+        sim_threshold = 3
+
     if use_ai:
         for attempt in range(VIRAL_SCORE_MAX_RETRIES):
             ai_topic = await generate_trending_topic_ai(
@@ -301,8 +394,13 @@ async def pick_topic(
                 perf_keywords=perf_keywords,
                 hook_style=hook_style,
                 title_style=title_style,
+                recent_titles=recent_titles,
             )
             if not ai_topic or _topic_hash(ai_topic) in recent:
+                continue
+            # Reject topics too similar to recent ones (keyword overlap)
+            if _is_too_similar(ai_topic, recent_titles, threshold=sim_threshold, ignore_words=focus_ignore):
+                print(f"[TopicGen] Rejected similar topic: {ai_topic[:60]}")
                 continue
 
             # Validate viral potential

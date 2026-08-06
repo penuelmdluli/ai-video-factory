@@ -60,7 +60,7 @@ TWITTER_ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET", "")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 
 # ── Viral Score Settings ─────────────────────────────────
-VIRAL_SCORE_THRESHOLD = float(os.getenv("VIRAL_SCORE_THRESHOLD", "35"))
+VIRAL_SCORE_THRESHOLD = float(os.getenv("VIRAL_SCORE_THRESHOLD", "20"))  # Lower threshold — quality prompt handles the rest
 VIRAL_SCORE_MAX_RETRIES = int(os.getenv("VIRAL_SCORE_MAX_RETRIES", "3"))
 
 # ── Niche Prioritization ─────────────────────────────────
@@ -143,7 +143,6 @@ GOOGLE_SHEETS_ID = os.getenv("GOOGLE_SHEETS_ID", "")
 
 # ── Voice Routing ──────────────────────────────────────────────
 # "elevenlabs" for premium, "edge-tts" for free
-VOICE_YOUTUBE_LONG = os.getenv("DEFAULT_VOICE_YOUTUBE", "elevenlabs")
 VOICE_SHORTS = os.getenv("DEFAULT_VOICE_SHORTS", "elevenlabs")
 
 # ── Edge-TTS Voices (free, natural-sounding) ──────────────────
@@ -162,58 +161,51 @@ ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")  
 ELEVENLABS_MODEL = "eleven_multilingual_v2"  # Best quality model — most natural sounding
 ELEVENLABS_OUTPUT_FORMAT = "mp3_44100_192"   # Premium quality 192kbps (Creator tier)
 
-# ── Video Settings ─────────────────────────────────────────────
+# ── Video Settings (SHORTS ONLY — no long-form, no podcast) ────
 VIDEO_SETTINGS = {
-    "youtube_long": {
-        "width": 1920,
-        "height": 1080,
-        "fps": 30,
-        "duration_target": 480,  # ~8 minutes target
-        "aspect": "16:9",
-    },
     "youtube_shorts": {
         "width": 1080,
         "height": 1920,
         "fps": 30,
-        "duration_target": 55,  # under 60 seconds
+        "duration_target": 30,  # 25-35 sec viral sweet spot
         "aspect": "9:16",
     },
     "tiktok": {
         "width": 1080,
         "height": 1920,
         "fps": 30,
-        "duration_target": 45,  # sweet spot 30-60 sec
+        "duration_target": 30,  # 25-35 sec viral sweet spot
         "aspect": "9:16",
     },
     "instagram_reels": {
         "width": 1080,
         "height": 1920,
         "fps": 30,
-        "duration_target": 30,  # 15-45 sec sweet spot
+        "duration_target": 30,  # 25-35 sec viral sweet spot
         "aspect": "9:16",
     },
-    # ── News Anchor Format (Daily Breakdown) ──
-    "news_anchor_short": {
+    # ── Short format (used by scheduler — all platforms) ──
+    "short": {
         "width": 1080,
         "height": 1920,
         "fps": 30,
-        "duration_target": 60,   # 45-75 sec sweet spot for news clips
+        "duration_target": 30,  # 25-35 sec = highest completion rate
         "aspect": "9:16",
     },
-    # ── Podcast Split-Screen Format ──
-    "podcast_short": {
+    # Legacy alias
+    "viral_short": {
         "width": 1080,
         "height": 1920,
         "fps": 30,
-        "duration_target": 90,   # 60-120 sec debates
+        "duration_target": 30,
         "aspect": "9:16",
     },
-    "podcast_long": {
-        "width": 1920,
-        "height": 1080,
+    "facebook_reels": {
+        "width": 1080,
+        "height": 1920,
         "fps": 30,
-        "duration_target": 300,  # 3-5 min longer debates
-        "aspect": "16:9",
+        "duration_target": 30,  # 25-35 sec viral sweet spot
+        "aspect": "9:16",
     },
 }
 
@@ -226,13 +218,29 @@ THUMBNAIL_TEXT_COLOR = (255, 255, 255)
 THUMBNAIL_ACCENT_COLOR = (0, 255, 136)  # Green accent
 
 # ── Caption Settings ───────────────────────────────────────────
-CAPTION_FONT_SIZE = 64  # Large karaoke-style
-CAPTION_MAX_WORDS = 4   # Short punchy phrases (4 words for readability)
+# Punchy, high-retention captions for war/news shorts: short bursts, big bold
+# text with a heavy outline so it stays readable over busy combat footage.
+CAPTION_FONT_SIZE = int(os.getenv("CAPTION_FONT_SIZE", "60"))  # bigger, mobile-readable
+CAPTION_MAX_WORDS = int(os.getenv("CAPTION_MAX_WORDS", "3"))   # 3-word bursts = karaoke punch
 CAPTION_FONT_COLOR = "white"
 CAPTION_STROKE_COLOR = "black"
-CAPTION_STROKE_WIDTH = 3
-CAPTION_BG_OPACITY = 0.65
+CAPTION_STROKE_WIDTH = int(os.getenv("CAPTION_STROKE_WIDTH", "6"))  # heavy outline over footage
+CAPTION_BG_OPACITY = float(os.getenv("CAPTION_BG_OPACITY", "0.55"))  # lighter bar, text carries
 CAPTION_POSITION = ("center", "bottom")
+
+# ── Karaoke word highlight (engagement) ───────────────────────
+# Keeps the EXACT caption style; the word being spoken pops yellow + bounces.
+KARAOKE_CAPTIONS = os.getenv("KARAOKE_CAPTIONS", "1") not in ("0", "false", "no", "")
+# Bright yellow highlight for the active word (R,G,B). Vivid, high-contrast over footage.
+KARAOKE_HIGHLIGHT_COLOR = tuple(int(x) for x in os.getenv(
+    "KARAOKE_HIGHLIGHT_COLOR", "255,221,51").split(","))
+# Active word grows this much (the "bounce" pop). 1.0 = no size change.
+KARAOKE_HIGHLIGHT_SCALE = float(os.getenv("KARAOKE_HIGHLIGHT_SCALE", "1.12"))
+
+# ── Background music level (under the voiceover) ──────────────
+# 0.18 was almost inaudible under a full-volume voice; 0.35 sits clearly under
+# speech without drowning it. Tune via env; ~0.45 = punchy, ~0.25 = subtle.
+MUSIC_VOLUME = float(os.getenv("MUSIC_VOLUME", "0.35"))
 
 # ── Platform-Aware Fonts ──────────────────────────────────────
 import platform as _platform
@@ -247,30 +255,108 @@ else:
 ENABLE_KEN_BURNS = True
 ENABLE_TRANSITIONS = True
 ENABLE_LOWER_THIRDS = True
-# SFX decoupled from voice — can use cached SFX even without ElevenLabs
-ENABLE_SFX = True  # Always try SFX; will use cached files or skip gracefully
+# SFX decoupled from voice — can use cached SFX even without ElevenLabs.
+# OFF by default: the generated whoosh/impact accents read as artificial noise over
+# real footage. Keep clean music + voiceover only. Set ENABLE_SFX=true to bring them back.
+ENABLE_SFX = os.getenv("ENABLE_SFX", "false").lower() in ("true", "1", "yes")
 TRANSITION_DURATION = 0.4
 KEN_BURNS_ZOOM_RANGE = (1.0, 1.50)  # Cinematic zoom (was 1.20, now 1.50 for stronger effect)
 
 # ── AI Image Generation (Local Stable Diffusion XL) ──────────
 # Runs on GPU (RTX 2080 Ti 11GB) for unlimited, copyright-free images
 ENABLE_LOCAL_SD = os.getenv("ENABLE_LOCAL_SD", "true").lower() in ("true", "1", "yes")
+# Prefer LOCAL SDXL for the still images (free/unlimited); the GPU is now free
+# because video runs on WaveSpeed's cloud. Cloudflare FLUX is the fallback.
+PREFER_LOCAL_IMAGES = os.getenv("PREFER_LOCAL_IMAGES", "true").lower() in ("true", "1", "yes")
 SD_STEPS = int(os.getenv("SD_STEPS", "20"))  # 20 = good quality + 33% faster
 SD_CFG_SCALE = float(os.getenv("SD_CFG_SCALE", "7.5"))
 # Set to false to disable stock footage fallback (100% AI images)
-USE_STOCK_FOOTAGE = os.getenv("USE_STOCK_FOOTAGE", "false").lower() in ("true", "1", "yes")
+USE_STOCK_FOOTAGE = os.getenv("USE_STOCK_FOOTAGE", "true").lower() in ("true", "1", "yes")
 
-# ── AI Image-to-Video (Stable Video Diffusion) ──────────────
-# Converts AI images into video clips with natural camera motion
-# Uses SVD-XT (25 frames) with CPU offloading for 11GB VRAM
-ENABLE_IMG2VID = os.getenv("ENABLE_IMG2VID", "false").lower() in ("true", "1", "yes")
-IMG2VID_FPS = int(os.getenv("IMG2VID_FPS", "7"))
-IMG2VID_NUM_FRAMES = int(os.getenv("IMG2VID_NUM_FRAMES", "25"))
+# ── AI Image-to-Video (SVD-XT — LOCAL GPU) ──────────────────
+# Converts AI images into CINEMATIC video clips with realistic motion.
+# Primary: Stable Video Diffusion XT — runs GPU-direct on RTX 2080 Ti (11GB)
+#   at ~2.5 min/clip, fp16-safe on Turing. Loaded once per batch.
+# Fallback: Ken Burns zoom (no GPU needed).
+# NOTE: CogVideoX-5B and Wan-14B were evaluated and REJECTED for local use —
+#   they need bf16 (no Turing HW support) + >11GB VRAM, producing black frames
+#   and ~2.7 hr/clip via CPU offload. Use those only via a hosted GPU.
+# ── Image-to-video BACKEND ──────────────────────────────────
+# "runpod"   = serverless RunPod Wan 2.1 T2V (~$0.02-0.05/clip, endpoint in
+#              RUNPOD_ENDPOINT_ID) — cheapest cloud option, replaces WaveSpeed.
+# "wavespeed" = serverless cloud GPU (sharp Wan 2.2 / Seedance) — no Turing fight.
+# "svd" = local SVD-XT (soft). "none" = stock/Ken Burns only.
+# Cloud clip per scene, then STOCK footage as fallback if it fails/over-budget.
+I2V_BACKEND = os.getenv("I2V_BACKEND", "wavespeed").lower()
+WAVESPEED_MODEL = os.getenv("WAVESPEED_MODEL", "wan22")        # wan22 | seedance
+WAVESPEED_RESOLUTION = os.getenv("WAVESPEED_RESOLUTION", "480p")  # 480p | 720p
+WAVESPEED_DURATION = int(os.getenv("WAVESPEED_DURATION", "5"))
+WAVESPEED_MONTHLY_BUDGET = float(os.getenv("WAVESPEED_MONTHLY_BUDGET", "60"))
+
+# ── Premium "hero clip" tier ──────────────────────────────────────
+# Scene 1 (the hook) can use a top-tier cloud model (Seedance 2.0) for a
+# cinematic, Hollywood-grade opening with clean human motion. All other scenes
+# stay on Wan 2.2 / free Ken Burns. OFF by default = $0 (nothing changes).
+# Cost-controlled: master switch + niche allow-list + daily cap + the existing
+# WaveSpeed monthly $ budget. Only the FIRST scene ever pays premium (~$0.70/video).
+ENABLE_HERO_PREMIUM = os.getenv("ENABLE_HERO_PREMIUM", "false").lower() in ("true", "1", "yes")
+HERO_PREMIUM_MODEL = os.getenv("HERO_PREMIUM_MODEL", "seedance")       # WaveSpeed model id
+HERO_PREMIUM_RESOLUTION = os.getenv("HERO_PREMIUM_RESOLUTION", "720p")  # 720p | 1080p
+# Which niches get the premium hero when enabled (comma-separated). Empty = all.
+HERO_PREMIUM_NICHES = [n.strip() for n in os.getenv("HERO_PREMIUM_NICHES", "tech_news").split(",") if n.strip()]
+HERO_PREMIUM_DAILY_MAX = int(os.getenv("HERO_PREMIUM_DAILY_MAX", "6"))  # hard cap: premium clips/day
+
+# Custom thumbnails/covers OFF by default — use the platform's auto default frame.
+SET_CUSTOM_THUMBNAIL = os.getenv("SET_CUSTOM_THUMBNAIL", "true").lower() in ("true", "1", "yes")
+
+# Multi-language subtitle tracks (YouTube) for international reach.
+SUBTITLE_TRANSLATE = os.getenv("SUBTITLE_TRANSLATE", "true").lower() in ("true", "1", "yes")
+# code -> language name (translated via Claude, uploaded as YouTube caption tracks)
+SUBTITLE_LANGUAGES = {"ar": "Arabic", "fr": "French", "es": "Spanish"}
+
+ENABLE_IMG2VID = os.getenv("ENABLE_IMG2VID", "true").lower() in ("true", "1", "yes")
+IMG2VID_FPS = int(os.getenv("IMG2VID_FPS", "16"))   # 16fps = smooth cinematic
+IMG2VID_NUM_FRAMES = int(os.getenv("IMG2VID_NUM_FRAMES", "25"))  # SVD-XT native max = 25 (~1.6s clip)
+# SVD-XT maxes out at 25 frames (~1.6s). To reach a usable clip length we
+# motion-interpolate (ffmpeg minterpolate) and retime each clip to this minimum
+# duration — smooth, cinematic, and far cheaper than regenerating more frames.
+IMG2VID_MIN_DURATION = float(os.getenv("IMG2VID_MIN_DURATION", "3.0"))  # seconds; 0 = disable
+IMG2VID_SMOOTH_FPS = int(os.getenv("IMG2VID_SMOOTH_FPS", "24"))  # output fps after interpolation
 
 # ── AI Music Generation (MusicGen) ───────────────────────────
 # Generates copyright-free background music per niche via Meta MusicGen
-ENABLE_AI_MUSIC = os.getenv("ENABLE_AI_MUSIC", "true").lower() in ("true", "1", "yes")
+ENABLE_AI_MUSIC = os.getenv("ENABLE_AI_MUSIC", "false").lower() in ("true", "1", "yes")  # MusicGen too slow on 2080 Ti
 AI_MUSIC_CACHE_DIR = ASSETS_DIR / "ai_music_cache"
+
+# ── AI Video Generation ──────────────────────────────────────
+# ALL LOCAL — SVD-XT on RTX 2080 Ti for image-to-video conversion
+# No paid APIs (fal.ai, Kling, MiniMax) — 100% free local GPU
+FAL_KEY = os.getenv("FAL_KEY", "")
+ENABLE_AI_VIDEO = False   # No paid video APIs
+AI_VIDEO_BUDGET_PER_SESSION = 0  # $0 — all local
+
+# Hero shot disabled — SVD-XT handles all scenes locally for free
+ENABLE_HERO_SHOT = False
+HERO_SHOT_MAX_COST = 0
+CLIP_LIBRARY_DIR = ASSETS_DIR / "clip_library"
+MUSIC_CACHE_DIR = ASSETS_DIR / "music_cache"
+
+# ── Suno AI Music API (commercial license, ~$0.11/song) ──────
+SUNO_API_KEY = os.getenv("SUNO_API_KEY", "")
+SUNO_API_URL = os.getenv("SUNO_API_URL", "")  # Third-party endpoint (EvoLink, etc.)
+
+# ── Viral Shorts Settings ────────────────────────────────────
+# Optimized for maximum engagement (July 2026 research):
+# - 25-35 seconds = sweet spot (70%+ completion rate)
+# - Cuts every 2-3 seconds (fast pacing)
+# - First 1-3 seconds = make or break (hook frame)
+SHORTS_MAX_DURATION = int(os.getenv("SHORTS_MAX_DURATION", "35"))  # 35s sweet spot
+SHORTS_MIN_DURATION = int(os.getenv("SHORTS_MIN_DURATION", "20"))  # minimum for value
+SHORTS_VIDEOS_PER_NICHE = int(os.getenv("SHORTS_VIDEOS_PER_NICHE", "3"))  # per run
+# Platform-specific rendering: separate files, no cross-posting
+SHORTS_PLATFORMS = ["youtube_shorts", "tiktok", "instagram_reels", "facebook_reels"]
+# Reuse strategy: what % of clips should come from library vs fresh API
+CLIP_REUSE_TARGET = float(os.getenv("CLIP_REUSE_TARGET", "0.3"))  # 30% reuse — more fresh content
 
 # ── Talking Head Avatar APIs ─────────────────────────────────
 # D-ID (primary) — Lite plan: 400 credits/month
@@ -279,7 +365,7 @@ DID_AVATAR_IMAGE_URL = os.getenv("DID_AVATAR_IMAGE_URL", "")
 # HeyGen (fallback) — alternative talking head API
 HEYGEN_API_KEY = os.getenv("HEYGEN_API_KEY", "")
 # Local avatar (FREE — Wav2Lip + audio-reactive, no API needed)
-LOCAL_AVATAR_ENABLED = os.getenv("LOCAL_AVATAR_ENABLED", "true").lower() in ("true", "1", "yes")
+LOCAL_AVATAR_ENABLED = os.getenv("LOCAL_AVATAR_ENABLED", "false").lower() in ("true", "1", "yes")
 LOCAL_AVATAR_PREFER_GPU = os.getenv("LOCAL_AVATAR_PREFER_GPU", "true").lower() in ("true", "1", "yes")
 ENABLE_AVATAR = bool(DID_API_KEY) or bool(HEYGEN_API_KEY) or LOCAL_AVATAR_ENABLED
 # Viseme sprite library (D-ID quality, zero ongoing cost after initial generation)
@@ -319,30 +405,92 @@ NICHES = {
         "edge_voice": "en-US-AriaNeural",
     },
     "tech_news": {
-        "name": "AI & Tech News",
+        "name": "Tech Pulse Africa - World News & Tech",
+        # UN-PINNED (2026-08-06): topic_focus no longer hard-locks this page to the
+        # Trump–Iran–Israel conflict. It now DEFAULTS to empty so the news brain /
+        # topic generator follows fresh trending news instead of one stale topic.
+        # To temporarily re-pin a theme (e.g. a breaking story), set the env var
+        # TECH_NEWS_TOPIC_FOCUS to the desired focus string; empty = free/fresh.
+        "topic_focus": os.getenv("TECH_NEWS_TOPIC_FOCUS", ""),
+        # Evergreen, conflict-AGNOSTIC angle templates. These deliberately name NO
+        # single war so the page follows WHATEVER major world conflict / geopolitical
+        # story is breaking right now, with a recurring Africa / South-Africa angle.
         "topics_bank": [
-            "biggest AI news today",
-            "new AI tool just launched",
-            "AI breakthrough this week",
-            "tech company AI announcement",
-            "AI regulation update",
-            "AI replaces jobs update",
-            "new robot AI technology",
-            "AI in healthcare breakthrough",
-            "AI startup raised millions",
-            "AI vs AI competition results",
-            "new AI model released",
-            "AI safety research update",
-            "tech layoffs AI impact",
-            "AI in education changes",
-            "future of AI prediction",
+            "what is really happening in the world's biggest conflict right now and why it matters",
+            "how this war is pushing oil and food prices and hitting your wallet",
+            "the African angle on the global crisis nobody is talking about",
+            "who actually gains from this war — follow the money",
+            "how close are the world's powers to a wider war",
+            "the ceasefire everyone is watching — will it hold",
+            "what this global crisis means for South Africa and Africa",
+            "the map that explains the conflict in 60 seconds",
+            "BRICS, the US and the new world order explained simply",
+            "the resource and minerals war behind the headlines",
+            "why this chokepoint controls the world economy",
+            "the humanitarian crisis the media moved on from",
         ],
-        "search_keywords": ["AI news", "tech news", "artificial intelligence", "AI update", "technology breakthrough"],
-        "pexels_queries": ["technology", "artificial intelligence", "robot", "computer", "futuristic", "innovation", "circuit board", "coding", "server room", "data center"],
-        "hashtags": ["#AI", "#TechNews", "#ArtificialIntelligence", "#Technology", "#AINews", "#Innovation", "#FutureTech", "#MachineLearning", "#Tech", "#AIUpdate"],
-        "cpm_estimate": 12,
+        "search_keywords": ["breaking world news", "geopolitics", "global conflict", "war news", "Middle East", "Ukraine", "Africa geopolitics", "BRICS", "oil prices", "world crisis"],
+        "pexels_queries": ["missile", "war zone", "fighter jet", "military", "press conference", "protest crowd", "explosion", "soldiers", "parliament", "oil refinery", "United Nations", "global news"],
+        "hashtags": ["#BreakingNews", "#WorldNews", "#Geopolitics", "#War", "#GlobalNews", "#Conflict", "#Africa", "#BRICS", "#WorldOrder", "#TechPulseAfrica"],
+        "cpm_estimate": 18,
         "generate_charts": False,
-        "edge_voice": "en-GB-SoniaNeural",
+        "edge_voice": "en-GB-RyanNeural",
+    },
+    "sa_pulse": {
+        "name": "Genesis News - SA Current Affairs",
+        # Dedicated South African current-affairs page. topic_focus keeps topic
+        # generation + trends + the news chyron locked to SA daily life — reported
+        # factually, neutrally and with a solutions bent. See the STRICT safety
+        # block in modules/script_writer.py (NICHE_STYLE_GUIDES["sa_pulse"]).
+        "topic_focus": (
+            "South African current affairs explained for everyday citizens: what is "
+            "happening in the country right now and why it matters. Cover national news "
+            "and civic events (protests, marches, service delivery) reported factually and "
+            "neutrally; new laws, regulations and government decisions and how they affect "
+            "ordinary people; the job market, youth employment and real opportunities; "
+            "tourism and travel; border management and migration as POLICY and ECONOMICS; "
+            "cost of living; and social cohesion — including the ROOT CAUSES of tensions "
+            "like xenophobia (unemployment, inequality, scarce resources, service-delivery "
+            "and migration-management failures) and CONSTRUCTIVE SOLUTIONS (jobs, regional "
+            "integration/AfCFTA, community dialogue, fair efficient policy). ALWAYS factual, "
+            "neutral, non-partisan, unifying and solutions-oriented. NEVER incite, take a "
+            "political side, target any nationality/group, or claim unverified things about "
+            "real named people. South Africa only."
+        ),
+        "topics_bank": [
+            "what South Africans are talking about today and why it matters",
+            "the real reasons youth unemployment is so high and what could fix it",
+            "where the jobs actually are in South Africa right now",
+            "how to spot and avoid job scams while job hunting in Mzansi",
+            "new laws coming to South Africa and how they affect everyday people",
+            "your basic rights as a South African everyone should know",
+            "why the cost of living keeps rising and how families are coping",
+            "xenophobia in South Africa the honest root causes and real solutions",
+            "South Africa's borders and migration explained calmly and factually",
+            "what actually drives service-delivery protests and what helps",
+            "South Africa's tourism boom and what it means for jobs",
+            "government grants and support South Africans may qualify for",
+            "how small businesses are surviving tough times in Mzansi",
+            "load shedding and the grid what is really going on explained simply",
+            "why regional trade and a united Africa could lift South Africa",
+            "practical ways communities are building safety and cohesion together",
+        ],
+        "search_keywords": ["South Africa news", "South Africa jobs", "SA unemployment",
+                            "South Africa economy", "new law South Africa", "load shedding",
+                            "South Africa tourism", "cost of living South Africa",
+                            "South Africa migration policy", "youth employment South Africa"],
+        "pexels_queries": ["South African flag", "Table Mountain Cape Town",
+                           "Johannesburg Sandton skyline", "Union Buildings Pretoria",
+                           "Durban beachfront", "South African people", "job interview",
+                           "construction workers", "township community", "market vendors",
+                           "South Africa parliament", "border post", "minibus taxi rank",
+                           "South African rand money", "students studying", "spaza shop"],
+        "hashtags": ["#SouthAfrica", "#Mzansi", "#SANews", "#SouthAfricaNews",
+                     "#CurrentAffairs", "#Jobs", "#SAeconomy", "#ProudlySouthAfrican",
+                     "#Mzansi", "#SA"],
+        "cpm_estimate": 14,
+        "generate_charts": False,
+        "edge_voice": "en-ZA-LukeNeural",
     },
     "motivation": {
         "name": "Daily Motivation & Mindset",
@@ -371,87 +519,111 @@ NICHES = {
         "edge_voice": "en-US-ChristopherNeural",  # Deep male voice — powerful for motivation
     },
     "health_wellness": {
-        "name": "Health & Wellness AI",
+        "name": "Herbal Organic Life",
+        # SAFE, genuinely-helpful organic-lifestyle content — NO medical/cure/treatment
+        # claims (YMYL policy + AdSense/FTC safe). Herbs = culinary; organic = food & garden.
+        # Hard subject-lock so the trend-based topic generator can't drift into medical claims:
+        "topic_focus": (
+            "Simple ORGANIC-LIVING and HEALTHY-HABITS lifestyle tips ONLY: cooking with fresh herbs "
+            "and spices, growing a home or herb garden, choosing/storing organic produce, easy whole-food "
+            "meals and snacks, hydration, gentle movement, rest, and calm daily routines. "
+            "ABSOLUTELY FORBIDDEN: any medical, disease, symptom, 'remedy', 'cure', 'treat', 'heal', "
+            "'detox', weight-loss, supplement-dosing, or 'boosts immunity/reverses/kills' claims, and no "
+            "fear-mongering or clickbait. Keep every topic practical, food- and garden-focused, modest and honest."
+        ),
         "topics_bank": [
-            "AI discovers new health benefit",
-            "foods that boost brain power",
-            "morning routine for longevity",
-            "natural remedies backed by science",
-            "AI analyzes best diet for health",
-            "sleep optimization tips science",
-            "gut health impacts everything",
-            "anti aging foods you should eat",
-            "herbs that heal naturally",
-            "water fasting health benefits",
-            "AI reveals exercise secrets",
-            "stress relief techniques that work",
-            "superfoods to eat every day",
-            "how to detox your body naturally",
-            "mental health daily practices",
+            "easy ways to add more vegetables to your meals every day",
+            "how to start a simple herb garden on your windowsill",
+            "cooking with fresh herbs: simple flavor boosts for everyday meals",
+            "how to read organic food labels when you shop",
+            "simple whole-food breakfast ideas to start your day",
+            "how to build a calming evening routine for better rest",
+            "budget-friendly ways to eat more whole foods",
+            "easy ways to drink more water through the day",
+            "meal-prep basics for busy weeks",
+            "seasonal vegetables and simple ways to enjoy them",
+            "how to grow your own sprouts at home step by step",
+            "easy plant-forward swaps for everyday cooking",
+            "how to store fresh herbs so they last longer",
+            "simple ways to add more colour to your plate",
+            "gentle daily movement habits anyone can start",
+            "cosy homemade herbal teas for a relaxing evening",
+            "simple ways to reduce food waste in your kitchen",
+            "mindful eating habits for calmer, happier mealtimes",
+            "starting a small organic vegetable patch at home",
+            "wholesome snack ideas made from simple ingredients",
         ],
-        "search_keywords": ["health tips", "wellness", "natural remedies", "healthy living", "nutrition science"],
-        "pexels_queries": ["healthy food", "yoga", "meditation", "herbs", "nature", "wellness", "green smoothie", "exercise", "organic", "peaceful", "fruits vegetables"],
-        "hashtags": ["#Health", "#Wellness", "#HealthyLiving", "#NaturalRemedies", "#Nutrition", "#Fitness", "#MentalHealth", "#Organic", "#HealthTips", "#SelfCare"],
+        "search_keywords": ["healthy eating tips", "organic food", "herb garden", "whole foods",
+                            "meal prep", "healthy habits", "cooking with herbs", "organic living"],
+        "pexels_queries": ["fresh herbs", "healthy food preparation", "organic garden",
+                           "colorful vegetables", "herbal tea", "farmers market", "meal prep", "home kitchen cooking"],
+        "hashtags": ["#HealthyEating", "#OrganicLiving", "#HerbGarden", "#WholeFoods",
+                     "#HealthyHabits", "#CleanEating", "#EatTheRainbow", "#HealthyLifestyle", "#Wellness", "#HomeCooking"],
         "cpm_estimate": 14,
         "generate_charts": False,
-        "edge_voice": "en-US-AriaNeural",  # Warm female voice — soothing for health content
+        "edge_voice": "en-US-AriaNeural",  # Warm, calm, friendly female voice
     },
     "blissful_moments": {
-        "name": "Blissful Moments - Positivity & Inspiration",
+        "name": "Mzansi Baby Stars - Parenting & Family Joy",
         "topics_bank": [
-            "beautiful moments that restore your faith in humanity",
-            "simple joys that make life worth living",
-            "heartwarming stories that will make your day",
-            "finding peace in everyday moments",
-            "gratitude practice that changes everything",
-            "small acts of kindness with big impact",
-            "mindfulness moments for inner peace",
-            "positive affirmations for a beautiful day",
-            "life lessons from nature and animals",
-            "feel good stories from around the world",
-            "how to find happiness in simple things",
-            "calming moments for stress relief",
-            "inspiring stories of human kindness",
-            "creating joy in your daily routine",
-            "blissful moments that heal the soul",
+            "baby sleep tips that actually work for new parents",
+            "fun learning activities for toddlers at home",
+            "how to handle toddler tantrums with patience",
+            "best first foods for South African babies",
+            "affordable baby essentials every SA parent needs",
+            "milestones your baby should reach by 12 months",
+            "simple homemade baby food recipes",
+            "how to create a safe play area at home",
+            "signs your baby is ready for solids",
+            "bonding activities for dad and baby",
+            "how to soothe a colicky baby naturally",
+            "fun sensory play ideas for babies under 1",
+            "teaching your toddler to share and be kind",
+            "best educational toys for South African toddlers",
+            "how to make bath time fun and safe",
         ],
-        "search_keywords": ["positivity", "inspiration", "happiness", "mindfulness", "gratitude", "feel good"],
-        "pexels_queries": ["sunset", "nature beauty", "happy people", "flowers", "peaceful", "ocean waves", "butterfly", "golden hour", "smiling", "waterfall", "forest", "calm"],
-        "hashtags": ["#BlissfulMoments", "#Positivity", "#Inspiration", "#Happiness", "#Gratitude", "#Mindfulness", "#PeaceOfMind", "#FeelGood", "#InnerPeace", "#BeautifulLife"],
+        "search_keywords": ["baby tips", "parenting", "toddler", "new parent", "baby milestones", "family", "South African baby"],
+        "pexels_queries": ["baby playing", "mother baby", "toddler learning", "family home", "baby sleeping", "parent child", "baby food", "happy family"],
+        "hashtags": ["#MzansiBabyStars", "#Parenting", "#BabyTips", "#NewMom", "#NewDad", "#SAParent", "#ToddlerLife", "#BabyMilestones", "#FamilyLove", "#MzansiFamily"],
         "cpm_estimate": 8,
         "generate_charts": False,
-        "edge_voice": "en-US-AriaNeural",  # Warm female voice — soothing for positivity content
+        "edge_voice": "en-US-AriaNeural",
     },
     "daily_breakdown": {
-        "name": "The Daily Breakdown - News Analysis",
+        "name": "Proudly South African - Mzansi Daily",
         "topics_bank": [
-            "Iran nuclear tensions latest developments",
-            "South Africa political crisis update",
-            "global economic outlook this week",
-            "Middle East conflict analysis",
-            "Africa rising: economic growth stories",
-            "world leaders meeting at summit",
-            "sanctions impact on global trade",
-            "refugee crisis update worldwide",
-            "climate change affecting developing nations",
-            "technology in modern warfare",
-            "South Africa energy crisis and solutions",
-            "Iran diplomatic negotiations breakdown",
-            "global food security concerns",
-            "Africa infrastructure development boom",
-            "world news that mainstream media ignores",
-            "geopolitical shifts reshaping the world order",
-            "breaking news analysis and what it means for you",
-            "South Africa crime and safety update",
-            "Iran Israel tensions escalating",
-            "what is really happening in the world right now",
+            "South Africa trending news today what everyone is talking about",
+            "top reasons why South Africa is the best country in the world",
+            "beautiful places in South Africa you must visit",
+            "South African entrepreneurs making the country proud",
+            "best South African food recipes the world loves",
+            "South Africa sports heroes who inspire the nation",
+            "young South Africans doing amazing things right now",
+            "South African music taking over the world amapiano",
+            "why tourists fall in love with South Africa",
+            "South African inventions the world does not know about",
+            "Cape Town voted best city again here is why",
+            "South Africa wildlife and nature that will blow your mind",
+            "Johannesburg the city of gold is rising",
+            "South African slang words every mzansi person knows",
+            "Durban beaches and culture that make it special",
+            "proudly South African brands going global",
+            "real South Africa stories of hope and resilience",
+            "braai culture why South Africans do it best",
+            "South African fashion designers making waves internationally",
+            "beauty of South African traditional cultures and heritage",
+            "South Africa renewable energy leading Africa",
+            "how South Africans solve problems with innovation",
+            "Nelson Mandela legacy still inspiring the world",
+            "South Africa crime safety tips that actually work",
+            "cost of living in South Africa tips to save money",
         ],
-        "search_keywords": ["world news", "Iran news", "South Africa news", "breaking news", "geopolitics", "Africa news"],
-        "pexels_queries": ["news broadcast", "world map", "political meeting", "press conference", "city skyline", "protest crowd", "parliament building", "military", "diplomacy", "african city"],
-        "hashtags": ["#DailyBreakdown", "#NewsAnalysis", "#WorldNews", "#BreakingNews", "#Iran", "#SouthAfrica", "#Africa", "#Geopolitics", "#NewsUpdate", "#CurrentEvents"],
-        "cpm_estimate": 15,
+        "search_keywords": ["South Africa", "Mzansi", "SA news", "proudly South African", "Cape Town", "Johannesburg", "Durban", "SA trending"],
+        "pexels_queries": ["South Africa", "Cape Town", "Johannesburg skyline", "African sunset", "safari animals", "Table Mountain", "beach Durban", "African food", "African dance", "South African flag", "African market", "braai", "African family", "African nature"],
+        "hashtags": ["#SouthAfrica", "#Mzansi", "#ProudlySouthAfrican", "#SA", "#CapeTown", "#Johannesburg", "#Durban", "#MzansiDaily", "#SAProud", "#WeAreSouthAfrica"],
+        "cpm_estimate": 12,
         "generate_charts": False,
-        "edge_voice": "en-US-GuyNeural",  # Deep male voice — authoritative for news
+        "edge_voice": "en-US-GuyNeural",
     },
     "shopmo_products": {
         "name": "ShopMO - SA's Smartest Online Store",
@@ -495,56 +667,84 @@ NICHES = {
         "edge_voice": "en-US-AriaNeural",  # Warm female voice — engaging for product reviews
     },
     "limitless_you": {
-        "name": "Limitless You - AI-Powered Self Improvement",
+        "name": "Africa 2050 - Innovation & Progress",
         "topics_bank": [
-            "AI analyzed 10000 morning routines and found this one habit matters most",
-            "AI scanned every productivity study from the last decade here is what actually works",
-            "we fed 5000 success stories into AI and found the one pattern they all share",
-            "AI reveals the exact minute your willpower dies each day and how to fix it",
-            "the neuroscience of habit formation what AI found in 300 brain studies",
-            "AI tracked 1000 people who quit social media for 30 days here is what happened",
-            "why AI says your goals are failing and the scientific fix nobody talks about",
-            "AI analyzed every self help book ever written these 3 rules actually work",
-            "the 2 minute brain hack AI found in cognitive behavioral therapy research",
-            "AI discovered why some people bounce back from failure and others don't",
-            "we asked AI to design the perfect morning routine based on sleep science",
-            "AI reveals the hidden cost of saying yes to everything backed by data",
-            "the compound effect AI calculated exactly how small habits create massive results",
-            "AI found the optimal learning technique that 95 percent of people ignore",
-            "how AI coaches are replacing therapists for daily mindset training",
-            "AI analyzed stoic philosophy and modern psychology here is where they agree",
-            "the focus formula AI extracted from studying elite performers",
-            "AI predicts your biggest obstacle to success based on behavioral patterns",
-            "cold exposure vs meditation AI compared 200 studies to find the better habit",
-            "AI decoded emotional intelligence into 5 trainable micro skills",
+            "African startups solving problems the world ignores",
+            "how Kenya became the world leader in mobile money",
+            "South Africa solar energy revolution powering millions",
+            "young African entrepreneurs building billion dollar companies",
+            "how Rwanda became the cleanest country in Africa",
+            "African tech hubs creating jobs for the next generation",
+            "the African free trade agreement changing the continent",
+            "how Nigeria fintech is banking the unbanked millions",
+            "African farmers using drones and AI to grow more food",
+            "the new African railway connecting countries and creating trade",
+            "how African women entrepreneurs are leading innovation",
+            "electric vehicles made in Africa for African roads",
+            "African universities training the next generation of innovators",
+            "how coding bootcamps are creating tech talent across Africa",
+            "green energy projects transforming rural African communities",
         ],
-        "search_keywords": ["AI self improvement", "personal development science", "habit formation research", "mindset growth AI", "discipline neuroscience", "productivity data"],
-        "pexels_queries": ["personal growth", "reading book", "meditation", "sunrise", "journal writing", "mountain climbing", "fitness", "focused person", "nature peace", "running athlete", "brain science", "data analysis", "AI technology"],
-        "hashtags": ["#LimitlessYou", "#AICoach", "#SelfImprovement", "#PersonalGrowth", "#MindsetScience", "#Discipline", "#HabitScience", "#Productivity", "#GrowthMindset", "#AIWisdom", "#LevelUp", "#BecomeUnstoppable"],
+        "search_keywords": ["Africa innovation", "African startups", "Africa technology", "African entrepreneurs", "Africa progress", "Africa development"],
+        "pexels_queries": ["Africa city", "African entrepreneur", "solar panels Africa", "African technology", "African market", "African youth", "African skyline", "farming Africa", "African innovation"],
+        "hashtags": ["#Africa2050", "#AfricanInnovation", "#AfricaRising", "#AfricanStartups", "#ProudlyAfrican", "#AfricaTech", "#AfricanYouth", "#AfricaProgress", "#BuildAfrica", "#AfricanDream"],
         "cpm_estimate": 11,
         "generate_charts": False,
-        "edge_voice": "en-US-ChristopherNeural",  # Deep male voice — authoritative for self-improvement
+        "edge_voice": "en-US-ChristopherNeural",
     },
 }
 
-# ── Schedule (videos per day per niche) ────────────────────────
+# ══════════════════════════════════════════════════════════════
+# QUALITY OVER QUANTITY — 1 video per niche per day
+# ══════════════════════════════════════════════════════════════
+# 1 build slot per day. Each video must be genuinely helpful,
+# practical, and educational. No clickbait. No flooding.
+# ══════════════════════════════════════════════════════════════
+
+# SINGLE-PAGE MODE: only build/post for these niches. Focus is Tech Pulse Africa
+# (war news). Set BUILD_NICHES="tech_news,ai_money" etc. to add pages back.
+BUILD_NICHES = [n.strip() for n in os.getenv("BUILD_NICHES", "tech_news").split(",") if n.strip()]
+
 SCHEDULE = {
-    # "ai_trading" removed — Mzansi Baby Stars page repurposed for baby dance content
-    "ai_money": {"long_form": 1, "shorts": 1, "podcast": 1},       # 3 videos/day
-    "tech_news": {"long_form": 1, "shorts": 1, "podcast": 1},      # 3 videos/day
-    "motivation": {"long_form": 1, "shorts": 1, "podcast": 1},     # 3 videos/day
-    "health_wellness": {"long_form": 1, "shorts": 1, "podcast": 1}, # 3 videos/day
-    "blissful_moments": {"long_form": 1, "shorts": 1, "podcast": 1}, # 3 videos/day — 58K followers!
-    "daily_breakdown": {"shorts": 2},  # 2 news analysis clips/day
-    "shopmo_products": {"long_form": 1, "shorts": 2},  # 1 product review + 2 shorts/day — pure sales machine
-    "limitless_you": {"long_form": 1, "shorts": 1, "podcast": 1},  # 3 videos/day — self improvement
+    "ai_money": {"short": 1},           # Smart Money AI (4.4K followers)
+    "tech_news": {"short": 1},          # Tech Pulse Africa (10.4K followers) — world news & geopolitics
+    "motivation": {"short": 1},         # Elevate You (243 followers)
+    "health_wellness": {"short": 1},    # Herbal Organic Life (920 followers)
+    "blissful_moments": {"short": 1},   # Mzansi Baby Stars (58K followers)
+    "daily_breakdown": {"short": 1},    # Mzansi Daily — Proudly South African (needs FB page)
+    "limitless_you": {"short": 1},      # Africa 2050 (209 followers)
+    # shopmo_products: NO FB page — disabled
 }
+
+# Active niches for the viral shorts pipeline
+VIRAL_SHORTS_NICHES = list(SCHEDULE.keys())
+
+# ── Platform-Specific Rules (from research) ───────────────────
+# YouTube Shorts: NO music → keep full 45% creator revenue (music splits with publishers)
+# TikTok: USE trending sounds → boosts For You Page placement
+# Instagram Reels: Music optional, watch time is #1 factor
+# Facebook Reels: Music optional, originality score matters most
+PLATFORM_MUSIC_RULES = {
+    "youtube_shorts": False,     # NO music — keep full revenue share
+    "tiktok": True,              # Music boosts FYP placement
+    "instagram_reels": True,     # Music helps engagement
+    "facebook_reels": True,      # Music helps but originality matters more
+}
+
+# ── EU AI Act Compliance (Aug 2, 2026 deadline) ──────────────
+# All AI-generated content must be labeled in machine-readable format
+AI_DISCLOSURE_TEXT = "Created with AI assistance"
+AI_DISCLOSURE_HASHTAG = "#AIGenerated"
+ENABLE_AI_DISCLOSURE = True  # Adds disclosure to captions + video watermark
 
 # ── Facebook Engagement Posts (images + text between videos) ──
 ENABLE_ENGAGEMENT_POSTS = os.getenv("ENABLE_ENGAGEMENT_POSTS", "true").lower() in ("true", "1", "yes")
-ENGAGEMENT_POSTS_PER_DAY = int(os.getenv("ENGAGEMENT_POSTS_PER_DAY", "5"))
-ENGAGEMENT_HOURS = [9, 12, 15, 18, 21]  # 5 slots spread across the day
-ENGAGEMENT_CONTENT_TYPES = ["quote", "tip", "fact", "poll", "mixed"]
+# When true, the engagement slots post a ROTATING BLOG LINK to each page (drives
+# traffic to our owned blog = SEO + AdSense) INSTEAD of standalone tip images.
+ENABLE_BLOG_PROMO = os.getenv("ENABLE_BLOG_PROMO", "true").lower() in ("true", "1", "yes")
+ENGAGEMENT_POSTS_PER_DAY = int(os.getenv("ENGAGEMENT_POSTS_PER_DAY", "2"))
+ENGAGEMENT_HOURS = [10, 15]  # 2 slots: morning + afternoon (quality over quantity)
+ENGAGEMENT_CONTENT_TYPES = ["tip", "advice"]  # Helpful content only
 
 # ShopMO branding — always show logo and website on ShopMO content
 SHOPMO_LOGO_PATH = ASSETS_DIR / "logos" / "shopmo_logo.png"
@@ -621,4 +821,30 @@ NICHE_YOUTUBE_CATEGORY = {
     "blissful_moments": YOUTUBE_CATEGORY_ENTERTAINMENT,
     "daily_breakdown": YOUTUBE_CATEGORY_NEWS,
     "shopmo_products": YOUTUBE_CATEGORY_HOWTO,  # Product reviews = How-to
+}
+
+# ── Growth Engine Settings ──────────────────────────────────
+ENABLE_GROWTH_ENGINE = os.getenv("ENABLE_GROWTH_ENGINE", "true").lower() in ("true", "1", "yes")
+COMMUNITY_REPLY_MAX_PER_HOUR = int(os.getenv("COMMUNITY_REPLY_MAX_PER_HOUR", "10"))
+COMMUNITY_CHECK_HOURS = [8, 10, 12, 14, 16, 18, 20]
+INSIGHTS_COLLECTION_HOUR = 6
+CROSS_PROMO_HOUR = 11
+GROWTH_REPORT_HOUR = 22
+
+# Active niches for growth engine (those with FB page ID + token)
+GROWTH_NICHES = [
+    "ai_money", "tech_news", "motivation",
+    "health_wellness", "blissful_moments", "limitless_you",
+]
+
+# Page display names (shared across growth modules)
+NICHE_PAGE_NAMES = {
+    "ai_money": "Smart Money AI",
+    "tech_news": "Tech Pulse Africa",
+    "motivation": "Elevate You",
+    "health_wellness": "Herbal Organic Life",
+    "blissful_moments": "Blissful Moments",
+    "daily_breakdown": "The Daily Breakdown",
+    "shopmo_products": "ShopMO",
+    "limitless_you": "Limitless You",
 }

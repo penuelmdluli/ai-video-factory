@@ -37,13 +37,16 @@ HASHTAG_POOLS = {
         "niche": ["#AIMoneyMaker", "#AIFreelance", "#AIContentCreation", "#AIProductivity", "#MakeMoneyWithAI",
                   "#AIEntrepreneur", "#AIIncome", "#ChatGPTMoney", "#AIHustle", "#AIAutomationBusiness"],
     },
+    # Tech Pulse Africa is a WAR-NEWS / geopolitics page — NOT locked to any single
+    # conflict. Pools stay conflict-agnostic; story-specific tags (e.g. #Iran, #Ukraine)
+    # are injected dynamically from topic_keywords when a given story mentions them.
     "tech_news": {
-        "mega": ["#AI", "#Technology", "#Tech", "#Innovation", "#Science", "#Future", "#ArtificialIntelligence"],
-        "mid": ["#AINews", "#TechNews", "#MachineLearning", "#DeepLearning", "#FutureTech", "#AIUpdate",
-                "#TechTrends", "#DigitalTransformation", "#AIResearch", "#Robotics", "#DataScience",
-                "#TechInnovation", "#AIBreakthrough", "#Automation", "#NeuralNetwork"],
-        "niche": ["#AIModel", "#LLM", "#GenerativeAI", "#AIEthics", "#AGI", "#AIStartup",
-                  "#TechPulse", "#AIRevolution", "#OpenAI", "#AICompany"],
+        "mega": ["#BreakingNews", "#WorldNews", "#War", "#Geopolitics", "#GlobalNews", "#Conflict", "#Politics"],
+        "mid": ["#WorldOrder", "#WarNews", "#GlobalCrisis", "#WorldAffairs", "#GlobalConflict",
+                "#OilPrices", "#Sanctions", "#Military", "#Airstrike", "#Ceasefire",
+                "#Diplomacy", "#Superpowers", "#Escalation", "#GlobalSecurity", "#PowerStruggle"],
+        "niche": ["#TechPulseAfrica", "#BRICS", "#NewWorldOrder", "#AfricaImpact", "#FrontlineNews",
+                  "#WarUpdate", "#GeopoliticalTensions", "#GlobalPolitics", "#ConflictZone", "#WorldStage"],
     },
     "motivation": {
         "mega": ["#Motivation", "#Success", "#Mindset", "#Goals", "#Hustle", "#Discipline", "#Inspiration"],

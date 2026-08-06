@@ -18,85 +18,119 @@ from config import GEMINI_API_KEY, ANTHROPIC_API_KEY, NICHES
 # ── Niche-Specific Style Guides ────────────────────────────────
 
 NICHE_STYLE_GUIDES = {
-    "ai_trading": """NICHE STYLE — AI Trading & Markets:
-- Lead with SPECIFIC dollar amounts and percentages ("This AI bot returned 47% in February")
-- Create urgency: markets move fast, viewers need to act NOW
-- Use trading language naturally: "positions", "entries", "signals", "breakout"
-- Include one counterintuitive insight ("The WORST time to use AI trading is actually...")
-- Naturally mention AI-powered tools for stock analysis when relevant
-- Reference how AI can analyze stocks in plain English — making markets accessible to everyone
-- Tone: Confident insider sharing alpha, NOT a financial advisor lecturing""",
+    "ai_money": """STYLE: Practical AI money-making educator.
+Share REAL, tested methods to earn with AI tools. No fake income claims.
+Give step-by-step instructions someone can follow today.
+Mention specific free tools by name (ChatGPT, Claude, Canva, Notion).
+Tone: Helpful friend sharing what actually works — honest about effort required.""",
 
-    "ai_money": """NICHE STYLE — Make Money With AI:
-- Lead with a SPECIFIC income number and timeframe ("$3,200 in my first week")
-- Tell a mini transformation story: "I was [before state] until I discovered [tool/method]"
-- Make it feel accessible: "You don't need coding skills or a big budget"
-- Include the specific AI tool names (ChatGPT, Midjourney, Claude, etc.)
-- Tone: Excited friend who just discovered a goldmine and is sharing it""",
+    "tech_news": """STYLE: Frontline WAR-NEWS analyst for Tech Pulse Africa.
+FOCUS: the CURRENT major world conflict or geopolitical story that is trending right now
+(whatever it is — a war, an escalation, a diplomatic crisis, a coup, sanctions, a chokepoint
+or resource standoff). Cover strikes, retaliation, proxies, nuclear/ceasefire moves, and the
+global/oil/food fallout of THAT story. Keep a neutral, factual war-correspondent tone and,
+where relevant, spell out the impact on Africa / South Africa. Do NOT hard-lock to any one
+country or conflict — follow the biggest breaking story of the moment.
+Explain what is REALLY happening on the ground and how it affects ordinary people.
+Report it like breaking war news — urgent, factual, balanced (both sides), verified.
+Tone: Bold frontline war correspondent — direct, gripping, no fear-mongering, no sugarcoating.
 
-    "tech_news": """NICHE STYLE — AI & Tech News:
-- Lead with the IMPACT, not the announcement ("This changes everything about how we...")
-- Connect tech news to the viewer's daily life ("Here's why this affects YOUR job")
-- Include the company/researcher name for credibility
-- Add a "what this means for the future" angle
-- Tone: Smart tech-savvy friend breaking down complex news simply""",
+VISUALS — CRITICAL: every visual_description must SHOW WHAT THAT SCENE'S NARRATION IS ABOUT
+— pull the EXACT subject from that line of the story, don't default to a generic war montage.
+Match the picture to the words, and make every scene a DIFFERENT, specific shot:
+  • sea / Red Sea / blockade / navy → warships, a naval vessel or carrier, patrol boats at sea
+  • strikes / retaliation / air raid → a missile launching, drones in the sky, a jet, an airstrike hitting a target
+  • oil / economy / shipping fallout → oil tankers, a burning refinery, a busy port, fuel depots
+  • nuclear standoff → a nuclear facility, reactor domes, a centrifuge hall
+  • a bombed city / civilians → damaged buildings, smoking rubble, people fleeing, rescue workers digging
+  • ground fighting → soldiers running and firing through smoke, tanks or a convoy speeding through dust
+When it fits the story, INCLUDE the relevant NATIONAL FLAGS of the countries actually involved in
+this story on a ship, vehicle, or building, or a clearly identifiable real setting — this anchors it
+to the real news.
+Keep it dynamic and moving (motion, smoke, speed), but ONE clear, readable subject per shot —
+NOT a chaotic jumble of everything at once (that produces malformed AI images).
+Figures are GENERIC anonymous soldiers/civilians — NEVER depict a real politician or leader in the
+image (fabricating a real leader in combat is misinformation and gets flagged); the narration may
+name them, the picture stays anonymous. Never take a side; show the human cost without glorifying.
+Every frame should feel like real breaking-news footage of THIS specific story.""",
 
-    "motivation": """NICHE STYLE — Daily Motivation & Mindset:
-- Lead with a RELATABLE struggle ("You've been waking up hitting snooze, feeling behind...")
-- Use the hero's journey: struggle → discovery → transformation
-- Include one specific habit or action (not just "believe in yourself")
-- Reference a real successful person or study for credibility
-- Create an emotional crescendo — start low, end on a powerful high note
-- Tone: Tough love mentor who genuinely cares, NOT a motivational poster""",
+    "sa_pulse": """STYLE: Trusted South African current-affairs explainer for "Genesis News".
+FOCUS: What is happening in South Africa right now and why it matters to ordinary people —
+national news and civic events, new laws and government decisions, the job market and real
+opportunities, tourism, border/migration policy, cost of living, and social cohesion.
+Explain it like a calm, credible SA news explainer — clear, factual, balanced, verified.
+Help citizens UNDERSTAND and feel hopeful, not panic.
 
-    "health_wellness": """NICHE STYLE — Health & Wellness:
-- Lead with a SURPRISING health fact ("Your body does THIS while you sleep and nobody talks about it")
-- Include specific foods, herbs, or practices (not vague "eat healthy")
-- Reference a study or doctor for credibility ("Harvard researchers found...")
-- Add a practical tip viewers can try TODAY
-- Tone: Knowledgeable wellness friend sharing discoveries, warm and caring""",
+STRICT SAFETY (non-negotiable — this is sensitive civic content):
+- NEUTRAL & NON-PARTISAN: never endorse or attack any political party, leader or group
+  (ANC, DA, EFF, MK, IFP, etc.). Report what happened and give balanced context; let the
+  viewer decide. No campaigning, no partisan spin.
+- NO INCITEMENT: never call for, encourage or glorify protest, violence, looting, or any
+  action against anyone. Report civic events calmly and factually; show the human side.
+- REAL PEOPLE: only state established, verifiable facts about named people. NEVER invent
+  quotes, actions or scandals. When unsure, keep it general and say what is known.
+- IMMIGRATION / BORDERS / XENOPHOBIA: frame ONLY around ROOT CAUSES (unemployment,
+  inequality, scarce resources, service-delivery and migration-management failures) and
+  CONSTRUCTIVE SOLUTIONS (jobs, skills, regional integration, community dialogue, fair and
+  efficient policy). NEVER blame, mock or dehumanise any nationality or group; NEVER stoke
+  us-vs-them. Keep an empathetic, unifying, pan-African "we rise together" tone.
+- NO misinformation, no fear-mongering, no fake statistics. This is general information,
+  NOT legal or financial advice.
+Tone: Calm, credible, empowering Mzansi voice — a trusted friend who explains the news
+honestly and always points toward understanding and solutions.
 
-    "blissful_moments": """NICHE STYLE — Blissful Moments & Positivity:
-- Lead with a VIVID sensory moment ("Imagine standing on a quiet beach as the sun rises...")
-- Use poetic, flowing language — paint pictures with words
-- Include a simple mindfulness exercise or gratitude prompt
-- Create a feeling of calm and wonder — slow the viewer's racing mind
-- End with an affirmation or gentle call to appreciate the present moment
-- Tone: Gentle, wise friend sharing a beautiful perspective on life""",
+VISUALS — MUST look unmistakably South African and MATCH each line:
+- Show the SOUTH AFRICAN FLAG and instantly-recognisable SA landmarks when they fit —
+  Table Mountain, the Union Buildings, Sandton/Joburg skyline, Durban beachfront, Cape Town,
+  Parliament, township streets, spaza shops, minibus taxi ranks, robots (traffic lights).
+- Every visual_description shows the ACTUAL subject of that line: jobs → people at work /
+  interviews / construction; laws → parliament / documents / a courtroom; cost of living →
+  shops, groceries, fuel pumps; tourism → landmarks; migration → a border post; grid →
+  pylons / substations. If SA money is mentioned, show the RAND.
+- Real, everyday South Africans of ALL backgrounds; GENERIC anonymous people only — NEVER
+  depict a real politician or leader in the image. One clear, specific, DIFFERENT subject per shot.
+- CINEMATIC & DRAMATIC: striking angles, golden-hour light, energy, motion and emotional
+  stakes — eye-catching, scroll-stopping footage. But the drama comes from great
+  cinematography and real human emotion, NEVER from violence, chaos or degrading imagery.
+  Peaceful and dignified, yet gripping.""",
 
-    "daily_breakdown": """NICHE STYLE — The Daily Breakdown (News Analysis):
-- Lead with the most SHOCKING or consequential headline ("This just happened and the world is watching...")
-- Speak with authority — you ARE the news analyst, not reading from a script
-- Reference what the viewer is SEEING on screen ("Take a look at this...", "As you can see here...")
-- Connect distant events to the viewer's life ("Here's why this affects YOUR wallet...")
-- Provide ANALYSIS, not just facts — give your take, explain the WHY behind the news
-- Cover multiple stories: transition with "But that's not all..." or "Meanwhile, in South Africa..."
-- Use specific names, dates, and numbers for credibility
-- End with a thought-provoking question or prediction
-- Tone: Confident, knowledgeable news analyst — think independent journalist, NOT corporate anchor""",
+    "motivation": """STYLE: Practical life coach.
+Share specific techniques for discipline, habits, and mindset.
+Give concrete steps: "Do this for 5 minutes each morning."
+Use real psychology and research, not empty hype.
+Tone: Supportive mentor who gives straight advice — warm but direct.""",
 
-    "limitless_you": """NICHE STYLE — Limitless You (AI-Powered Self Improvement):
-- YOU ARE AN AI COACH — speak as an intelligent system that has analyzed thousands of studies and success stories
-- Lead with DATA: "AI analyzed 10,000 morning routines and found ONE thing in common..."
-- Back every claim with specifics: exact numbers, study names, percentages, timeframes
-- Give viewers a SYSTEM, not just motivation — "Here's the 3-step framework AI extracted from..."
-- Create authority through intelligence, not hype — you're a calm, precise AI advisor
-- Include one counterintuitive insight that challenges common self-help advice
-- Reference neuroscience, psychology, behavioral economics — make it SCIENTIFIC
-- End with one specific action the viewer can do in the next 60 seconds
-- NEVER be generic or vague — if you can't put a number on it, reframe until you can
-- Tone: Intelligent AI mentor — calm authority, data-driven, like having a genius coach in your pocket""",
+    "health_wellness": """STYLE: Friendly organic-living & healthy-habits guide for "Herbal Organic Life".
+COMPLIANCE: Never claim any food/herb cures, treats, heals, reverses or prevents disease — always use "traditionally used for" / "may support" framing instead.
+Share simple, practical everyday tips: organic food, cooking with fresh herbs & spices,
+home/herb gardening, whole-food meals, hydration, gentle movement, rest, and calm routines.
+Give easy, doable steps a beginner can follow today.
+STRICT SAFETY: This is general lifestyle content, NOT medical advice. NEVER claim any food,
+herb, or habit treats, cures, prevents, or reverses a disease or condition. No "kills
+inflammation", "melts fat", "reverses damage", "doctors are stunned" — no fear-mongering,
+no clickbait medical claims, no dosing as medicine. Keep claims modest and honest
+("may help you feel more energised", "a simple way to enjoy more veg"). When wellness comes
+up, gently remind viewers this is general info and to see a professional for personal advice.
+Tone: warm, encouraging friend who loves fresh food and simple living — calm, genuine, helpful.""",
 
-    "shopmo_products": """NICHE STYLE — ShopMO (South Africa's Smartest Online Store):
-- Lead with a PROBLEM the product solves ("Tired of paying Takealot prices? There's a smarter way...")
-- Show genuine excitement about value — emphasize savings, quality, and convenience
-- Include specific prices in Rands (R) and compare to alternatives when possible
-- Reference South African context: load shedding solutions, SA weather, local lifestyle
-- Create URGENCY: limited stock, flash sales, trending items that sell out
-- Use social proof: "South Africans are buying this faster than we can stock it"
-- Always mention free delivery, easy returns, or other ShopMO advantages
-- End with clear CTA: "Link in bio" or "Visit shopmoo.co.za"
-- Tone: Excited friend who found an amazing deal and can't wait to share it""",
+    "blissful_moments": """STYLE: Fun, wholesome baby and kids content for Mzansi Baby Stars.
+Share parenting tips, baby milestones, cute moments, and family joy.
+Content should celebrate South African family life and culture.
+Include practical tips for new parents — feeding, sleep, development.
+Tone: Warm, loving parent sharing joy — fun, relatable, proudly South African.""",
+
+    "daily_breakdown": """STYLE: Proudly South African voice for Mzansi Daily.
+Share the best of South Africa — news, culture, food, nature, people, innovation.
+Cover both the good AND the challenges honestly, but always with love for the country.
+Celebrate SA achievements, highlight local heroes, share practical tips for SA life.
+Use South African English naturally — lekker, braai, mzansi, eish, ubuntu.
+Tone: Proud South African sharing their country with the world — warm, patriotic, honest, real.""",
+
+    "limitless_you": """STYLE: Africa's future — innovation, progress, and opportunity for Africa 2050.
+Share stories of African innovation, startups, and progress.
+Highlight African tech, entrepreneurs, infrastructure, and youth empowerment.
+Focus on solutions and opportunities across the continent.
+Tone: Proud, forward-looking African voice — optimistic, informed, inspiring.""",
 }
 
 
@@ -212,14 +246,205 @@ OUTPUT FORMAT — Return valid JSON:
 }}
 
 Requirements:
-- Total duration: 45-55 seconds
-- 5-8 scenes
+- Total duration: 25-35 seconds (SWEET SPOT for completion rate)
+- 6-10 scenes (cuts every 2-3 seconds — FAST pacing)
 - Include hashtags: {hashtags}
 - Make the viewer feel something — curiosity, shock, FOMO, or inspiration
+- ZERO filler words — every sentence earns its place
 
 Today's date: {today}
 Topic: "{topic}"
 """
+
+
+# ── VIRAL SHORTS Script Prompt (10-30 sec, AI-generated visuals) ──────
+
+VIRAL_SHORTS_PROMPT = """You are creating a {duration_target}-second educational short video that genuinely HELPS people.
+
+Topic: "{topic}"
+Niche: {niche_name}
+
+{niche_style_guide}
+
+YOUR MISSION: Give viewers ONE practical, actionable takeaway they can use TODAY.
+No clickbait. No fake shock. No hype. Just real value delivered clearly.
+
+STRUCTURE FOR {duration_target}s VIDEO:
+
+1. HOOK (0-3 seconds):
+   - Open with a relatable problem or question the viewer actually faces
+   - Be direct: "Here's how to..." / "Most people don't know..." / "The simple fix for..."
+   - Speak like a knowledgeable friend, not a salesperson
+
+2. TEACH (3-{mid_point} seconds):
+   - Share the practical tip, method, or insight
+   - Use specific examples, numbers, or steps people can follow
+   - Each scene builds understanding — don't repeat, progress
+   - Speak naturally — conversational, warm, clear
+
+3. APPLY ({mid_point}-{end_point} seconds):
+   - Show how to put it into action right now
+   - End with encouragement or a clear next step
+   - "Try this today" / "Start with just..." / "Save this for later"
+
+VISUAL DESCRIPTIONS (these search for real stock footage):
+- Describe real-world scenes a camera could film
+- People doing things, real environments, practical demonstrations
+- Use natural settings: offices, kitchens, gyms, nature, streets
+- Examples of GOOD descriptions:
+  * "Person writing in a journal at a wooden desk, morning light through window"
+  * "Close-up of hands preparing a healthy smoothie with fresh fruits"
+  * "Person jogging on a trail through autumn trees, early morning"
+  * "Overhead view of laptop and notebook on a clean desk"
+- Examples of BAD descriptions (NEVER use):
+  * "abstract concept of success" (not filmable)
+  * "glowing holographic AI interface" (not real footage)
+  * "explosive dramatic reveal" (overdramatic)
+
+OUTPUT FORMAT — Return valid JSON:
+{{
+  "title": "Clear, helpful title under 60 chars — tell people what they'll learn",
+  "caption": "Brief description of the tip + relevant hashtags",
+  "scenes": [
+    {{
+      "scene_number": 1,
+      "narration": "Natural spoken words — like talking to a friend. Max 2 sentences.",
+      "visual_description": "Real-world scene description for stock footage search. 10-20 words.",
+      "duration_seconds": 5,
+      "text_overlay": "",
+      "sfx_hint": "none"
+    }}
+  ],
+  "thumbnail_text": "2-4 word summary of the tip"
+}}
+
+REQUIREMENTS:
+- Total duration: EXACTLY {duration_target} seconds (±2 seconds)
+- {scene_count} scenes (each 4-6 seconds)
+- Be GENUINELY helpful — teach something real
+- NO fake numbers, NO manufactured urgency, NO "shocking" claims
+- NO text_overlay on scenes — keep visuals clean (captions handle the text)
+- sfx_hint should be "none" for most scenes — only use sparingly for transitions
+- Include hashtags: {hashtags}
+- Make the viewer feel smarter after watching
+
+Today's date: {today}
+Topic: "{topic}"
+"""
+
+
+async def generate_viral_short_script(
+    topic: str,
+    niche: str,
+    duration_target: int = 30,
+) -> dict | None:
+    """
+    Generate a viral short-form script (25-35 seconds).
+
+    Optimized for AI-generated visuals and maximum engagement.
+    Uses the Hook → Escalation → Payoff structure.
+    """
+    if not GEMINI_API_KEY:
+        return None
+
+    from google import genai
+    import asyncio
+
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    niche_config = NICHES[niche]
+    today = datetime.now().strftime("%B %d, %Y")
+    niche_style = NICHE_STYLE_GUIDES.get(niche, "Write in an engaging, viewer-focused style.")
+
+    # Calculate structure based on duration
+    mid_point = max(duration_target - 8, duration_target // 2 + 2)
+    end_point = duration_target - 2
+    scene_count = max(3, duration_target // 5)
+
+    prompt = VIRAL_SHORTS_PROMPT.format(
+        topic=topic,
+        niche_name=niche_config["name"],
+        niche_style_guide=niche_style,
+        hashtags=", ".join(niche_config["hashtags"]),
+        today=today,
+        duration_target=duration_target,
+        mid_point=mid_point,
+        end_point=end_point,
+        scene_count=scene_count,
+    )
+
+    # ── Strategy: Claude FIRST (reliable), Gemini fallback (free but rate-limited) ──
+    response = None
+
+    # 1. Try Claude first (always available, no rate limits)
+    if ANTHROPIC_API_KEY:
+        try:
+            import anthropic
+            claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+            msg = claude.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=2000,
+                messages=[{"role": "user", "content": prompt + "\n\nReturn ONLY valid JSON, no markdown."}],
+            )
+            if msg.content and msg.content[0].text:
+                response = type("R", (), {"text": msg.content[0].text})()
+                print(f"[ScriptWriter] Claude generated script successfully")
+        except Exception as e:
+            print(f"[ScriptWriter] Claude failed: {e}")
+
+    # 2. Gemini fallback (if Claude fails)
+    if not response or not response.text:
+        models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+        for model_name in models:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                if response and response.text:
+                    print(f"[ScriptWriter] {model_name} generated script successfully")
+                    break
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                    print(f"[ScriptWriter] {model_name} rate limited, trying next...")
+                    continue
+                print(f"[ScriptWriter] {model_name} failed: {e}")
+                continue
+
+    if not response or not response.text:
+        return None
+
+    try:
+        raw = _clean_json_response(response.text)
+        script = json.loads(raw)
+
+        # Add metadata
+        script["niche"] = niche
+        script["format"] = "viral_short"
+        script["duration_target"] = duration_target
+        script["generated_at"] = datetime.now().isoformat()
+        script["ai_model"] = "gemini"
+
+        # Compliance guardrails (health cure-claims / finance disclaimer)
+        script = _sanitize_script(script, niche)
+
+        # Validate total duration
+        total = sum(s.get("duration_seconds", 3) for s in script.get("scenes", []))
+        if total > duration_target + 5:
+            # Scale down scene durations proportionally
+            scale = duration_target / total
+            for scene in script["scenes"]:
+                scene["duration_seconds"] = max(2, round(scene["duration_seconds"] * scale))
+
+        print(f"[ScriptWriter] Viral short ({duration_target}s): {script.get('title', topic)[:60]}")
+        return script
+
+    except json.JSONDecodeError as e:
+        print(f"[ScriptWriter] JSON parse error: {e}")
+        return None
+    except Exception as e:
+        print(f"[ScriptWriter] Viral short script failed: {e}")
+        return None
 
 
 def _clean_json_response(text: str) -> str:
@@ -232,28 +457,155 @@ def _clean_json_response(text: str) -> str:
 
 
 def _add_affiliate_links(description: str, niche: str) -> str:
-    """Add monetization CTAs + affiliate links to video description.
-
-    Uses the centralized affiliate_manager for all link/CTA data.
+    """Pure content — no affiliate links, no website URLs, no disclaimers.
+    Just the description as-is. Clean content only.
     """
-    from modules.affiliate_manager import get_full_description_footer
-    from config import WEBSITE_URL
+    return description
 
-    footer = get_full_description_footer(niche)
 
-    # Ensure website URL is present (above the fold, before the footer)
-    website_section = ""
-    if WEBSITE_URL and WEBSITE_URL not in description and WEBSITE_URL not in footer:
-        website_section = f"\n\n🌐 Visit our website: {WEBSITE_URL}"
+# ── Compliance Guardrails (monetization + legal safety) ────────────
+#
+# 2026 platform-policy + legal requirement:
+#   • Meta throttles / demonetizes disease-cure claims — health content must
+#     never claim to cure, treat, heal or reverse a disease.
+#   • SA FSCA regulates financial advice — money content must carry a clear
+#     "not financial advice" note.
+#
+# The sanitizer below is niche-aware and applied to the FINAL generated script
+# (scene narration + caption/description) as a belt-and-suspenders safety net on
+# top of the prompt-level instructions in NICHE_STYLE_GUIDES.
 
-    disclaimer = (
-        "\n\n--- Disclaimer ---\n"
-        "This video was created with AI assistance. "
-        "This is not financial advice. Trading involves risk. "
-        "Some links above are affiliate links.\n"
-    )
+# Health disclaimer appended once to health_wellness scripts.
+HEALTH_DISCLAIMER = "Educational only — not medical advice. Consult a healthcare professional."
 
-    return description + website_section + footer + disclaimer
+# Finance disclaimer appended once to ai_money scripts.
+FINANCE_DISCLAIMER = "Not financial advice — for education only."
+
+# Case-insensitive disease-cure verbs → safe wellness framing.
+# Order matters: longer / inflected forms first so "cures" is matched before "cure".
+# Kept conservative and readable — targeted phrase swaps, never blunt deletion.
+HEALTH_CLAIM_REPLACEMENTS = [
+    (r"\bcuring\b", "supporting"),
+    (r"\bcures\b", "may support"),
+    (r"\bcure\b", "may support"),
+    (r"\btreats\b", "may help with"),
+    (r"\btreat\b", "may help with"),
+    (r"\bheals\b", "may soothe"),
+    (r"\bheal\b", "may soothe"),
+    (r"\beliminates\b", "may reduce"),
+    (r"\beliminate\b", "may reduce"),
+    (r"\breverses\b", "may improve"),
+    (r"\breverse\b", "may improve"),
+    (r"\bprevents\b", "may help maintain"),
+    (r"\bprevent\b", "may help maintain"),
+]
+
+# Serious medical conditions — a benefit claim tied to any of these is downgraded
+# wholesale to a modest "traditionally used" statement (stronger than the generic
+# verb swap above, because naming a disease + a benefit is the highest-risk pattern).
+SERIOUS_CONDITIONS = (
+    r"cancer|tumou?rs?|diabetes|diabetic|hiv|aids|hypertension|"
+    r"high blood pressure|blood pressure|heart disease|stroke|"
+    r"alzheimer'?s|arthritis|asthma|depression|covid(?:-?19)?"
+)
+
+# Verbs that, when paired with a serious condition, constitute a medical claim.
+_CLAIM_VERBS = (
+    r"cure[sd]?|curing|treat[s]?|heal[s]?|healing|eliminate[s]?|"
+    r"reverse[s]?|reversing|prevent[s]?|fight[s]?|fighting|beat[s]?|"
+    r"kill[s]?|cures?|remed(?:y|ies)|may support|may help with|may soothe|"
+    r"may reduce|may improve|may help maintain"
+)
+
+# Matches "<verb> ... <condition>" OR "<condition> ... <verb>" within a short window.
+_SERIOUS_CLAIM_PATTERNS = [
+    re.compile(
+        rf"\b(?:{_CLAIM_VERBS})\b(?:\s+\w+){{0,3}}?\s+(?:{SERIOUS_CONDITIONS})\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"\b(?:{SERIOUS_CONDITIONS})\b(?:\s+\w+){{0,3}}?\s+(?:{_CLAIM_VERBS})\b",
+        re.IGNORECASE,
+    ),
+]
+
+_SAFE_CONDITION_PHRASE = "traditionally used in herbal traditions for wellness"
+
+
+def _apply_compliance_guardrails(text: str, niche: str, append_disclaimer: bool = True) -> str:
+    """Sanitize a generated script/caption for legal + monetization safety.
+
+    Niche-aware:
+      • health_wellness — soften disease-cure language into modest wellness
+        framing, downgrade serious-condition benefit claims, and (when
+        ``append_disclaimer``) append a persistent medical disclaimer once.
+      • ai_money — (when ``append_disclaimer``) append a "not financial advice"
+        note once. Text is otherwise left untouched.
+      • all other niches — returned unchanged.
+
+    Args:
+        text: The script/caption/narration text to sanitize.
+        niche: The content niche key (e.g. "health_wellness", "ai_money").
+        append_disclaimer: Whether to append the niche disclaimer. Set False when
+            sanitizing individual scene narrations (so the spoken disclaimer is not
+            repeated per scene) and True for the single caption/description field.
+
+    Returns:
+        The sanitized text (conservative, readable phrase-level edits only).
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    if niche == "health_wellness":
+        # 1. Downgrade the highest-risk pattern first: a benefit claim tied to a
+        #    named serious condition → a single modest "traditionally used" phrase.
+        for pattern in _SERIOUS_CLAIM_PATTERNS:
+            text = pattern.sub(_SAFE_CONDITION_PHRASE, text)
+
+        # 2. Soften remaining generic disease-cure verbs into wellness framing.
+        for pattern, replacement in HEALTH_CLAIM_REPLACEMENTS:
+            text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+
+        # 3. Append the persistent disclaimer once (never duplicate).
+        if append_disclaimer and HEALTH_DISCLAIMER not in text:
+            text = f"{text.rstrip()} {HEALTH_DISCLAIMER}"
+        return text
+
+    if niche == "ai_money":
+        # Finance: ensure the "not financial advice" note is present once.
+        if append_disclaimer and FINANCE_DISCLAIMER not in text:
+            text = f"{text.rstrip()} {FINANCE_DISCLAIMER}"
+        return text
+
+    # All other niches: unchanged.
+    return text
+
+
+def _sanitize_script(script: dict, niche: str) -> dict:
+    """Apply compliance guardrails across a full script dict in place.
+
+    Sanitizes every scene's narration (without repeating the disclaimer) and
+    appends the disclaimer once to the caption/description field. No-op for
+    niches other than health_wellness and ai_money.
+    """
+    if niche not in ("health_wellness", "ai_money") or not isinstance(script, dict):
+        return script
+
+    # Scene narration — sanitize wording, but do NOT append the disclaimer per scene.
+    for scene in script.get("scenes", []):
+        if isinstance(scene, dict) and scene.get("narration"):
+            scene["narration"] = _apply_compliance_guardrails(
+                scene["narration"], niche, append_disclaimer=False
+            )
+
+    # Caption / description — sanitize AND append the disclaimer once.
+    for field in ("caption", "description"):
+        if script.get(field):
+            script[field] = _apply_compliance_guardrails(
+                script[field], niche, append_disclaimer=True
+            )
+
+    return script
 
 
 async def generate_script_gemini(
@@ -272,7 +624,7 @@ async def generate_script_gemini(
     niche_config = NICHES[niche]
     today = datetime.now().strftime("%B %d, %Y")
 
-    prompt_template = LONG_FORM_PROMPT if format_type == "long" else SHORT_FORM_PROMPT
+    prompt_template = SHORT_FORM_PROMPT  # Shorts only — no long-form
     niche_style = NICHE_STYLE_GUIDES.get(niche, "Write in an engaging, viewer-focused style.")
     prompt = prompt_template.format(
         topic=topic,
@@ -282,26 +634,35 @@ async def generate_script_gemini(
         today=today,
     )
 
-    # Try multiple models in case one is rate-limited
-    models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+    # Aggressive retry: cycle models with escalating waits (Gemini free tier resets per-minute)
+    models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]  # Current models (July 2026)
     response = None
+    max_rounds = 3
 
-    for model_name in models:
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-            )
-            if response and response.text:
-                break
-        except Exception as e:
-            err_str = str(e)
-            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                print(f"[ScriptWriter] {model_name} rate limited, trying next model...")
-                await asyncio.sleep(2)
+    for round_num in range(max_rounds):
+        for model_name in models:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                if response and response.text:
+                    break
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                    wait = 5 * (round_num + 1)
+                    print(f"[ScriptWriter] {model_name} rate limited (round {round_num+1}), waiting {wait}s...")
+                    await asyncio.sleep(wait)
+                    continue
+                print(f"[ScriptWriter] {model_name} failed: {e}")
                 continue
-            print(f"[ScriptWriter] {model_name} failed: {e}")
-            continue
+        if response and response.text:
+            break
+        if round_num < max_rounds - 1:
+            wait = 30 * (round_num + 1)
+            print(f"[ScriptWriter] All models rate limited. Waiting {wait}s before round {round_num+2}...")
+            await asyncio.sleep(wait)
 
     if not response or not response.text:
         return None
@@ -319,6 +680,9 @@ async def generate_script_gemini(
         script["format"] = format_type
         script["generated_at"] = datetime.now().isoformat()
         script["ai_model"] = "gemini-2.5-flash"
+
+        # Compliance guardrails (health cure-claims / finance disclaimer)
+        script = _sanitize_script(script, niche)
 
         return script
 
@@ -347,7 +711,7 @@ async def generate_script_claude(
         niche_config = NICHES[niche]
         today = datetime.now().strftime("%B %d, %Y")
 
-        prompt_template = LONG_FORM_PROMPT if format_type == "long" else SHORT_FORM_PROMPT
+        prompt_template = SHORT_FORM_PROMPT  # Shorts only — no long-form
         niche_style = NICHE_STYLE_GUIDES.get(niche, "Write in an engaging, viewer-focused style.")
         prompt = prompt_template.format(
             topic=topic,
@@ -358,7 +722,7 @@ async def generate_script_claude(
         )
 
         message = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-haiku-4-5-20251001",
             max_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -374,6 +738,9 @@ async def generate_script_claude(
         script["generated_at"] = datetime.now().isoformat()
         script["ai_model"] = "claude-sonnet"
 
+        # Compliance guardrails (health cure-claims / finance disclaimer)
+        script = _sanitize_script(script, niche)
+
         return script
 
     except Exception as e:
@@ -384,26 +751,22 @@ async def generate_script_claude(
 async def generate_script(
     topic: str,
     niche: str,
-    format_type: str = "long",
+    format_type: str = "short",
 ) -> dict:
     """
-    Generate a video script. Tries Gemini first, falls back to Claude.
+    Generate a video script. SHORTS ONLY pipeline.
 
-    Args:
-        topic: The video topic
-        niche: Niche key from config (ai_trading, ai_money, tech_news)
-        format_type: "long" for YouTube, "short" for Shorts/TikTok/Reels
-
-    Returns:
-        Script dict with title, scenes, description, tags, etc.
+    For shorts: uses generate_viral_short_script (optimized 30s format)
+    Falls back to Claude direct if viral script fails.
     """
-    # Try Gemini first (free)
-    script = await generate_script_gemini(topic, niche, format_type)
-    if script:
-        print(f"[ScriptWriter] Generated {format_type} script via Gemini: {script.get('title', topic)[:60]}")
-        return script
+    # Shorts use the viral shorts pipeline (Claude primary, Gemini fallback)
+    if format_type in ("short", "viral_short"):
+        script = await generate_viral_short_script(topic, niche, duration_target=30)
+        if script:
+            print(f"[ScriptWriter] Generated viral short: {script.get('title', topic)[:60]}")
+            return script
 
-    # Fallback to Claude
+    # Direct Claude fallback for any format
     script = await generate_script_claude(topic, niche, format_type)
     if script:
         print(f"[ScriptWriter] Generated {format_type} script via Claude: {script.get('title', topic)[:60]}")
@@ -463,14 +826,14 @@ OUTPUT FORMAT — Return valid JSON only (no markdown, no ```):
     {{
       "scene_number": 1,
       "narration": "Exact words — punchy, direct, conversational authority",
-      "visual_description": "What the viewer sees during this narration",
+      "visual_description": "The SPECIFIC real subject of THIS line, shot CINEMATICALLY and full of DRAMA — a striking angle, motion, energy or emotional tension that stops the scroll. Name the exact place/person-type/object/flag/landmark the narration mentions (country→its FLAG or landmark, city→its skyline, money→the currency). Dynamic and different every scene, never a static generic stock shot. Think dramatic news-film footage: bold, moving, eye-catching — but always showing THAT exact subject.",
       "clip_index": 0,
       "duration_seconds": 4,
       "lower_third_text": "BREAKING: max 8 words headline",
       "sfx_hint": "One of: whoosh, impact, notification, rise, reveal, suspense_hit, none"
     }}
   ],
-  "thumbnail_text": "2-4 word SHOCK text for thumbnail"
+  "thumbnail_text": "2-4 word CURIOSITY hook — intriguing, NOT alarmist. Never a fake instruction (no 'EVACUATE NOW', no panic/warning commands, no false claims). Must fit the actual story. Good: 'CAUGHT IN THE MIDDLE', 'THE REAL REASON', 'WHY IT MATTERS'"
 }}
 
 Requirements:
@@ -480,6 +843,11 @@ Requirements:
 - Last scene = WRAP-UP + CTA (5-7 seconds)
 - Include hashtags: {hashtags}
 - Narration must be CONVERSATIONAL — like you're telling a friend the most insane news
+- VISUALS MUST MATCH THE WORDS *and* BE DRAMATIC: every scene's visual_description shows the
+  EXACT thing that line is about (name a country → its FLAG or landmark, a city → its skyline,
+  money → the currency) AND makes it cinematic — motion, energy, striking angles, emotional
+  tension. That drama is what stops the scroll and wins views. Never generic B-roll that could
+  belong to any video; one clear, specific, DIFFERENT subject per scene. Applies to EVERY channel.
 - Use clip_index values from 0 to {max_clip_index} to reference available clips
 
 Today's date: {today}
@@ -537,7 +905,7 @@ async def generate_news_anchor_script(
     )
 
     client = genai.Client(api_key=GEMINI_API_KEY)
-    models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+    models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]  # Current models (July 2026)
     response = None
 
     for model_name in models:
@@ -576,7 +944,7 @@ async def generate_news_anchor_script(
                 print("[ScriptWriter] Gemini exhausted — falling back to Claude...")
                 claude_client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
                 claude_response = claude_client.messages.create(
-                    model="claude-sonnet-4-20250514",
+                    model="claude-haiku-4-5-20251001",
                     max_tokens=2000,
                     messages=[{"role": "user", "content": prompt + "\n\nReturn ONLY valid JSON, no markdown."}],
                 )
@@ -603,6 +971,9 @@ async def generate_news_anchor_script(
         script["generated_at"] = datetime.now().isoformat()
         script["ai_model"] = "gemini"
         script["news_stories"] = news_stories
+
+        # Compliance guardrails (no-op unless health/finance niche)
+        script = _sanitize_script(script, niche)
 
         print(f"[ScriptWriter] News anchor script: {script.get('title', 'untitled')[:60]}")
         return script

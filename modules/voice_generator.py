@@ -9,6 +9,16 @@ Priority chain:
 - Podcast dual-voice -> Kokoro by default (two distinct voices for SPARKY & NOVA characters)
 - YouTube long-form -> Kokoro primary, ElevenLabs optional premium upgrade
 - Shorts/TikTok/Reels -> Kokoro primary, edge-tts fallback
+
+Optional self-hosted RunPod TTS (see modules/voice_runpod.py) can sit IN FRONT
+of Kokoro for chosen niches. It is entirely env-gated — when the relevant
+endpoint variable is unset the pipeline behaves EXACTLY as before (straight to
+Kokoro). Recognised env vars (all optional; read via os.getenv, not config.py):
+  RUNPOD_TTS_ENDPOINT_NEWS — Chatterbox-Turbo for tech_news / ai_money / daily_breakdown
+  RUNPOD_TTS_ENDPOINT_KIDS — Orpheus 3B for kids_songs / blissful_moments
+  RUNPOD_TTS_ENDPOINT      — generic fallback endpoint for the mapped niches
+  RUNPOD_API_KEY           — Bearer token for the RunPod serverless API
+Unset = no change to the live pipeline.
 """
 import asyncio
 import re
@@ -21,7 +31,6 @@ from config import (
     ELEVENLABS_OUTPUT_FORMAT,
     DEFAULT_EDGE_VOICE,
     NICHES,
-    VOICE_YOUTUBE_LONG,
     VOICE_SHORTS,
     OUTPUT_DIR,
 )
@@ -337,13 +346,18 @@ async def generate_voice_kokoro(
     """
     loop = asyncio.get_event_loop()
     try:
-        duration = await loop.run_in_executor(
-            None,
-            _generate_kokoro_sync,
-            text,
-            voice,
-            output_audio,
-            speed,
+        # 120-second timeout — Kokoro is primary voice engine, give it time
+        # (GPU may be busy with AI image generation or Wan 2.1 model)
+        duration = await asyncio.wait_for(
+            loop.run_in_executor(
+                None,
+                _generate_kokoro_sync,
+                text,
+                voice,
+                output_audio,
+                speed,
+            ),
+            timeout=120.0,
         )
 
         subtitle_path = output_subs or output_audio.with_suffix(".srt")
@@ -362,6 +376,9 @@ async def generate_voice_kokoro(
             "voice": voice,
         }
 
+    except asyncio.TimeoutError:
+        print(f"[Voice] Kokoro TIMEOUT (120s) — GPU busy, falling back to edge-tts")
+        return None
     except Exception as e:
         print(f"[Voice] Kokoro failed (voice={voice}): {e}")
         return None
@@ -397,37 +414,59 @@ async def generate_voice(
     audio_path = output_dir / f"{filename_base}.mp3"
     subs_path = output_dir / f"{filename_base}.srt"
 
-    # ── 1. Try Kokoro (primary free engine) ──────────────────
-    # Choose a niche-appropriate Kokoro voice (default: af_heart for female narration)
-    kokoro_voices = {
-        "ai_trading":       "am_onyx",       # Deep authoritative
-        "ai_money":         "am_fenrir",     # Powerful, confident
-        "tech_news":        "bm_daniel",     # British authority
-        "motivation":       "am_puck",       # Lively, energetic
-        "health_wellness":  "af_heart",      # Warm, expressive
-        "blissful_moments": "af_bella",      # Clear, professional
-        "daily_breakdown":  "am_adam",       # Deep, authoritative news anchor
+    # ── 0. RunPod self-hosted TTS (OPTIONAL PRIMARY for chosen niches) ──────
+    # Chatterbox-Turbo for news-style niches, Orpheus 3B for kids niches.
+    # Entirely gated by env vars — if the relevant endpoint var is unset/empty
+    # this whole block is a no-op and behaviour is IDENTICAL to before (straight
+    # to Kokoro below). On any RunPod failure/timeout we also fall through
+    # cleanly to the existing Kokoro → edge-tts chain.
+    import os
+    runpod_map = {
+        # news-style → Chatterbox-Turbo endpoint
+        "tech_news":        ("RUNPOD_TTS_ENDPOINT_NEWS", "news_anchor"),
+        "ai_money":         ("RUNPOD_TTS_ENDPOINT_NEWS", "news_anchor"),
+        "daily_breakdown":  ("RUNPOD_TTS_ENDPOINT_NEWS", "news_anchor"),
+        # kids → Orpheus 3B endpoint
+        "kids_songs":       ("RUNPOD_TTS_ENDPOINT_KIDS", "warm_teacher"),
+        "blissful_moments": ("RUNPOD_TTS_ENDPOINT_KIDS", "warm_teacher"),
     }
-    kokoro_voice = kokoro_voices.get(niche or "", "af_heart")
-    result = await generate_voice_kokoro(text, audio_path, voice=kokoro_voice, output_subs=subs_path)
+    endpoint_env, runpod_voice = runpod_map.get(niche or "", (None, None))
+    runpod_endpoint = os.getenv(endpoint_env) if endpoint_env else None
+    # Generic fallback endpoint (used for the mapped niches if the specific one
+    # is unset, but only when a RunPod voice is defined for this niche)
+    if not runpod_endpoint and runpod_voice:
+        runpod_endpoint = os.getenv("RUNPOD_TTS_ENDPOINT")
+    if runpod_endpoint:
+        runpod_api_key = os.getenv("RUNPOD_API_KEY", "")
+        from modules.voice_runpod import generate_voice_runpod
+        result = await generate_voice_runpod(
+            text, audio_path, subs_path,
+            endpoint=runpod_endpoint, voice=runpod_voice, api_key=runpod_api_key,
+        )
+        if result:
+            return result
+        print(f"[Voice] runpod unavailable for {filename_base} — falling through to Kokoro")
+
+    # ── 1. Kokoro (PRIMARY — best free voice, GPU-accelerated, 82M params) ──
+    # ElevenLabs disabled — quota always exhausted, wastes time on failed attempts
+    # af_bella is the cleanest, most professional voice — use it or similar across all channels
+    # Speed LOCKED to 1.0 — Kokoro >1.0 introduces voice-shift artifacts ("chipmunk"/robotic
+    # tone) that made the news voice sound bad. Control length via script word count, NOT speed.
+    kokoro_voices = {
+        "blissful_moments": ("af_bella", 1.0),    # Best voice — warm, clear, professional
+        "health_wellness":  ("af_bella", 1.0),    # Same quality — trustworthy for health
+        "tech_news":        ("bf_emma", 1.0),     # British female — crisp, clear for tech
+        "ai_money":         ("bf_emma", 1.0),     # Crisp, professional for money content
+        "motivation":       ("af_bella", 1.0),    # Warm but with energy for motivation
+        "limitless_you":    ("bm_george", 1.0),   # British male — authoritative for Africa 2050
+        "daily_breakdown":  ("am_adam", 1.0),     # Deep, warm — proudly SA voice
+        "shopmo_products":  ("af_bella", 1.0),    # Friendly, engaging for products
+        "kids_songs":       ("af_bella", 1.0),    # Warm, gentle teacher voice for kids learning
+    }
+    kokoro_voice, kokoro_speed = kokoro_voices.get(niche or "", ("am_onyx", 1.0))
+    result = await generate_voice_kokoro(text, audio_path, voice=kokoro_voice, speed=kokoro_speed, output_subs=subs_path)
     if result:
         return result
-
-    # ── 2. Try ElevenLabs (premium, if available and quota not exhausted) ──
-    if format_type == "long" and VOICE_YOUTUBE_LONG == "elevenlabs" and not _el_quota_exhausted:
-        result = await generate_voice_elevenlabs(text, audio_path, output_subs=subs_path)
-        if result:
-            if not result["subtitle_path"]:
-                print("[Voice] Falling back to Kokoro for subtitle timing...")
-                kok_sub = await generate_voice_kokoro(
-                    text,
-                    output_dir / f"{filename_base}_subs_only.mp3",
-                    voice=kokoro_voice,
-                    output_subs=subs_path,
-                )
-                (output_dir / f"{filename_base}_subs_only.mp3").unlink(missing_ok=True)
-                result["subtitle_path"] = str(subs_path) if subs_path.exists() else None
-            return result
 
     # ── 3. Fall back to edge-tts (always available, unlimited) ──
     edge_voice = DEFAULT_EDGE_VOICE
