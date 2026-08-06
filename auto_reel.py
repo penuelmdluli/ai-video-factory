@@ -113,16 +113,30 @@ def main():
 
     # Map-zoom OPENER: if the story is about a country, prepend a cinematic map-zoom shot
     # (Vox/Johnny-Harris style). Offline + ~free; entirely optional — any failure just skips it.
+    headline = " ".join(str(pkg.get(k, "")) for k in ("title", "ticker", "narration"))
     try:
         from modules.map_zoom import make_news_map
-        headline = " ".join(str(pkg.get(k, "")) for k in ("title", "ticker", "narration"))
         mzp = out / "map_opener.mp4"
-        # ALWAYS opens with a map: named country → region → Africa fallback.
+        # ALWAYS opens with a map: chokepoint routes → country → region → Africa fallback.
         if make_news_map(headline, str(mzp), duration=3.5, size=(W, HGT), accent="#FF3131", fps=FPS):
             clips = [mzp] + clips
             print("  + map-zoom opener added", flush=True)
     except Exception as e:
         print(f"  map-zoom opener skipped ({e})", flush=True)
+
+    # Stat-counter scene: if the story has a concrete number, punch it up as scene 2.
+    try:
+        from modules.stat_counter import extract_stat, make_stat_clip
+        stat = extract_stat(pkg.get("title", "")) or extract_stat(pkg.get("narration", ""))
+        if stat:
+            val, pre, suf, lbl = stat
+            scp = out / "stat.mp4"
+            if make_stat_clip(val, lbl, str(scp), duration=2.6, size=(W, HGT),
+                              accent="#FF3131", prefix=pre, suffix=suf, fps=FPS):
+                clips.insert(1 if len(clips) > 1 else 0, scp)   # right after the map opener
+                print(f"  + stat counter added ({pre}{val}{suf})", flush=True)
+    except Exception as e:
+        print(f"  stat counter skipped ({e})", flush=True)
 
     final = assemble(clips, str(wav), str(music) if music else None, words, pkg["narration"], out, W, HGT, FPS,
                      target=28.0, flags=tuple(pkg.get("flags", ["ZA", "US"]))[:2],

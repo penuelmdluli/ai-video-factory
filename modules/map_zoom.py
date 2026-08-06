@@ -146,11 +146,152 @@ def detect_region(text):
     return None
 
 
+# Chokepoints / ports / straits: (lat, lon, LABEL). When a headline names one, the reel
+# opens with animated shipping routes from it to the major global hubs.
+PLACES = {
+    "strait of hormuz": (26.6, 56.5, "STRAIT OF HORMUZ"), "hormuz": (26.6, 56.5, "STRAIT OF HORMUZ"),
+    "suez canal": (30.6, 32.3, "SUEZ CANAL"), "suez": (30.6, 32.3, "SUEZ CANAL"),
+    "bab el-mandeb": (12.6, 43.3, "BAB EL-MANDEB"), "bab-el-mandeb": (12.6, 43.3, "BAB EL-MANDEB"),
+    "red sea": (20.0, 38.0, "RED SEA"), "gulf of aden": (12.5, 47.0, "GULF OF ADEN"),
+    "strait of malacca": (2.5, 101.0, "STRAIT OF MALACCA"), "malacca": (2.5, 101.0, "MALACCA"),
+    "panama canal": (9.1, -79.7, "PANAMA CANAL"), "panama": (9.1, -79.7, "PANAMA CANAL"),
+    "cape of good hope": (-34.4, 18.5, "CAPE OF GOOD HOPE"),
+    "bosphorus": (41.1, 29.1, "BOSPHORUS"), "gibraltar": (36.0, -5.4, "GIBRALTAR"),
+    "south china sea": (13.0, 114.0, "SOUTH CHINA SEA"), "taiwan strait": (24.5, 119.5, "TAIWAN STRAIT"),
+    "black sea": (43.0, 34.0, "BLACK SEA"),
+    "mombasa": (-4.05, 39.66, "PORT OF MOMBASA"), "durban": (-29.87, 31.0, "PORT OF DURBAN"),
+    "lagos": (6.45, 3.4, "PORT OF LAGOS"), "djibouti": (11.6, 43.1, "PORT OF DJIBOUTI"),
+}
+
+
+def detect_place(text):
+    """Find a named chokepoint/port/strait → (lat, lon, LABEL) or None."""
+    if not text:
+        return None
+    low = text.lower()
+    for k in sorted(PLACES, key=len, reverse=True):
+        if _has_word(low, k):
+            la, lo, lb = PLACES[k]
+            return la, lo, lb
+    return None
+
+
+def _bez(p0, p2, u, off=0.22):
+    """Quadratic bezier point at u (0..1) — control point offset perpendicular for a
+    curved 'flight-path' arc between two screen points."""
+    mx, my = (p0[0] + p2[0]) / 2, (p0[1] + p2[1]) / 2
+    dx, dy = p2[0] - p0[0], p2[1] - p0[1]
+    cxp, cyp = mx - dy * off, my + dx * off
+    a = 1 - u
+    return (a * a * p0[0] + 2 * a * u * cxp + u * u * p2[0],
+            a * a * p0[1] + 2 * a * u * cyp + u * u * p2[1])
+
+
+def make_route_map_clip(origin, destinations, out_path, duration=4.0, size=(1080, 1920),
+                        accent="#FF3131", label="", fps=30):
+    """Zoom to a view covering origin + destinations and animate curved routes/arrows from
+    the origin to each destination. origin/dest = (lat, lon) or place/country name."""
+    from PIL import Image, ImageDraw
+    W_out, H_out = int(size[0]), int(size[1])
+    aspect = W_out / H_out
+    features = _load_features()
+
+    def resolve(p):
+        if isinstance(p, (tuple, list)) and len(p) == 2:
+            return float(p[1]), float(p[0])            # (lat,lon) -> (lon,lat)
+        key = str(p).lower()
+        if key in PLACES:
+            la, lo, _ = PLACES[key]; return lo, la
+        _f, (lo, la) = _match(features, p)
+        return lo, la
+
+    pts = [resolve(origin)] + [resolve(d) for d in destinations]
+    base, map_w, map_h = _render_base_map(features, set(), accent)
+    base_img = Image.fromarray(base)
+
+    def lon2x(lon): return (lon + 180.0) / 360.0 * map_w
+    def lat2y(lat): return (90.0 - lat) / 180.0 * map_h
+    bpx = [(lon2x(lo), lat2y(la)) for lo, la in pts]
+
+    xs = [x for x, _ in bpx]; ys = [y for _, y in bpx]
+    cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+    h = max((max(ys) - min(ys)) * 1.5, (max(xs) - min(xs)) * 1.5 / aspect, map_h * 0.12)
+    h = min(h, map_h); w = min(h * aspect, map_w)
+    left = min(max(cx - w / 2, 0), map_w - w)
+    top = min(max(cy - h / 2, 0), map_h - h)
+    view = base_img.crop((int(left), int(top), int(left + w), int(top + h))).resize((W_out, H_out), Image.LANCZOS).convert("RGB")
+
+    def to_out(px):
+        return ((px[0] - left) / w * W_out, (px[1] - top) / h * H_out)
+    o_out = to_out(bpx[0]); d_outs = [to_out(p) for p in bpx[1:]]
+    ac = tuple(int(accent.lstrip("#")[j:j + 2], 16) for j in (0, 2, 4))
+    font = _font(int(H_out * 0.042))
+    lw_line = max(3, int(H_out * 0.006))
+    n = max(2, int(round(duration * fps)))
+    nd = max(1, len(d_outs))
+    tmp = Path(tempfile.mkdtemp(prefix="route_"))
+    try:
+        for i in range(n):
+            t = i / (n - 1)
+            frame = view.copy()
+            d = ImageDraw.Draw(frame, "RGBA")
+            for k, dp in enumerate(d_outs):
+                w0 = 0.08 + 0.5 * (k / nd)                 # staggered start per route
+                prog = _ease((t - w0) / 0.42)
+                if prog <= 0:
+                    continue
+                steps = 44
+                last = None
+                for s in range(int(steps * prog) + 1):
+                    pt = _bez(o_out, dp, s / steps)
+                    if last:
+                        d.line([last, pt], fill=ac + (255,), width=lw_line)
+                    last = pt
+                if last:
+                    r = int(H_out * 0.010)
+                    d.ellipse([last[0] - r, last[1] - r, last[0] + r, last[1] + r], fill=(255, 255, 255, 255))
+                if prog >= 0.98:
+                    r2 = int(H_out * 0.013)
+                    d.ellipse([dp[0] - r2, dp[1] - r2, dp[0] + r2, dp[1] + r2], outline=ac + (255,), width=3)
+            # pulsing origin marker
+            pr = 0.5 + 0.5 * math.sin(t * math.pi * 4)
+            r = int(H_out * 0.010 + H_out * 0.008 * pr)
+            d.ellipse([o_out[0] - r, o_out[1] - r, o_out[0] + r, o_out[1] + r], fill=ac + (255,))
+            d.ellipse([o_out[0] - r * 0.4, o_out[1] - r * 0.4, o_out[0] + r * 0.4, o_out[1] + r * 0.4], fill=(255, 255, 255, 255))
+            if label:
+                a = int(255 * _ease((t - 0.15) / 0.3))
+                if a > 0:
+                    et = str(label).upper(); tw = d.textlength(et, font=font); pad = int(H_out * 0.012)
+                    # keep the label pill fully on-screen even when the origin is near an edge
+                    lx = min(max(o_out[0], tw / 2 + pad + 8), W_out - tw / 2 - pad - 8)
+                    ly = min(o_out[1] + r + int(H_out * 0.02), H_out - int(H_out * 0.09))
+                    d.rounded_rectangle([lx - tw / 2 - pad, ly, lx + tw / 2 + pad, ly + int(H_out * 0.062)],
+                                        radius=pad, fill=(10, 16, 22, int(a * 0.8)))
+                    d.text((lx - tw / 2, ly + pad * 0.5), et, font=font, fill=(255, 255, 255, a))
+            frame.save(tmp / f"f{i:05d}.png")
+
+        out_path = str(out_path); Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run([_ffmpeg(), "-y", "-framerate", str(fps), "-i", str(tmp / "f%05d.png"),
+                        "-c:v", "libx264", "-pix_fmt", "yuv420p", out_path], capture_output=True, text=True)
+        return out_path if Path(out_path).exists() and Path(out_path).stat().st_size > 10000 else None
+    finally:
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def make_news_map(headline, out_path, duration=3.5, size=(1080, 1920),
                   accent="#FF3131", fps=30):
-    """ALWAYS returns a map-zoom for a news headline: a specific country if one is named,
-    else the named region, else an Africa continent zoom (the Tech Pulse Africa fallback).
-    Returns the path or None."""
+    """ALWAYS returns a map opener for a news headline: named chokepoint/port → animated
+    shipping ROUTES to global hubs; else a named country → country zoom; else a named
+    region → cluster; else an Africa continent zoom (the Tech Pulse Africa fallback)."""
+    place = detect_place(headline)
+    if place:
+        lat, lon, plabel = place
+        hubs = [(50, 8), (30, 112), (39, -98)]     # Europe, East Asia, North America
+        r = make_route_map_clip((lat, lon), hubs, out_path, duration=max(duration, 4.0),
+                                 size=size, accent=accent, label=plabel, fps=fps)
+        if r:
+            return r
     country = detect_country(headline)
     if country:
         return make_map_zoom_clip(country, out_path, duration=duration, size=size,
