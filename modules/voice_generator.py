@@ -81,6 +81,13 @@ def _whisper_srt(audio_path, text: str, out_srt) -> bool:
                     words.append((tok, float(w.start), float(w.end)))
         if not words:
             return False
+        # reject obvious whisper hallucinations (it can loop on short/odd audio and emit
+        # far more words than were spoken) — fall back to the estimate for that clip
+        if text:
+            expected = len(text.split())
+            if len(words) > max(25, expected * 3):
+                print(f"[Voice] whisper output looks off ({len(words)} words vs ~{expected}) — using estimate")
+                return False
 
         def _ts(t):
             h = int(t // 3600); m = int((t % 3600) // 60); s = int(t % 60); ms = int(round((t - int(t)) * 1000))
