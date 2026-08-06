@@ -27,35 +27,31 @@ ACE_MUSIC_SIGNATURE = os.getenv("ACE_MUSIC_SIGNATURE", "true").lower() in ("true
 
 # Impactful, genre-matched INSTRUMENTAL prompts. Tuned so the bed sells the mood without
 # fighting the voiceover (no vocals, strong but not chaotic).
+# Calmer, SIMPLER background underscores — minimal and sparse so they sit UNDER the
+# voiceover instead of fighting it (busy over-produced beds are what sounded bad).
 NICHE_STYLES = {
-    "tech_news": ("epic tense cinematic trailer instrumental, 120 bpm, driving taiko and orchestral "
-                  "percussion, urgent staccato strings, dark brass stabs, dramatic breaking-news "
-                  "documentary underscore, building suspense, Hans Zimmer style, powerful, "
-                  "professional mix, stereo wide, no vocals"),
-    "sa_pulse": ("modern cinematic documentary underscore, 100 bpm, serious yet hopeful, afrobeat "
-                 "percussion with djembe and shaker, warm strings and piano, amapiano bass hint, "
-                 "current-affairs news bed, steady momentum, professional mix, no vocals"),
-    "health_wellness": ("calm healing ambient instrumental, 65 bpm, warm soft piano with reverb, "
-                        "gentle fingerpicked acoustic guitar, lush evolving pads, nature sounds hint, "
-                        "spa meditation, peaceful and uplifting, warm mix, no vocals"),
-    "motivation": ("epic uplifting cinematic instrumental, 130 bpm, soaring strings with crescendo, "
-                   "inspiring grand piano, powerful orchestral build, triumphant horns, driving "
-                   "cinematic drums, victory anthem feel, wide stereo mix, no vocals"),
-    "ai_money": ("modern electronic corporate instrumental, 110 bpm, clean synth bass, crisp hi-hats, "
-                 "futuristic arpeggios, confident and sleek, tech startup energy, subtle dubstep "
-                 "influence, professional polished mix, no vocals"),
-    "blissful_moments": ("warm heartfelt acoustic instrumental, 85 bpm, gentle ukulele and soft piano, "
-                         "light percussion with tambourine, feel-good and joyful, family vlog music, "
-                         "bright and sunny, warm mix, no vocals"),
-    "daily_breakdown": ("urgent modern news bed instrumental, 115 bpm, punchy electronic drums, "
-                        "staccato synth stabs, tense strings, investigative documentary feel, "
-                        "CNN-style breaking news underscore, professional mix, no vocals"),
-    "limitless_you": ("futuristic inspirational electronic instrumental, 125 bpm, soaring synth leads, "
-                      "epic build with orchestral elements, cyberpunk meets motivational, driving "
-                      "four-on-the-floor kick, wide atmospheric pads, no vocals"),
+    "tech_news": ("subtle cinematic news underscore, slow 80 bpm, soft sustained strings, gentle low "
+                  "piano, quiet steady pulse, restrained and minimal, calm serious tone, sits under a "
+                  "voiceover, sparse, no vocals, no percussion stabs"),
+    "sa_pulse": ("gentle afro documentary underscore, 85 bpm, soft djembe and shaker low in the mix, "
+                 "warm mellow piano, calm and hopeful, minimal and sparse, sits under narration, no vocals"),
+    "health_wellness": ("calm healing ambient, 60 bpm, soft warm piano with reverb, gentle pads, "
+                        "spacious and peaceful, very minimal, spa meditation feel, sits under a voice, no vocals"),
+    "motivation": ("warm uplifting cinematic underscore, 90 bpm, soft piano and gentle strings, subtle "
+                   "slow build, hopeful and calm, minimal, sits under a voiceover, no vocals"),
+    "ai_money": ("clean minimal electronic underscore, 90 bpm, soft synth pad, gentle simple pulse, "
+                 "calm modern and professional, sparse, sits under narration, no vocals"),
+    "blissful_moments": ("warm gentle acoustic, 80 bpm, soft ukulele or mellow piano, light and airy, "
+                         "feel-good and calm, minimal, sits softly under the content, no vocals"),
+    "daily_breakdown": ("calm modern explainer underscore, 90 bpm, soft synth and light piano, steady "
+                        "and unobtrusive, minimal, sits under a voiceover, no vocals"),
+    "limitless_you": ("calm inspirational electronic underscore, 95 bpm, soft synth pad and gentle "
+                      "piano, subtle warmth, minimal and spacious, sits under narration, no vocals"),
+    "kids_songs": ("gentle playful kids background, 90 bpm, soft mellow xylophone or music box, light "
+                   "and sweet, very simple and calm, sits softly under a teacher voice, no vocals"),
 }
-DEFAULT_STYLE = ("modern cinematic instrumental underscore, 100 bpm, engaging and professional, "
-                 "subtle percussion, warm strings and piano, tasteful energy, clean mix, no vocals")
+DEFAULT_STYLE = ("calm minimal cinematic underscore, 85 bpm, soft piano and warm pad, gentle and "
+                 "unobtrusive, sparse, sits under a voiceover, no vocals")
 
 
 def _style(niche: str) -> str:
