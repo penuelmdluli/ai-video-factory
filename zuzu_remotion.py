@@ -400,32 +400,46 @@ def _concat_padded_audio(items, out_path) -> str | None:
 
 
 def _render_narrated_learning(lesson: dict, out_path: str, portrait: bool,
-                              char_imgs, char_img) -> str | None:
-    """Build title + teaching scenes + outro, narrate each, sync durations to the
-    narration, concat the audio, and render. This is the synced-voice teaching path."""
+                              char_imgs, char_img, target_seconds: float | None = None) -> str | None:
+    """Build title + teaching scenes + ONE outro, narrate each, sync durations to the
+    narration, concat the audio, and render. This is the synced-voice teaching path.
+
+    A longer video is made by REPEATING THE TEACHING BEATS (repetition helps ages 3-7),
+    NOT by duplicating the whole clip — so there is exactly one intro and one goodbye,
+    never a stack of repeated 'goodbyes'. Repeated beats reuse the same narration audio,
+    so extra length costs no extra voice generation."""
     import asyncio
     title = (lesson.get("title") or "Learn with Zuzu").strip()
     edu = [dict(s) for s in (lesson.get("edu") or []) if s.get("type")]
     if not edu:
         return None
+    # how many teaching beats: fill the target (~5s each) or a single pass through edu
+    if target_seconds and target_seconds > 0:
+        nbeats = max(len(edu), int(round((target_seconds - 6) / 5.0)))
+    else:
+        nbeats = len(edu)
     scenes = [{"type": "title", "text": title[:26], "subtitle": "with Zuzu 🐘"}]
-    scenes += edu
-    scenes.append({"type": "outro", "text": "Great job! 👋"})
+    for i in range(nbeats):
+        scenes.append(dict(edu[i % len(edu)]))          # cycle the teaching beats
+    scenes.append({"type": "outro", "text": "Great job! 👋"})   # exactly ONE goodbye
 
     work = Path(out_path).parent / "narration"
     work.mkdir(parents=True, exist_ok=True)
 
     async def _gen_all():
         from modules.voice_generator import generate_voice
+        cache = {}          # narration text -> audio path; repeated beats reuse the clip
         clips = []
-        for i, sc in enumerate(scenes):
+        for sc in scenes:
             txt = _scene_narration(sc, title)
+            if txt in cache:
+                clips.append(cache[txt]); continue
             try:
-                res = await generate_voice(txt, work, f"nar{i}", format_type="short", niche="kids_songs")
-                clips.append(res.get("audio_path") if res else None)
+                res = await generate_voice(txt, work, f"nar{len(cache)}", format_type="short", niche="kids_songs")
+                ap = res.get("audio_path") if res else None
             except Exception as e:
-                print(f"[zuzu-remotion] narration {i} failed ({e})")
-                clips.append(None)
+                print(f"[zuzu-remotion] narration failed ({e})"); ap = None
+            cache[txt] = ap; clips.append(ap)
         return clips
 
     clips = asyncio.run(_gen_all())
@@ -455,16 +469,19 @@ def _render_narrated_learning(lesson: dict, out_path: str, portrait: bool,
 
 
 def render_zuzu_remotion(lesson: dict, song_path: str, out_path: str, char_clip: str = "",
-                         char_img: str | None = None, char_imgs=None, portrait: bool = False) -> str | None:
+                         char_img: str | None = None, char_imgs=None, portrait: bool = False,
+                         target_seconds: float | None = None) -> str | None:
     if char_imgs is None:
         char_imgs = _zuzu_poses()
     if char_img is None:
         char_img = (char_imgs[0] if char_imgs else _default_zuzu_still())
 
     # Teaching lessons -> synced spoken narration (one clip per scene) instead of a
-    # background song the visuals drift against.
+    # background song the visuals drift against. target_seconds fills length by REPEATING
+    # teaching beats (single intro/outro), not by duplicating the whole clip.
     if _is_learn(lesson):
-        return _render_narrated_learning(lesson, out_path, portrait, char_imgs, char_img)
+        return _render_narrated_learning(lesson, out_path, portrait, char_imgs, char_img,
+                                         target_seconds=target_seconds)
 
     secs = _song_seconds(song_path)
 

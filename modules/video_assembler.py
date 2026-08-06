@@ -146,6 +146,35 @@ def _get_music_track(niche: str = "") -> str | None:
     return str(random.choice(tracks)) if tracks else None
 
 
+def _loop_music_seamless(music_path: str, total_duration: float, volume: float,
+                         crossfade: float = 0.6):
+    """Fill the whole video with ONE track by looping it with CROSSFADED seams — no hard
+    restart click, so the bed keeps a steady tempo/flow instead of jarring joins. The whole
+    bed also fades in/out. Returns an audio clip (or None)."""
+    from moviepy import AudioFileClip, CompositeAudioClip, afx
+    base = AudioFileClip(music_path)
+    d = float(base.duration or 0)
+    if d <= 0:
+        return None
+    out_fade = min(1.0, total_duration / 4.0)
+    if d >= total_duration:
+        m = base.subclipped(0, total_duration)
+        return m.with_effects([afx.AudioFadeIn(0.5), afx.AudioFadeOut(out_fade)]).with_volume_scaled(volume)
+    cf = max(0.15, min(crossfade, d / 4.0))
+    step = max(0.1, d - cf)                       # overlap each loop by `cf` seconds
+    clips, t, i = [], 0.0, 0
+    while t < total_duration:
+        c = AudioFileClip(music_path)
+        fx = [afx.AudioFadeOut(cf)]
+        if i > 0:
+            fx.insert(0, afx.AudioFadeIn(cf))     # crossfade into the previous tail
+        clips.append(c.with_effects(fx).with_start(t))
+        t += step; i += 1
+    comp = CompositeAudioClip(clips).subclipped(0, total_duration)
+    comp = comp.with_effects([afx.AudioFadeIn(0.5), afx.AudioFadeOut(out_fade)])
+    return comp.with_volume_scaled(volume)
+
+
 def _create_scene_clip(
     visual: dict,
     target_w: int,
@@ -1080,19 +1109,10 @@ async def assemble_video(
     music_path = _get_music_track(niche=niche)
     if music_path:
         try:
-            music = AudioFileClip(music_path)
-            if music.duration < total_duration:
-                loops_needed = int(total_duration / music.duration) + 1
-                music_clips = [music] + [
-                    AudioFileClip(music_path) for _ in range(loops_needed - 1)
-                ]
-                from moviepy import concatenate_audioclips
-                music = concatenate_audioclips(music_clips)
-                music = music.subclipped(0, total_duration)
-            else:
-                music = music.subclipped(0, total_duration)
-            music = music.with_volume_scaled(music_volume)
-            audio_tracks.append(music)
+            # One consistent bed, looped with crossfaded seams (steady tempo, no click)
+            music = _loop_music_seamless(music_path, total_duration, music_volume)
+            if music is not None:
+                audio_tracks.append(music)
         except Exception as e:
             print(f"[Assembler] Music mixing failed: {e}")
 

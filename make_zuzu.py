@@ -309,11 +309,16 @@ def main():
         # karaoke. Render 16:9 (YT long) AND a NATIVE 9:16 reel (no crop that cuts Zuzu off).
         log("STAGE remotion render (16:9 + native 9:16 reel)")
         from zuzu_remotion import render_zuzu_remotion
-        if not render_zuzu_remotion(lesson, str(song), str(out16)):
+        # Teaching lessons render the long (16:9) at ~60s and the short (9:16) at ~35s
+        # DIRECTLY, by repeating teaching beats with one intro + one outro — so no
+        # whole-clip loop that would stack repeated goodbyes.
+        _long_t = 60 if learn_remotion else None
+        _short_t = 35 if learn_remotion else None
+        if not render_zuzu_remotion(lesson, str(song), str(out16), target_seconds=_long_t):
             raise SystemExit("remotion render failed")
         if not a.no_short:
             _rs = work / f"{lesson['id']}_short.mp4"
-            _remotion_short = str(_rs) if render_zuzu_remotion(lesson, str(song), str(_rs), portrait=True) else None
+            _remotion_short = str(_rs) if render_zuzu_remotion(lesson, str(song), str(_rs), portrait=True, target_seconds=_short_t) else None
     else:
         log("STAGE 1/4 images"); imgs = gen_images(lesson, work)
         log("STAGE 2/4 animate")
@@ -333,9 +338,15 @@ def main():
             short = Path(_remotion_short)   # native 9:16 reel — no crop
         else:
             short = work / f"{lesson['id']}_short.mp4"; make_short(out16, short)
-    # Loop the song to ~3 min for watch-time (nursery rhymes repeat — $0, no re-render)
+    # Loop the song to ~3 min for watch-time (nursery rhymes repeat — $0, no re-render).
+    # Teaching lessons are already rendered at their full length (beats repeated inside a
+    # single render with one outro), so we DON'T whole-clip loop them — that would stack
+    # repeated goodbyes.
     out_long = work / f"{lesson['id']}_16x9_long.mp4"
-    loop_to_length(out16, out_long, 170)
+    if learn_remotion:
+        out_long = out16
+    else:
+        loop_to_length(out16, out_long, 170)
     # auto thumbnail — bright hero scene + big title (needs verified channel to upload)
     thumb = None
     try:
@@ -351,7 +362,8 @@ def main():
             thumb = str(work / "thumb.jpg"); make_thumbnail(hero, lesson["title"], thumb)
     except Exception as e:
         log(f"thumbnail gen skipped: {e}")
-    log(f"BUILT: {out_long} (looped ~3min) + {short}" + (" + thumb" if thumb else ""))
+    _lennote = "teaching, single outro" if learn_remotion else "looped ~3min"
+    log(f"BUILT: {out_long} ({_lennote}) + {short}" + (" + thumb" if thumb else ""))
     if a.dry_run:
         log("DRY-RUN — not posting."); return
     log("STAGE 5/5 post"); asyncio.run(post(str(out_long), short, lesson, not a.no_short, thumb=thumb))

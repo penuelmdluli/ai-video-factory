@@ -40,6 +40,64 @@ from config import (
 _el_quota_exhausted: bool = False
 # Lazy-loaded Kokoro pipelines cached by lang_code ('a'=American, 'b'=British)
 _kokoro_pipeline: dict = {}
+# Lazy-loaded faster-whisper model (shared) for word-accurate caption timing
+_whisper_model = None
+
+
+def _get_whisper():
+    """Load faster-whisper once (GPU, CPU fallback). Returns None if unavailable."""
+    global _whisper_model
+    if _whisper_model is not None:
+        return _whisper_model
+    try:
+        from faster_whisper import WhisperModel
+    except Exception:
+        return None
+    for device, ctype in (("cuda", "float16"), ("cpu", "int8")):
+        try:
+            _whisper_model = WhisperModel("base", device=device, compute_type=ctype)
+            return _whisper_model
+        except Exception:
+            continue
+    return None
+
+
+def _whisper_srt(audio_path, text: str, out_srt) -> bool:
+    """Transcribe the ACTUAL generated audio → word-accurate SRT so on-screen captions
+    line up with the spoken voice on every channel (Kokoro/RunPod would otherwise only
+    have proportional estimates). Biased with the known `text` for cleaner words. Returns
+    True on success; False lets the caller keep its estimated SRT (never raises)."""
+    model = _get_whisper()
+    if model is None:
+        return False
+    try:
+        seg_iter, _info = model.transcribe(str(audio_path), word_timestamps=True,
+                                           initial_prompt=(text or None))
+        words = []
+        for seg in seg_iter:
+            for w in (seg.words or []):
+                tok = (w.word or "").strip()
+                if tok and w.start is not None and w.end is not None:
+                    words.append((tok, float(w.start), float(w.end)))
+        if not words:
+            return False
+
+        def _ts(t):
+            h = int(t // 3600); m = int((t % 3600) // 60); s = int(t % 60); ms = int(round((t - int(t)) * 1000))
+            return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+        prev = 0.0
+        out = []
+        for i, (tok, st, en) in enumerate(words, 1):
+            st = max(st, prev); en = max(en, st + 0.08); prev = en
+            out.append(f"{i}\n{_ts(st)} --> {_ts(en)}\n{tok}\n")
+        from pathlib import Path as _P
+        _P(out_srt).write_text("\n".join(out), encoding="utf-8")
+        print(f"[Voice] whisper caption sync: {len(words)} words timed to the voice")
+        return True
+    except Exception as e:
+        print(f"[Voice] whisper caption timing failed ({e}) — using estimate")
+        return False
 
 
 def _alignment_to_word_segments(alignment) -> list[dict]:
@@ -361,7 +419,9 @@ async def generate_voice_kokoro(
         )
 
         subtitle_path = output_subs or output_audio.with_suffix(".srt")
-        _generate_estimated_srt(text, duration, subtitle_path)
+        # Word-accurate captions timed to the ACTUAL Kokoro audio; estimate only if it fails
+        if not _whisper_srt(output_audio, text, subtitle_path):
+            _generate_estimated_srt(text, duration, subtitle_path)
 
         word_count = len(text.split())
         print(f"[Voice] Kokoro ({voice}, {speed}x): {output_audio.name} "
@@ -444,6 +504,11 @@ async def generate_voice(
             endpoint=runpod_endpoint, voice=runpod_voice, api_key=runpod_api_key,
         )
         if result:
+            # upgrade the RunPod proportional SRT to word-accurate timing (captions in sync)
+            try:
+                _whisper_srt(Path(result["audio_path"]), text, Path(result.get("subtitle_path") or subs_path))
+            except Exception:
+                pass
             return result
         print(f"[Voice] runpod unavailable for {filename_base} — falling through to Kokoro")
 
