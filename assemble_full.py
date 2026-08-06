@@ -287,7 +287,7 @@ def _write_wav(path, sig, sr):
 def assemble(clip_paths, narration_wav, music_wav, words, text, out_dir, W, H, FPS, target,
              flags=("US", "IR"), lowerthird_label="Global powers on alert",
              ticker="Naval forces converge in the Red Sea as tensions escalate  •  world watches shipping lanes",
-             live=True, tag_text="AI VISUALIZATION", shot_audios=None):
+             live=True, tag_text="AI VISUALIZATION", shot_audios=None, intro_clips=0):
     out_dir = Path(out_dir); tmp = out_dir / "_cap"; tmp.mkdir(parents=True, exist_ok=True)
     n = max(1, len(clip_paths)); per = max(2.0, (target or 28.0) / n)
 
@@ -295,9 +295,15 @@ def assemble(clip_paths, narration_wav, music_wav, words, text, out_dir, W, H, F
     for i, p in enumerate(clip_paths):
         raw = _speed(VideoFileClip(str(p)), 1.3)                 # faster motion = more energy
         c = raw.subclipped(0, min(per, raw.duration))
-        c = _kenburns(c, W, H, i)                                # punch-in + drift + shake
+        # the leading graphic scenes (hook/map/stat) already carry their own text — don't
+        # Ken-Burns-zoom them (would crop the text); keep them clean & full-frame.
+        if i >= intro_clips:
+            c = _kenburns(c, W, H, i)                            # punch-in + drift + shake
+        else:
+            c = c.resized((W, H))
         vclips.append(c)
     video = concatenate_videoclips(vclips, method="compose")
+    intro_dur = sum(c.duration for c in vclips[:max(0, intro_clips)])   # keep this span caption-free
 
     narr = AudioFileClip(_loud_voice(narration_wav, tmp))  # compressed + loudnorm = punchy, never soft
     vdur = min(video.duration, max(narr.duration + 0.4, target or 28.0))
@@ -343,16 +349,14 @@ def assemble(clip_paths, narration_wav, music_wav, words, text, out_dir, W, H, F
     for i, (s, e, txt) in enumerate(phrases):
         if s >= vdur:
             break
+        if s < intro_dur:                      # keep the graphic opener (hook/map/stat) clean
+            continue
         png = render_caption_png(txt, W, str(tmp / f"cap_{i}.png"))
         overlays.append(ImageClip(png).with_start(s).with_duration(max(0.4, min(e, vdur) - s))
-                        .with_position(("center", int(H * 0.62) - CAP_H // 2)))
-    # flag lower-third (bottom-left, above ticker)
+                        .with_position(("center", int(H * 0.80) - CAP_H // 2)))   # proper reel caption zone
+    # flag chyron — moved UP to the top (bottom is left clean for captions; no ticker)
     lt = render_lowerthird_png(list(flags), lowerthird_label, W, str(tmp / "lt.png"))
-    overlays.append(ImageClip(lt).with_duration(vdur).with_position((0, int(H * 0.74))))
-    # breaking-news ticker (very bottom)
-    if ticker:
-        tk = render_ticker_png(ticker, W, str(tmp / "ticker.png"))
-        overlays.append(ImageClip(tk).with_duration(vdur).with_position((0, H - 52)))
+    overlays.append(ImageClip(lt).with_duration(vdur).with_position((0, int(H * 0.11))))
     # LIVE bug (top-right)
     if live:
         lv = render_live_png(str(tmp / "live.png"))

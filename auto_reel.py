@@ -110,6 +110,7 @@ def main():
     clips = [p for p in paths if p]
     if len(clips) < 4:
         raise SystemExit(f"only {len(clips)} shots — aborting post")
+    n_ltx = len(clips)   # graphic openers get prepended below; captions skip that span
 
     # Map-zoom OPENER: if the story is about a country, prepend a cinematic map-zoom shot
     # (Vox/Johnny-Harris style). Offline + ~free; entirely optional — any failure just skips it.
@@ -152,7 +153,8 @@ def main():
     final = assemble(clips, str(wav), str(music) if music else None, words, pkg["narration"], out, W, HGT, FPS,
                      target=28.0, flags=tuple(pkg.get("flags", ["ZA", "US"]))[:2],
                      lowerthird_label=pkg.get("lowerthird_label", "Breaking"),
-                     ticker=pkg.get("ticker", pkg["title"]), live=True, tag_text="AI", shot_audios=None)
+                     ticker=pkg.get("ticker", pkg["title"]), live=True, tag_text="AI", shot_audios=None,
+                     intro_clips=len(clips) - n_ltx)
     dest = Path(rf"C:\Users\PenuelM\Desktop\AI_Videos\auto_{stamp}.mp4")
     # Final polish: BREAKING badge + progress bar (one pass), then a whoosh riser at the open.
     ok = None
