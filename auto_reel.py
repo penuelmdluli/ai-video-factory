@@ -138,13 +138,34 @@ def main():
     except Exception as e:
         print(f"  stat counter skipped ({e})", flush=True)
 
+    # Kinetic hook card — the VERY first scene (pattern interrupt to stop the scroll)
+    try:
+        from modules.hook_card import make_hook_card
+        hook_text = pkg.get("hook_line") or pkg.get("title") or "BREAKING"
+        hcp = out / "hook.mp4"
+        if make_hook_card(hook_text, str(hcp), duration=1.6, size=(W, HGT), accent="#FF3131", fps=FPS):
+            clips.insert(0, hcp)
+            print("  + hook card added", flush=True)
+    except Exception as e:
+        print(f"  hook card skipped ({e})", flush=True)
+
     final = assemble(clips, str(wav), str(music) if music else None, words, pkg["narration"], out, W, HGT, FPS,
                      target=28.0, flags=tuple(pkg.get("flags", ["ZA", "US"]))[:2],
                      lowerthird_label=pkg.get("lowerthird_label", "Breaking"),
                      ticker=pkg.get("ticker", pkg["title"]), live=True, tag_text="AI", shot_audios=None)
     dest = Path(rf"C:\Users\PenuelM\Desktop\AI_Videos\auto_{stamp}.mp4")
-    subprocess.run([_ff(), "-y", "-i", str(final), "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                    "-movflags", "+faststart", "-c:a", "aac", "-b:a", "160k", str(dest)], capture_output=True)
+    # Burn in a progress bar (watch-to-end nudge); fall back to a plain encode on failure.
+    _bar = None
+    try:
+        from modules.overlays import add_progress_bar
+        _bar = add_progress_bar(str(final), str(dest), accent="#FF3131", height=max(6, HGT // 150))
+    except Exception as e:
+        print(f"  progress bar skipped ({e})", flush=True)
+    if not _bar:
+        subprocess.run([_ff(), "-y", "-i", str(final), "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                        "-movflags", "+faststart", "-c:a", "aac", "-b:a", "160k", str(dest)], capture_output=True)
+    else:
+        print("  + progress bar added", flush=True)
     print(f"  built -> {dest}", flush=True)
 
     print("[7] POST reel", flush=True)
