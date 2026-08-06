@@ -346,13 +346,15 @@ def assemble(clip_paths, narration_wav, music_wav, words, text, out_dir, W, H, F
     overlays = []
     # captions
     phrases = group_words(words) if words else _fallback_phrases(text, vdur)
+    CAP_LEAD = 0.22   # show a touch BEFORE the word — whisper boundaries run late, so this syncs it
     for i, (s, e, txt) in enumerate(phrases):
         if s >= vdur:
             break
         if s < intro_dur:                      # keep the graphic opener (hook/map/stat) clean
             continue
+        s2 = max(intro_dur, s - CAP_LEAD)
         png = render_caption_png(txt, W, str(tmp / f"cap_{i}.png"))
-        overlays.append(ImageClip(png).with_start(s).with_duration(max(0.4, min(e, vdur) - s))
+        overlays.append(ImageClip(png).with_start(s2).with_duration(max(0.4, min(e, vdur) - s2))
                         .with_position(("center", int(H * 0.80) - CAP_H // 2)))   # proper reel caption zone
     # flag chyron — moved UP to the top (bottom is left clean for captions; no ticker)
     lt = render_lowerthird_png(list(flags), lowerthird_label, W, str(tmp / "lt.png"))

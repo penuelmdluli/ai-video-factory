@@ -33,15 +33,21 @@ def add_progress_bar(in_path, out_path, accent="#FF3131", height=8, audio=True):
     d = _dur(in_path)
     if d <= 0:
         return None
+    try:
+        W, H = _size(in_path)
+    except Exception:
+        return None
     col = "0x" + str(accent).lstrip("#")
     h = max(4, int(height))
-    # a faint full-width track + the accent bar whose width grows with time t
-    vf = (f"drawbox=x=0:y=ih-{h}:w=iw:h={h}:color=white@0.18:t=fill,"
-          f"drawbox=x=0:y=ih-{h}:w='iw*t/{d:.3f}':h={h}:color={col}@1.0:t=fill")
-    cmd = [_ff(), "-y", "-i", str(in_path), "-vf", vf,
-           "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
-    cmd += (["-c:a", "aac", "-b:a", "160k"] if audio else ["-an"])
-    cmd += [str(out_path)]
+    # drawbox w=f(t) does NOT animate in this ffmpeg build — slide a red bar in via overlay
+    # (x goes from -W to 0, so the visible width grows iw*t/d, a real progress bar).
+    fc = (f"[0:v]drawbox=x=0:y=ih-{h}:w=iw:h={h}:color=white@0.18:t=fill[bt];"
+          f"[bt][1:v]overlay=x='-(w-w*t/{d:.3f})':y={H - h}[v]")
+    cmd = [_ff(), "-y", "-i", str(in_path),
+           "-f", "lavfi", "-i", f"color={col}:s={W}x{h}:d={d:.3f}",
+           "-filter_complex", fc, "-map", "[v]"]
+    cmd += (["-map", "0:a?", "-c:a", "aac", "-b:a", "160k"] if audio else ["-an"])
+    cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out_path)]
     subprocess.run(cmd, capture_output=True, text=True)
     return str(out_path) if Path(out_path).exists() and Path(out_path).stat().st_size > 10000 else None
 
@@ -117,9 +123,11 @@ def add_news_overlays(in_path, out_path, label="BREAKING", accent="#FF3131", pro
             filters.append(f"[{last}][{idx}:v]overlay={m}:{m}[b]"); last = "b"; idx += 1
         if progress:
             h = max(5, H // 150); col = "0x" + str(accent).lstrip("#")
-            filters.append(f"[{last}]drawbox=x=0:y=ih-{h}:w=iw:h={h}:color=white@0.18:t=fill,"
-                           f"drawbox=x=0:y=ih-{h}:w='iw*t/{d:.3f}':h={h}:color={col}@1.0:t=fill[v]")
-            last = "v"
+            # static track + a red bar slid in via overlay (drawbox w=f(t) doesn't animate here)
+            filters.append(f"[{last}]drawbox=x=0:y=ih-{h}:w=iw:h={h}:color=white@0.18:t=fill[bt]")
+            inputs += ["-f", "lavfi", "-i", f"color={col}:s={W}x{h}:d={d:.3f}"]
+            filters.append(f"[bt][{idx}:v]overlay=x='-(w-w*t/{d:.3f})':y={H - h}[v]")
+            last = "v"; idx += 1
         cmd = [_ff(), "-y"] + inputs
         if filters:
             cmd += ["-filter_complex", ";".join(filters), "-map", f"[{last}]"]

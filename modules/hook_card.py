@@ -79,6 +79,9 @@ def make_hook_card(text, out_path, duration=1.6, size=(704, 1280), accent="#FF31
     fs = int(W * 0.16); font = _font(fs); lines = wrap(font)
     while len(lines) > 4 and fs > int(W * 0.07):
         fs -= int(W * 0.008); font = _font(fs); lines = wrap(font)
+    # also shrink until every line (incl. a single long word) fits the safe width — no cut-off
+    while any(dmy.textlength(" ".join(l), font=font) > W * 0.9 for l in lines) and fs > int(W * 0.06):
+        fs -= int(W * 0.006); font = _font(fs); lines = wrap(font)
     lh = int(fs * 1.08)
 
     # word layout (centered lines) with a global index for the pop stagger
