@@ -287,7 +287,7 @@ def _write_wav(path, sig, sr):
 def assemble(clip_paths, narration_wav, music_wav, words, text, out_dir, W, H, FPS, target,
              flags=("US", "IR"), lowerthird_label="Global powers on alert",
              ticker="Naval forces converge in the Red Sea as tensions escalate  •  world watches shipping lanes",
-             live=True, tag_text="AI VISUALIZATION", shot_audios=None, intro_clips=0):
+             live=True, tag_text="AI VISUALIZATION", shot_audios=None, intro_clips=0, hook_clips=0):
     out_dir = Path(out_dir); tmp = out_dir / "_cap"; tmp.mkdir(parents=True, exist_ok=True)
     n = max(1, len(clip_paths)); per = max(2.0, (target or 28.0) / n)
 
@@ -303,7 +303,7 @@ def assemble(clip_paths, narration_wav, music_wav, words, text, out_dir, W, H, F
             c = c.resized((W, H))
         vclips.append(c)
     video = concatenate_videoclips(vclips, method="compose")
-    intro_dur = sum(c.duration for c in vclips[:max(0, intro_clips)])   # keep this span caption-free
+    hook_dur = sum(c.duration for c in vclips[:max(0, hook_clips)])   # ONLY the hook is caption-free
 
     narr = AudioFileClip(_loud_voice(narration_wav, tmp))  # compressed + loudnorm = punchy, never soft
     vdur = min(video.duration, max(narr.duration + 0.4, target or 28.0))
@@ -350,9 +350,9 @@ def assemble(clip_paths, narration_wav, music_wav, words, text, out_dir, W, H, F
     for i, (s, e, txt) in enumerate(phrases):
         if s >= vdur:
             break
-        if s < intro_dur:                      # keep the graphic opener (hook/map/stat) clean
+        if s < hook_dur:                       # keep ONLY the hook caption-free
             continue
-        s2 = max(intro_dur, s - CAP_LEAD)
+        s2 = max(hook_dur, s - CAP_LEAD)
         png = render_caption_png(txt, W, str(tmp / f"cap_{i}.png"))
         overlays.append(ImageClip(png).with_start(s2).with_duration(max(0.4, min(e, vdur) - s2))
                         .with_position(("center", int(H * 0.80) - CAP_H // 2)))   # proper reel caption zone

@@ -140,12 +140,13 @@ def main():
         print(f"  stat counter skipped ({e})", flush=True)
 
     # Kinetic hook card — the VERY first scene (pattern interrupt to stop the scroll)
+    hook_added = False
     try:
         from modules.hook_card import make_hook_card
         hook_text = pkg.get("hook_line") or pkg.get("title") or "BREAKING"
         hcp = out / "hook.mp4"
         if make_hook_card(hook_text, str(hcp), duration=1.6, size=(W, HGT), accent="#FF3131", fps=FPS):
-            clips.insert(0, hcp)
+            clips.insert(0, hcp); hook_added = True
             print("  + hook card added", flush=True)
     except Exception as e:
         print(f"  hook card skipped ({e})", flush=True)
@@ -154,13 +155,15 @@ def main():
                      target=28.0, flags=tuple(pkg.get("flags", ["ZA", "US"]))[:2],
                      lowerthird_label=pkg.get("lowerthird_label", "Breaking"),
                      ticker=pkg.get("ticker", pkg["title"]), live=True, tag_text="AI", shot_audios=None,
-                     intro_clips=len(clips) - n_ltx)
+                     intro_clips=len(clips) - n_ltx, hook_clips=1 if hook_added else 0)
     dest = Path(rf"C:\Users\PenuelM\Desktop\AI_Videos\auto_{stamp}.mp4")
     # Final polish: BREAKING badge + progress bar (one pass), then a whoosh riser at the open.
     ok = None
     try:
         from modules.overlays import add_news_overlays, add_sfx
-        ok = add_news_overlays(str(final), str(dest), label="BREAKING", accent="#FF3131")
+        ok = add_news_overlays(str(final), str(dest), label="BREAKING", accent="#FF3131",
+                               handle="TechPulseAfrica", follow=True,
+                               comment_prompt=pkg.get("comment_prompt", "Which side are you on?"))
         if ok:
             try:
                 from modules.sfx_manager import get_sfx_sync

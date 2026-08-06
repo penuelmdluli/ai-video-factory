@@ -104,8 +104,56 @@ def _make_ticker_png(text, accent, W, H, out):
     return out, w, h
 
 
-def add_news_overlays(in_path, out_path, label="BREAKING", accent="#FF3131", progress=True, audio=True):
-    """One pass: a BREAKING badge (top-left) + a progress bar. Returns out_path or None."""
+def _make_watermark_png(handle, H, out):
+    from PIL import Image, ImageDraw
+    from modules.thumbnail_pro import _font
+    fs = int(H * 0.026); f = _font(fs, "default"); txt = "@" + str(handle).lstrip("@")
+    tw = ImageDraw.Draw(Image.new("RGB", (4, 4))).textlength(txt, font=f)
+    w = int(tw + 10); h = int(fs + 14)
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    for dx in (-2, 0, 2):
+        for dy in (-2, 0, 2):
+            d.text((5 + dx, 6 + dy), txt, font=f, fill=(0, 0, 0, 150))
+    d.text((5, 6), txt, font=f, fill=(255, 255, 255, 180))
+    img.save(out); return out, w, h
+
+
+def _make_follow_png(accent, H, out):
+    from PIL import Image, ImageDraw
+    from modules.thumbnail_pro import _font
+    fs = int(H * 0.030); f = _font(fs, "news"); txt = "FOLLOW"
+    tw = ImageDraw.Draw(Image.new("RGB", (4, 4))).textlength(txt, font=f)
+    pad = int(H * 0.014); tri = int(fs * 0.7)
+    w = int(pad * 2 + tri + pad * 0.5 + tw); h = int(fs + pad * 2)
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.rounded_rectangle([0, 0, w, h], radius=h // 2, fill=_hex(accent) + (255,))
+    cy = h // 2
+    d.polygon([(pad, cy - tri // 2), (pad, cy + tri // 2), (pad + tri, cy)], fill=(255, 255, 255, 255))
+    d.text((pad + tri + int(pad * 0.5), (h - fs) // 2 - int(fs * 0.08)), txt, font=f, fill=(255, 255, 255, 255))
+    img.save(out); return out, w, h
+
+
+def _make_prompt_png(text, accent, W, H, out):
+    from PIL import Image, ImageDraw
+    from modules.thumbnail_pro import _font
+    fs = int(H * 0.030); f = _font(fs, "news"); txt = str(text).upper()
+    tw = ImageDraw.Draw(Image.new("RGB", (4, 4))).textlength(txt, font=f)
+    pad = int(H * 0.016); tri = int(fs * 0.7)
+    w = int(pad * 2 + tri + pad * 0.6 + tw); h = int(fs + pad * 2)
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    d.rounded_rectangle([0, 0, w, h], radius=int(H * 0.014), fill=(12, 18, 26, 225))
+    cy = h // 2; ax = pad
+    d.polygon([(ax, cy - tri // 2), (ax + tri, cy - tri // 2), (ax + tri // 2, cy + tri // 2)],
+              fill=_hex(accent) + (255,))          # down-arrow toward the comments
+    d.text((ax + tri + int(pad * 0.6), (h - fs) // 2 - int(fs * 0.08)), txt, font=f, fill=(255, 255, 255, 255))
+    img.save(out); return out, w, h
+
+
+def add_news_overlays(in_path, out_path, label="BREAKING", accent="#FF3131", progress=True,
+                      audio=True, handle="", follow=False, comment_prompt=""):
+    """One pass — corners filled: BREAKING badge (top-left) + progress bar (bottom edge) +
+    @handle watermark (bottom-left) + animated FOLLOW button (bottom-right, last 4s) +
+    comment-bait prompt (last 4s). Returns out_path or None."""
     d = _dur(in_path)
     if d <= 0:
         return None
@@ -114,20 +162,33 @@ def add_news_overlays(in_path, out_path, label="BREAKING", accent="#FF3131", pro
     except Exception:
         return None
     work = Path(tempfile.mkdtemp(prefix="ov_"))
+    m = int(H * 0.03); near = max(0.0, d - 4.0)
     try:
         inputs = ["-i", str(in_path)]; filters = []; last = "0:v"; idx = 1
         if label:
             badge, _bw, _bh = _make_badge_png(label, accent, H, str(work / "badge.png"))
             inputs += ["-i", badge]
-            m = int(H * 0.03)
-            filters.append(f"[{last}][{idx}:v]overlay={m}:{m}[b]"); last = "b"; idx += 1
+            filters.append(f"[{last}][{idx}:v]overlay={m}:{m}[s{idx}]"); last = f"s{idx}"; idx += 1
         if progress:
             h = max(5, H // 150); col = "0x" + str(accent).lstrip("#")
-            # static track + a red bar slid in via overlay (drawbox w=f(t) doesn't animate here)
-            filters.append(f"[{last}]drawbox=x=0:y=ih-{h}:w=iw:h={h}:color=white@0.18:t=fill[bt]")
+            filters.append(f"[{last}]drawbox=x=0:y=ih-{h}:w=iw:h={h}:color=white@0.18:t=fill[trk]")
             inputs += ["-f", "lavfi", "-i", f"color={col}:s={W}x{h}:d={d:.3f}"]
-            filters.append(f"[bt][{idx}:v]overlay=x='-(w-w*t/{d:.3f})':y={H - h}[v]")
-            last = "v"; idx += 1
+            filters.append(f"[trk][{idx}:v]overlay=x='-(w-w*t/{d:.3f})':y={H - h}[s{idx}]"); last = f"s{idx}"; idx += 1
+        if handle:
+            wm, _ww, wh = _make_watermark_png(handle, H, str(work / "wm.png"))
+            inputs += ["-i", wm]
+            filters.append(f"[{last}][{idx}:v]overlay={m}:{H - wh - int(H * 0.02)}[s{idx}]"); last = f"s{idx}"; idx += 1
+        if follow:
+            fol, _fw, fh = _make_follow_png(accent, H, str(work / "follow.png"))
+            inputs += ["-i", fol]
+            yb = H - fh - int(H * 0.11)
+            filters.append(f"[{last}][{idx}:v]overlay=x=W-w-{m}:y='{yb}+8*sin(t*6)':enable='gte(t,{near:.2f})'[s{idx}]")
+            last = f"s{idx}"; idx += 1
+        if comment_prompt:
+            pr, _pw, _ph = _make_prompt_png(comment_prompt, accent, W, H, str(work / "prompt.png"))
+            inputs += ["-i", pr]
+            filters.append(f"[{last}][{idx}:v]overlay=x=(W-w)/2:y={int(H * 0.70)}:enable='gte(t,{near:.2f})'[s{idx}]")
+            last = f"s{idx}"; idx += 1
         cmd = [_ff(), "-y"] + inputs
         if filters:
             cmd += ["-filter_complex", ";".join(filters), "-map", f"[{last}]"]
