@@ -34,6 +34,7 @@ from moviepy import (
     CompositeAudioClip,
     concatenate_videoclips,
     vfx,
+    afx,
 )
 
 import re
@@ -48,7 +49,11 @@ from config import (
     CAPTION_STROKE_WIDTH,
     CAPTION_FONT,
     CAPTION_BG_OPACITY,
+    KARAOKE_CAPTIONS,
+    KARAOKE_HIGHLIGHT_COLOR,
+    KARAOKE_HIGHLIGHT_SCALE,
     MUSIC_DIR,
+    MUSIC_VOLUME,
     ASSETS_DIR,
     ENABLE_KEN_BURNS,
     ENABLE_TRANSITIONS,
@@ -109,8 +114,32 @@ def _apply_color_grade(clip, niche: str):
     return clip.image_transform(color_filter)
 
 
-def _get_music_track() -> str | None:
-    """Pick a random background music track from the music directory."""
+def _get_music_track(niche: str = "") -> str | None:
+    """Get a background music track. Priority: fresh genre-matched ACE-Step instrumental
+    bed (best), then the legacy tension bed / library as fallbacks."""
+    # 1. ACE-Step instrumental bed — cinematic, genre-matched, cached + rotated ($0).
+    try:
+        from modules.ace_music import get_ace_music_sync
+        bed = get_ace_music_sync(niche)
+        if bed:
+            print(f"[Assembler] Using ACE-Step music bed for {niche or 'default'}")
+            return bed
+    except Exception as e:
+        print(f"[Assembler] ACE-Step music unavailable: {e}")
+
+    # 2. Legacy war tension bed (only if SFX/ElevenLabs still enabled) for topic_focus pages.
+    try:
+        from config import NICHES
+        if niche and NICHES.get(niche, {}).get("topic_focus"):
+            from modules.sfx_manager import get_sfx_sync
+            legacy = get_sfx_sync("war_tension_bed")
+            if legacy:
+                print(f"[Assembler] Using legacy tension bed for {niche}")
+                return legacy
+    except Exception as e:
+        print(f"[Assembler] Tension bed unavailable: {e}")
+
+    # 3. Fallback to legacy music directory
     if not MUSIC_DIR.exists():
         return None
     tracks = list(MUSIC_DIR.glob("*.mp3")) + list(MUSIC_DIR.glob("*.wav"))
@@ -130,7 +159,7 @@ def _create_scene_clip(
     local_path = visual.get("local_path")
     visual_type = visual.get("type", "placeholder")
 
-    if visual_type == "video" and local_path and Path(local_path).exists():
+    if visual_type in ("video", "ai_video") and local_path and Path(local_path).exists():
         try:
             clip = VideoFileClip(local_path)
             if clip.duration > duration:
@@ -222,6 +251,7 @@ NICHE_CAPTION_COLORS = {
     "motivation": (255, 200, 0),
     "health_wellness": (100, 220, 100),
     "blissful_moments": (255, 180, 100),
+    "sa_pulse": (255, 184, 28),
 }
 
 
@@ -245,6 +275,13 @@ def _get_emoji_for_text(text: str) -> str:
     return ""
 
 
+def _karaoke_pop_pad(font_size: int) -> int:
+    """Extra top/bottom canvas headroom so a highlighted (enlarged + lifted) word
+    never clips. Symmetric, so the caption's baseline is unchanged when the caller
+    offsets its position by the same amount."""
+    return int(font_size * 0.38)
+
+
 def _render_caption_image(
     text: str,
     font_path: str,
@@ -252,29 +289,49 @@ def _render_caption_image(
     text_w: int,
     accent_color: tuple,
     stroke_width: int = 4,
+    highlight_word: int = -1,
+    highlight_color: tuple = (255, 221, 51),
+    highlight_scale: float = 1.15,
 ) -> np.ndarray:
     """
     Render a caption with colored power words using PIL.
     Returns an RGBA numpy array.
+
+    If `highlight_word` >= 0, that word (index into the phrase's word list) is
+    drawn in `highlight_color` (bright yellow), enlarged and lifted for a karaoke
+    "bounce" — every other word keeps its exact normal styling and the line layout
+    is computed at the base font size so nothing shifts around the active word.
     """
-    try:
-        font = ImageFont.truetype(font_path, font_size)
-    except Exception:
-        font = ImageFont.load_default()
+    def _load(sz):
+        try:
+            return ImageFont.truetype(font_path, sz)
+        except Exception:
+            return ImageFont.load_default()
 
+    hl_on = highlight_word is not None and highlight_word >= 0
     words = text.upper().split()
-
     emoji = _get_emoji_for_text(text)
 
-    dummy_img = PILImage.new("RGBA", (text_w + 40, font_size * 4), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(dummy_img)
-    space_w = draw.textlength(" ", font=font)
+    meas = ImageDraw.Draw(PILImage.new("RGBA", (10, 10), (0, 0, 0, 0)))
+    # Auto-fit: shrink the base font until no single word is wider than the text
+    # area — so a word can NEVER be clipped at the frame edge.
+    font = _load(font_size)
+    while words and font_size > 28 and max(meas.textlength(w, font=font) for w in words) > text_w:
+        font_size -= 4
+        font = _load(font_size)
 
-    word_widths = []
-    for w in words:
-        w_width = draw.textlength(w, font=font)
-        word_widths.append(w_width)
+    big_size = int(font_size * highlight_scale)
+    font_big = _load(big_size) if hl_on else font
+    lift = int(font_size * 0.12)            # bounce: active word rises slightly
+    v_center = (big_size - font_size) // 2  # keep enlarged word centered on the line
 
+    # A touch more air between words so the popped (enlarged) word never collides
+    # with its neighbour ("YOU'VE PROBABLY", not "YOU'VEPROBABLY").
+    space_w = meas.textlength(" ", font=font) * 1.35
+    word_widths = [meas.textlength(w, font=font) for w in words]
+
+    # Wrap into lines at the BASE font size (layout is identical with or without
+    # highlight). Each entry carries its flat word index so we know which pops.
     lines = []
     current_line = []
     current_width = 0
@@ -282,34 +339,56 @@ def _render_caption_image(
         test_width = current_width + word_widths[i] + (space_w if current_line else 0)
         if test_width > text_w and current_line:
             lines.append(current_line)
-            current_line = [(w, word_widths[i], _is_power_word(w))]
+            current_line = [(w, word_widths[i], _is_power_word(w), i)]
             current_width = word_widths[i]
         else:
-            current_line.append((w, word_widths[i], _is_power_word(w)))
+            current_line.append((w, word_widths[i], _is_power_word(w), i))
             current_width = test_width
     if current_line:
         lines.append(current_line)
 
-    line_height = int(font_size * 1.3)
-    total_height = line_height * len(lines) + stroke_width * 2 + 20
+    pop_pad = _karaoke_pop_pad(font_size) if hl_on else 0
     padding = stroke_width + 10
-    img = PILImage.new("RGBA", (text_w + padding * 2, total_height), (0, 0, 0, 0))
+    # Extra L/R room so a popped (enlarged) edge word can never clip. Symmetric,
+    # and the whole caption is centered on screen, so this stays visually invisible.
+    h_extra = (int(text_w * (highlight_scale - 1) / 2) + stroke_width + 4) if hl_on else 0
+    hpad = padding + h_extra
+    line_height = int(font_size * 1.3)
+    total_height = line_height * len(lines) + stroke_width * 2 + 20 + pop_pad * 2
+    canvas_w = text_w + hpad * 2
+    img = PILImage.new("RGBA", (canvas_w, total_height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    y = padding
+    y = padding + pop_pad
     for line in lines:
-        line_w = sum(w for _, w, _ in line) + space_w * (len(line) - 1)
-        x = (text_w + padding * 2 - line_w) / 2
+        line_w = sum(w for _, w, _, _ in line) + space_w * (len(line) - 1)
+        x = (canvas_w - line_w) / 2
 
-        for word, w_width, is_power in line:
-            color = accent_color if is_power else (255, 255, 255)
+        for word, w_width, is_power, gidx in line:
+            active = hl_on and gidx == highlight_word
 
-            for dx in range(-stroke_width, stroke_width + 1):
-                for dy in range(-stroke_width, stroke_width + 1):
-                    if dx * dx + dy * dy <= stroke_width * stroke_width:
-                        draw.text((x + dx, y + dy), word, font=font, fill=(0, 0, 0, 255))
+            if active:
+                # Yellow + bigger + lifted, centered over the base slot so the
+                # words on either side never move.
+                wfont = font_big
+                sw = stroke_width + 2
+                big_w = draw.textlength(word, font=font_big)
+                wx = x - (big_w - w_width) / 2
+                wy = y - v_center - lift
+                color = highlight_color
+            else:
+                wfont = font
+                sw = stroke_width
+                wx = x
+                wy = y
+                color = accent_color if is_power else (255, 255, 255)
 
-            draw.text((x, y), word, font=font, fill=color + (255,))
+            for dx in range(-sw, sw + 1):
+                for dy in range(-sw, sw + 1):
+                    if dx * dx + dy * dy <= sw * sw:
+                        draw.text((wx + dx, wy + dy), word, font=wfont, fill=(0, 0, 0, 255))
+
+            draw.text((wx, wy), word, font=wfont, fill=color + (255,))
             x += w_width + space_w
 
         y += line_height
@@ -336,9 +415,11 @@ def _create_caption_clips(
     accent_color = NICHE_CAPTION_COLORS.get(niche, (0, 255, 136))
 
     if is_portrait:
-        cap_y = int(target_h * 0.62)
+        cap_y = int(target_h * 0.72)  # Lower third area — clean, no collision
     else:
-        cap_y = int(target_h * 0.70)
+        cap_y = int(target_h * 0.75)
+
+    pop_pad = _karaoke_pop_pad(font_size)  # extra headroom when a word pops
 
     for idx, cap in enumerate(captions):
         try:
@@ -346,36 +427,68 @@ def _create_caption_clips(
             if duration <= 0.1:
                 continue
 
-            # PIL-rendered colored captions with scale-up entrance
-            try:
-                img_array = _render_caption_image(
-                    text=cap["text"],
-                    font_path=CAPTION_FONT,
-                    font_size=font_size,
-                    text_w=text_w,
-                    accent_color=accent_color,
-                    stroke_width=stroke_w,
-                )
-                rgb = img_array[:, :, :3]
-                alpha = img_array[:, :, 3].astype(float) / 255.0
-
-                clip = ImageClip(rgb, duration=duration)
-                mask = ImageClip(alpha, is_mask=True, duration=duration)
-                clip = clip.with_mask(mask)
-                clip = clip.with_start(cap["start"])
-                clip = clip.with_position(("center", cap_y))
-
-                # Animated entrance: quick scale-up pop effect
-                # Every 3rd caption gets a slightly bouncier entrance
-                if idx % 3 == 0 and duration > 0.5:
-                    clip = clip.with_effects([vfx.CrossFadeIn(0.08)])
+            # Build the render "windows": one per spoken word when karaoke is ON
+            # (each shows the SAME phrase, with just the active word popped yellow),
+            # otherwise a single static phrase image — the original behaviour.
+            words = cap["text"].split()
+            windows = []  # (highlight_idx, start, dur, y, is_first)
+            if KARAOKE_CAPTIONS and words:
+                y_use = cap_y - pop_pad  # cancel the pop headroom -> baseline unchanged
+                if len(words) == 1 or duration < 0.25:
+                    windows.append((0, cap["start"], duration, y_use, True))
                 else:
-                    clip = clip.with_effects([vfx.CrossFadeIn(0.05)])
+                    # Weight each word's on-time by its length ≈ natural speech pace.
+                    weights = [max(len(re.sub(r"[^\w]", "", w)), 1) for w in words]
+                    wsum = float(sum(weights)) or 1.0
+                    t0 = cap["start"]
+                    acc = 0.0
+                    for wi, wt in enumerate(weights):
+                        acc += wt
+                        t1 = cap["end"] if wi == len(weights) - 1 else \
+                            cap["start"] + duration * (acc / wsum)
+                        if t1 - t0 > 0.02:
+                            windows.append((wi, t0, t1 - t0, y_use, wi == 0))
+                        t0 = t1
+            else:
+                windows.append((-1, cap["start"], duration, cap_y, True))
 
-                caption_clips.append(clip)
+            # PIL-rendered colored captions with scale-up entrance
+            made = False
+            for hidx, wstart, wdur, wy, is_first in windows:
+                try:
+                    img_array = _render_caption_image(
+                        text=cap["text"],
+                        font_path=CAPTION_FONT,
+                        font_size=font_size,
+                        text_w=text_w,
+                        accent_color=accent_color,
+                        stroke_width=stroke_w,
+                        highlight_word=hidx,
+                        highlight_color=KARAOKE_HIGHLIGHT_COLOR,
+                        highlight_scale=KARAOKE_HIGHLIGHT_SCALE,
+                    )
+                    rgb = img_array[:, :, :3]
+                    alpha = img_array[:, :, 3].astype(float) / 255.0
+
+                    clip = ImageClip(rgb, duration=wdur)
+                    mask = ImageClip(alpha, is_mask=True, duration=wdur)
+                    clip = clip.with_mask(mask)
+                    clip = clip.with_start(wstart)
+                    clip = clip.with_position(("center", wy))
+
+                    # Only the first window of a phrase fades in; the per-word
+                    # highlight then switches instantly (that's the "bounce").
+                    if is_first:
+                        fade = 0.08 if (idx % 3 == 0 and wdur > 0.5) else 0.05
+                        clip = clip.with_effects([vfx.CrossFadeIn(fade)])
+
+                    caption_clips.append(clip)
+                    made = True
+                except Exception:
+                    continue
+
+            if made:
                 continue
-            except Exception:
-                pass
 
             # Fallback: plain white TextClip
             pad = stroke_w + 6
@@ -525,15 +638,15 @@ def _create_pattern_interrupts(
     is_portrait = target_h > target_w
 
     interrupt_texts = [
-        "WAIT FOR THIS",
-        "HERE'S THE KEY",
-        "WATCH THIS",
-        "PAY ATTENTION",
-        "THIS IS IMPORTANT",
-        "DON'T SKIP",
-        "THE SECRET IS...",
-        "YOU WON'T BELIEVE THIS",
-        "THIS CHANGES EVERYTHING",
+        "WAIT FOR IT...",
+        "HERE'S WHY",
+        "THINK ABOUT THIS",
+        "LISTEN CLOSELY",
+        "THE REAL REASON",
+        "NOBODY TALKS ABOUT THIS",
+        "THIS IS THE KEY",
+        "LET THAT SINK IN",
+        "READ THAT AGAIN",
     ]
 
     interrupt_interval = 16.0
@@ -676,7 +789,7 @@ async def assemble_video(
     captions: list[dict],
     output_path: str | Path,
     format_type: str = "youtube_long",
-    music_volume: float = 0.08,
+    music_volume: float = MUSIC_VOLUME,
     sfx_placements: list[dict] | None = None,
     avatar_pip_path: str | None = None,
     niche: str = "ai_trading",
@@ -698,7 +811,7 @@ async def assemble_video(
 
     Audio stack:
     1. Voiceover (1.0x volume)
-    2. Background music (0.08x volume)
+    2. Background music (MUSIC_VOLUME, default 0.35x — clearly audible under speech)
     3. Sound effects (0.25-0.3x volume)
     """
     settings = VIDEO_SETTINGS[format_type]
@@ -715,13 +828,14 @@ async def assemble_video(
     audio = AudioFileClip(audio_path)
     total_duration = audio.duration
 
-    # Enforce max duration for short-form formats
+    # Video matches voiceover length — no forced trim
+    # YouTube Shorts allows up to 60s, so let the voice breathe
     is_short_format = format_type != "youtube_long"
-    max_duration = settings.get("duration_target")
-    if is_short_format and max_duration and total_duration > max_duration + 2:
-        print(f"[Assembler] Trimming audio from {total_duration:.1f}s to {max_duration}s (format limit)")
-        audio = audio.subclipped(0, max_duration)
-        total_duration = max_duration
+    max_allowed = 58  # YouTube Shorts max is 60s, leave 2s buffer
+    if is_short_format and total_duration > max_allowed:
+        print(f"[Assembler] Trimming audio from {total_duration:.1f}s to {max_allowed}s (platform max)")
+        audio = audio.subclipped(0, max_allowed)
+        total_duration = max_allowed
 
     # Background canvas
     bg = ColorClip(size=(target_w, target_h), color=(10, 10, 30), duration=total_duration)
@@ -760,29 +874,10 @@ async def assemble_video(
 
         clip = _create_scene_clip(scene, target_w, target_h, actual_duration)
 
-        # Apply niche color grading
-        try:
-            clip = _apply_color_grade(clip, niche)
-        except Exception:
-            pass
-
-        # Apply per-scene cinematic effects (vignette, zoom pulse, shake, glitch, grain)
-        try:
-            narration = scene.get("narration", "")
-            is_reveal = scene_index in (1, total_scenes - 2)  # 2nd scene + penultimate
-            has_drama_hint = "dramatic" in scene.get("sfx_hint", "").lower()
-
-            clip = enhance_scene_cinematic(
-                clip=clip,
-                scene_index=scene_index,
-                total_scenes=total_scenes,
-                niche=niche,
-                narration=narration,
-                is_reveal=is_reveal,
-                is_dramatic=has_drama_hint,
-            )
-        except Exception as e:
-            print(f"[Assembler] Scene {scene_index} cinematic effects failed: {e}")
+        # Per-scene cinematic effects DISABLED — clean stock footage plays best.
+        # Stacked per-frame PIL transforms (vignette, zoom pulse, shake, glitch)
+        # degraded video quality and caused janky playback. Stock video already
+        # looks professional — let the content speak for itself.
 
         scene_clips.append(clip)
         scene_start_times.append(current_time)
@@ -797,31 +892,11 @@ async def assemble_video(
         scene_clips[i] = clip.with_start(scene_start_times[i])
 
     # ── Cinematic Overlays ───────────────────────────────
-    cinematic_overlays = _create_cinematic_overlays(
-        total_duration=total_duration,
-        target_w=target_w,
-        target_h=target_h,
-        niche=niche,
-        scene_start_times=scene_start_times,
-    )
-    if cinematic_overlays:
-        print(f"[Assembler] Cinematic overlays: {len(cinematic_overlays)} (progress bar, light leaks, flash)")
+    # Cinematic overlays DISABLED — clean video, let content speak
+    cinematic_overlays = []
 
-    # ── Lower Thirds ─────────────────────────────────────
+    # Lower thirds DISABLED — clean video
     lower_third_clips = []
-    if ENABLE_LOWER_THIRDS:
-        for i, scene in enumerate(scenes):
-            lt_text = scene.get("lower_third_text") or scene.get("narration", "")[:60]
-            if lt_text and i < len(scene_start_times) and i % 2 == 0:
-                lt_clips = create_lower_third(
-                    text=lt_text,
-                    duration=min(4.0, scene.get("duration", 10) - 0.5),
-                    start_time=scene_start_times[i] + 0.3,
-                    target_w=target_w,
-                    target_h=target_h,
-                    niche=niche,
-                )
-                lower_third_clips.extend(lt_clips)
 
     # ── Caption Clips ────────────────────────────────────
     caption_clips = _create_caption_clips(captions, target_w, target_h, niche=niche)
@@ -906,136 +981,103 @@ async def assemble_video(
         except Exception as e:
             print(f"[Assembler] Avatar PiP failed: {e}")
 
-    # ── Hook Overlay ─────────────────────────────────────
+    # Hook overlay DISABLED — clean video, captions handle the text
     hook_clips = []
-    if is_short_format and title:
-        hook_clips = _create_hook_overlay(
-            title=title,
-            target_w=target_w,
-            target_h=target_h,
-            duration=3.0,
-            niche=niche,
-        )
-        if hook_clips:
-            print(f"[Assembler] Hook overlay: {len(hook_clips)} elements for first 3s")
+    # Pattern interrupts DISABLED — no "WAIT FOR IT" spam
+    pattern_interrupt_clips = []
 
-    # ── Pattern Interrupts ───────────────────────────────
-    pattern_interrupt_clips = _create_pattern_interrupts(
-        scene_start_times=scene_start_times,
-        total_duration=total_duration,
-        target_w=target_w,
-        target_h=target_h,
-        niche=niche,
-    )
-    if pattern_interrupt_clips:
-        print(f"[Assembler] Pattern interrupts: {len(pattern_interrupt_clips)} placed")
+    # ── CLEAN COMPOSITION — no clutter ─────────────────────
+    # Only: scenes + captions. No engagement overlays, no pattern
+    # interrupts, no floating emojis, no double progress bars, no CTA spam.
+    # Let the content speak for itself.
 
-    # ── CTA Overlay (BOTH start AND end) ─────────────────
-    cta_clips = []
-    if is_short_format and total_duration > 10:
+    # ── Brand Watermark (copyright protection) ────────────
+    watermark_clips = []
+    NICHE_BRAND_NAMES = {
+        "ai_money": "Smart Money AI",
+        "tech_news": "Tech Pulse Africa",
+        "motivation": "Elevate You",
+        "health_wellness": "Herbal Organic Life",
+        "blissful_moments": "Mzansi Baby Stars",
+        "daily_breakdown": "Mzansi Daily",
+        "limitless_you": "Africa 2050",
+    }
+    brand_name = NICHE_BRAND_NAMES.get(niche, "")
+    if brand_name:
         try:
-            # END CTA — "FOLLOW FOR MORE" (last 5 seconds)
-            cta_dur = min(5.0, total_duration * 0.15)
-            cta_start = total_duration - cta_dur
-            end_cta = create_animated_cta(
-                duration=cta_dur,
-                width=target_w,
-                height=target_h,
-                niche=niche,
-                cta_text="FOLLOW FOR MORE",
+            wm_font_size = int(target_w * 0.028)  # Small, subtle
+            wm_txt = TextClip(
+                text=f"@{brand_name}",
+                font_size=wm_font_size,
+                color="white",
+                font=CAPTION_FONT,
+                stroke_color="black",
+                stroke_width=1,
             )
-            end_cta = [c.with_start(cta_start) for c in end_cta]
-            cta_clips.extend(end_cta)
-
-            # START CTA — small "FOLLOW" button below avatar (first 4s)
-            start_follow = create_follow_button_start(
-                duration=4.0,
-                width=target_w,
-                height=target_h,
-                niche=niche,
-            )
-            start_follow = [c.with_start(0.5) for c in start_follow]
-            cta_clips.extend(start_follow)
-
-            if cta_clips:
-                print(f"[Assembler] CTA: start FOLLOW + end FOLLOW FOR MORE ({len(cta_clips)} clips)")
+            wm_margin = int(target_w * 0.03)
+            wm_x = target_w - wm_txt.w - wm_margin
+            wm_y = target_h - wm_txt.h - wm_margin - int(target_h * 0.12)  # Above platform UI
+            wm_txt = wm_txt.with_position((wm_x, wm_y)).with_duration(total_duration).with_opacity(0.5)
+            watermark_clips = [wm_txt]
         except Exception as e:
-            print(f"[Assembler] CTA overlay failed: {e}")
+            print(f"[Assembler] Watermark failed: {e}")
 
-    # ── Engagement Overlays (mid-video prompts) ───────────
-    engagement_clips = []
-    if is_short_format and total_duration > 15:
-        try:
-            # Mid-video engagement prompts (like, comment, share, follow)
-            engagement_clips = create_engagement_overlays(
-                total_duration=total_duration,
-                width=target_w,
-                height=target_h,
-                niche=niche,
-            )
-
-            # Floating heart animation at ~20% mark
-            like_t = total_duration * 0.20
-            if like_t > 4:
-                heart_clips = create_like_animation(
-                    width=target_w,
-                    height=target_h,
-                    start_time=like_t,
-                    niche=niche,
-                )
-                engagement_clips.extend(heart_clips)
-
-            # Floating emoji overlays at scene transitions
-            emoji_clips = create_floating_emojis(
-                total_duration=total_duration,
-                width=target_w,
-                height=target_h,
-                niche=niche,
-                scene_start_times=scene_start_times,
-            )
-            engagement_clips.extend(emoji_clips)
-
-            if engagement_clips:
-                print(f"[Assembler] Engagement overlays: {len(engagement_clips)} prompts + emojis")
-        except Exception as e:
-            print(f"[Assembler] Engagement overlays failed: {e}")
-
-    # ── Progress Bar (retention) ──────────────────────────
-    progress_bar_clips = []
-    if is_short_format and total_duration > 10:
-        try:
-            progress_bar_clips = create_video_progress_bar(
-                total_duration=total_duration,
-                width=target_w,
-                height=target_h,
-                niche=niche,
-            )
-            if progress_bar_clips:
-                print(f"[Assembler] Progress bar: animated top bar for retention")
-        except Exception as e:
-            print(f"[Assembler] Progress bar failed: {e}")
+    # ── Credibility chyron (war/news pages) ──────────────
+    # A small "LIVE · MONTH YEAR · SOURCE: reports" top strip → real-news trust.
+    credibility_clips = []
+    try:
+        from config import NICHES
+        if NICHES.get(niche, {}).get("topic_focus"):
+            from datetime import datetime as _dt
+            label = f"LIVE   ·   {_dt.now().strftime('%b %Y').upper()}   ·   NEWS REPORTS"
+            cred_fs = max(int(target_w * 0.030), 18)
+            try:
+                _f = ImageFont.truetype(CAPTION_FONT, cred_fs)
+            except Exception:
+                _f = ImageFont.load_default()
+            # Render as a rounded dark "pill" with a red LIVE dot so it's always
+            # fully framed + legible (never looks cut) and reads as pro broadcast.
+            _md = ImageDraw.Draw(PILImage.new("RGBA", (10, 10)))
+            dot_r = max(int(cred_fs * 0.28), 5)
+            gap = int(cred_fs * 0.55)
+            tw = int(_md.textlength(label, font=_f))
+            asc, desc = _f.getmetrics()
+            th = asc + desc
+            padx, pady = int(cred_fs * 1.1), int(cred_fs * 0.55)
+            content_w = dot_r * 2 + gap + tw
+            Wp, Hp = content_w + padx * 2, th + pady * 2
+            pill = PILImage.new("RGBA", (Wp, Hp), (0, 0, 0, 0))
+            pd = ImageDraw.Draw(pill)
+            pd.rounded_rectangle([0, 0, Wp - 1, Hp - 1], radius=Hp // 2, fill=(0, 0, 0, 140))
+            cy = Hp // 2
+            pd.ellipse([padx, cy - dot_r, padx + dot_r * 2, cy + dot_r], fill=(255, 45, 45, 255))
+            pd.text((padx + dot_r * 2 + gap, pady), label, font=_f,
+                    fill=(255, 255, 255, 255), stroke_width=2, stroke_fill=(0, 0, 0, 255))
+            arr = np.array(pill)
+            cred = ImageClip(arr[:, :, :3], duration=total_duration)
+            cred = cred.with_mask(ImageClip(arr[:, :, 3].astype(float) / 255.0,
+                                            is_mask=True, duration=total_duration))
+            # Safe zone: 7.5% down from the top, clear of the mobile status bar / UI.
+            cred = cred.with_position(("center", int(target_h * 0.075)))
+            credibility_clips = [cred]
+    except Exception as e:
+        print(f"[Assembler] Credibility chyron failed: {e}")
 
     # ── Compose All Layers ───────────────────────────────
-    # Order: bottom → top. Captions always on top.
+    # Clean: scenes + captions + subtle watermark + credibility chyron
     all_clips = (
         [bg]
         + scene_clips
-        + cinematic_overlays
-        + lower_third_clips
-        + progress_bar_clips
-        + avatar_pip_clips
-        + engagement_clips
-        + pattern_interrupt_clips
-        + hook_clips
-        + cta_clips
-        + caption_clips  # Captions always on top
+        + watermark_clips
+        + credibility_clips
+        + caption_clips  # Captions on top
     )
 
     video = CompositeVideoClip(all_clips, size=(target_w, target_h))
 
     # ── Audio Mixing ─────────────────────────────────────
     audio_tracks = [audio]
-    music_path = _get_music_track()
+    music_path = _get_music_track(niche=niche)
     if music_path:
         try:
             music = AudioFileClip(music_path)
@@ -1086,6 +1128,7 @@ async def assemble_video(
         threads=4,
         logger=None,
         temp_audiofile_path=str(temp_audio_dir),
+        ffmpeg_params=["-g", "30", "-bf", "2", "-movflags", "+faststart"],
     )
 
     # Cleanup — close all clips, then remove temp audio
@@ -1832,7 +1875,7 @@ def _create_podcast_captions(
     text_w = int(target_w * 0.88)
     base_font_size = int(target_w * 0.055) if is_portrait else int(target_w * 0.038)
     name_font_size = int(base_font_size * 0.55)
-    cap_y = int(target_h * 0.76) if is_portrait else int(target_h * 0.78)
+    cap_y = int(target_h * 0.50) if is_portrait else int(target_h * 0.65)  # Above TikTok/Reels UI
     name_y = cap_y - name_font_size - 12  # Name label sits above caption
 
     display_names = NICHE_CHARACTER_NAMES.get(niche, {})
@@ -2924,8 +2967,8 @@ async def assemble_podcast_video(
     # ── Audio Mixing ──────────────────────────────────────
     audio_tracks = [audio]
 
-    # Background music
-    music_path = _get_music_track()
+    # Background music (AI-generated, copyright-free)
+    music_path = _get_music_track(niche=niche)
     if music_path:
         try:
             music = AudioFileClip(music_path)
@@ -3295,7 +3338,7 @@ async def assemble_news_anchor_video(
     if captions_data:
         if fullscreen_mode:
             # Captions near bottom of full-screen (above progress bar)
-            caption_y = target_h - 300
+            caption_y = int(target_h * 0.48)  # 48% from top — above TikTok/Reels UI
         else:
             caption_y = clip_panel_h + anchor_panel_h - 280
         for cap in captions_data:
@@ -3439,6 +3482,372 @@ async def assemble_news_anchor_video(
     }
 
 
+# ── Viral Shorts Assembler (10-30 sec, AI-generated visuals) ──────────
+
+
+async def assemble_viral_short(
+    scenes: list[dict],
+    audio_path: str,
+    captions: list[dict],
+    output_path: str | Path,
+    platform: str = "youtube_shorts",
+    music_path: str | None = None,
+    music_volume: float = 0.25,
+    niche: str = "",
+    title: str = "",
+) -> dict:
+    """
+    Assemble a viral short-form video (10-30 seconds).
+
+    Optimized for maximum retention:
+    - Fast cuts (3-5 sec per scene)
+    - Full-screen AI visuals (no letterboxing)
+    - Bold text overlays
+    - Punchy transitions
+    - Loop-worthy ending
+    - Platform-specific render (separate file per platform)
+
+    Layer stack:
+    1. Background canvas
+    2. Scene clips (full bleed, no borders)
+    3. Flash transitions between scenes
+    4. Text overlays (bold, animated)
+    5. Captions (karaoke-style)
+
+    Audio stack:
+    1. Voiceover (1.0x volume)
+    2. Background music (0.25x volume — louder than long-form for energy)
+    """
+    # Use viral_short settings as base, override with platform specifics
+    settings = VIDEO_SETTINGS.get(platform, VIDEO_SETTINGS.get("viral_short", VIDEO_SETTINGS["youtube_shorts"]))
+    target_w = settings["width"]
+    target_h = settings["height"]
+    fps = settings["fps"]
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    print(f"[ViralShorts] Building {platform} video ({target_w}x{target_h})...")
+
+    # Load voiceover audio
+    audio = AudioFileClip(audio_path)
+    total_duration = audio.duration
+
+    # Hard cap for shorts
+    max_dur = settings.get("duration_target", 25)
+    if total_duration > max_dur + 3:
+        print(f"[ViralShorts] Trimming audio from {total_duration:.1f}s to {max_dur}s")
+        audio = audio.subclipped(0, max_dur)
+        total_duration = max_dur
+
+    # Background canvas
+    bg = ColorClip(size=(target_w, target_h), color=(5, 5, 15), duration=total_duration)
+
+    # ── Scene Duration Calculation ──────────────────────────
+    raw_total = sum(s.get("duration", s.get("duration_seconds", 4)) for s in scenes)
+    if raw_total > 0 and abs(raw_total - total_duration) > 0.5:
+        scale = total_duration / raw_total
+        for s in scenes:
+            dur_key = "duration" if "duration" in s else "duration_seconds"
+            s["duration"] = max(2, s.get(dur_key, 4) * scale)
+
+    # ── Create Scene Clips ──────────────────────────────────
+    scene_clips = []
+    text_overlays = []
+    current_time = 0
+
+    for i, scene in enumerate(scenes):
+        duration = scene.get("duration", scene.get("duration_seconds", 4))
+        local_path = scene.get("local_path")
+        visual_type = scene.get("type", "placeholder")
+
+        # Create the visual clip
+        clip = _create_scene_clip(scene, target_w, target_h, duration)
+
+        # Apply color grading
+        if niche:
+            clip = _apply_color_grade(clip, niche)
+
+        # Set position in timeline
+        clip = clip.with_start(current_time)
+        scene_clips.append(clip)
+
+        # ── Text Overlay (bold, screen-grabbing) ──────────
+        overlay_text = scene.get("text_overlay", scene.get("lower_third_text", ""))
+        if overlay_text and len(overlay_text.strip()) > 0:
+            try:
+                # Create bold text overlay using PIL for better control
+                txt_img = _create_viral_text_overlay(
+                    text=overlay_text,
+                    width=target_w,
+                    height=target_h,
+                    niche=niche,
+                )
+                if txt_img is not None:
+                    txt_clip = (
+                        ImageClip(txt_img, duration=duration - 0.3)
+                        .with_start(current_time + 0.15)
+                        .with_position(("center", int(target_h * 0.12)))
+                    )
+                    text_overlays.append(txt_clip)
+            except Exception as e:
+                print(f"[ViralShorts] Text overlay failed for scene {i+1}: {e}")
+
+        current_time += duration
+
+    # ── Flash Transitions ───────────────────────────────────
+    flash_clips = []
+    for i in range(len(scene_clips) - 1):
+        try:
+            t = scene_clips[i + 1].start
+            flash = (
+                ColorClip(size=(target_w, target_h), color=(255, 255, 255), duration=0.08)
+                .with_start(t - 0.04)
+                .with_effects([vfx.CrossFadeIn(0.04), vfx.CrossFadeOut(0.04)])
+            )
+            flash_clips.append(flash)
+        except Exception:
+            pass
+
+    # ── Compose All Layers ──────────────────────────────────
+    all_clips = [bg] + scene_clips + flash_clips + text_overlays
+
+    # ── Karaoke Captions ────────────────────────────────────
+    if captions:
+        niche_colors = NICHE_ACCENT_COLORS.get(niche, (0, 255, 136))
+        for cap in captions:
+            try:
+                cap_text = cap.get("text", "").strip()
+                if not cap_text:
+                    continue
+                cap_start = cap.get("start", 0)
+                cap_end = cap.get("end", cap_start + 1)
+                cap_dur = min(cap_end - cap_start, total_duration - cap_start)
+                if cap_dur <= 0 or cap_start >= total_duration:
+                    continue
+
+                # Check for power words
+                is_power = _is_power_word(cap_text)
+
+                # Create caption with PIL for crisp rendering
+                cap_img = _render_caption_pil(
+                    text=cap_text.upper(),
+                    width=target_w,
+                    font_size=72 if is_power else 64,
+                    accent_color=niche_colors if is_power else None,
+                )
+                if cap_img is not None:
+                    cap_clip = (
+                        ImageClip(cap_img, duration=cap_dur)
+                        .with_start(cap_start)
+                        .with_position(("center", int(target_h * 0.75)))
+                    )
+                    all_clips.append(cap_clip)
+            except Exception:
+                continue
+
+    # ── AI Disclosure Label (EU AI Act compliance) ─────────
+    try:
+        from config import ENABLE_AI_DISCLOSURE, AI_DISCLOSURE_TEXT
+        if ENABLE_AI_DISCLOSURE:
+            disc_font_size = 18
+            try:
+                disc_font = ImageFont.truetype(CAPTION_FONT, disc_font_size)
+            except Exception:
+                disc_font = ImageFont.load_default()
+            disc_img = PILImage.new("RGBA", (300, 30), (0, 0, 0, 0))
+            disc_draw = ImageDraw.Draw(disc_img)
+            disc_draw.text((5, 5), AI_DISCLOSURE_TEXT, font=disc_font, fill=(200, 200, 200, 120))
+            disc_clip = (
+                ImageClip(np.array(disc_img), duration=total_duration)
+                .with_position((target_w - 310, target_h - 40))
+                .with_start(0)
+            )
+            all_clips.append(disc_clip)
+    except Exception:
+        pass
+
+    # ── Loop-Worthy Ending (fade to white flash → loops back to hook) ──
+    try:
+        loop_dur = 0.15
+        loop_flash = (
+            ColorClip(size=(target_w, target_h), color=(255, 255, 255), duration=loop_dur)
+            .with_start(total_duration - loop_dur)
+            .with_effects([vfx.CrossFadeIn(loop_dur)])
+        )
+        all_clips.append(loop_flash)
+    except Exception:
+        pass
+
+    # Composite video
+    video = CompositeVideoClip(all_clips, size=(target_w, target_h))
+    video = video.with_duration(total_duration)
+
+    # ── Audio Mix ───────────────────────────────────────────
+    audio_tracks = [audio]
+
+    if music_path and Path(music_path).exists():
+        try:
+            music = AudioFileClip(music_path)
+            if music.duration < total_duration:
+                music = music.with_effects([vfx.Loop(n=int(total_duration / music.duration) + 1)])
+            music = music.subclipped(0, total_duration)
+            music = music.with_effects([afx.AudioFadeIn(0.3), afx.AudioFadeOut(0.5)])
+            music = music.with_volume_scaled(music_volume)
+            audio_tracks.append(music)
+        except Exception as e:
+            print(f"[ViralShorts] Music load failed: {e}")
+
+    final_audio = CompositeAudioClip(audio_tracks) if len(audio_tracks) > 1 else audio
+    video = video.with_audio(final_audio)
+
+    # ── Render ──────────────────────────────────────────────
+    output_file = str(output_path)
+    video.write_videofile(
+        output_file,
+        fps=fps,
+        codec="libx264",
+        audio_codec="aac",
+        bitrate="8000k",
+        preset="medium",
+        threads=4,
+        logger=None,
+    )
+
+    # Cleanup
+    try:
+        video.close()
+        audio.close()
+        for c in scene_clips + text_overlays + flash_clips:
+            try:
+                c.close()
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    file_size = Path(output_file).stat().st_size / (1024 * 1024)
+    print(f"[ViralShorts] Done: {output_file} ({file_size:.1f}MB, {total_duration:.1f}s)")
+
+    return {
+        "video_path": output_file,
+        "duration": total_duration,
+        "file_size_mb": round(file_size, 1),
+        "resolution": f"{target_w}x{target_h}",
+        "platform": platform,
+    }
+
+
+def _create_viral_text_overlay(
+    text: str,
+    width: int,
+    height: int,
+    niche: str = "",
+) -> np.ndarray | None:
+    """Create a bold, viral-style text overlay using PIL.
+
+    Returns RGBA numpy array or None.
+    """
+    try:
+        from config import CAPTION_FONT
+
+        # Style: big, bold, with glow effect
+        font_size = min(width // 12, 96)
+        try:
+            font = ImageFont.truetype(CAPTION_FONT, font_size)
+        except Exception:
+            font = ImageFont.load_default()
+
+        # Measure text
+        dummy = PILImage.new("RGBA", (1, 1))
+        draw = ImageDraw.Draw(dummy)
+        bbox = draw.textbbox((0, 0), text.upper(), font=font)
+        tw = bbox[2] - bbox[0]
+        th = bbox[3] - bbox[1]
+
+        # Create image with padding
+        pad = 24
+        img = PILImage.new("RGBA", (tw + pad * 2, th + pad * 2), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+
+        # Draw glow (shadow)
+        for offset in range(3, 0, -1):
+            alpha = int(80 / offset)
+            draw.text(
+                (pad + offset, pad + offset), text.upper(), font=font,
+                fill=(0, 0, 0, alpha),
+            )
+
+        # Draw text with accent color
+        accent = NICHE_ACCENT_COLORS.get(niche, (255, 255, 255))
+        draw.text((pad, pad), text.upper(), font=font, fill=(*accent, 255))
+
+        return np.array(img)
+    except Exception as e:
+        print(f"[ViralShorts] Text overlay error: {e}")
+        return None
+
+
+async def render_for_all_platforms(
+    scenes: list[dict],
+    audio_path: str,
+    captions: list[dict],
+    output_dir: str | Path,
+    music_path: str | None = None,
+    niche: str = "",
+    title: str = "",
+) -> list[dict]:
+    """
+    Render the same video separately for each platform.
+
+    Each platform gets its own file — no cross-posting the same file.
+    This avoids watermark/hash detection penalties that kill reach.
+
+    Platform-specific rules (from research):
+    - YouTube Shorts: NO music (keep full 45% revenue share, music splits with publishers)
+    - TikTok: Music ON (trending sounds boost For You Page placement)
+    - Instagram Reels: Music ON (helps engagement, watch time is #1 factor)
+    - Facebook Reels: Music ON (originality score matters most)
+
+    Returns list of result dicts, one per platform.
+    """
+    from config import SHORTS_PLATFORMS, PLATFORM_MUSIC_RULES
+
+    output_dir = Path(output_dir)
+    results = []
+
+    for platform in SHORTS_PLATFORMS:
+        platform_dir = output_dir / platform
+        platform_dir.mkdir(parents=True, exist_ok=True)
+
+        # Unique filename per platform
+        safe_title = re.sub(r'[^\w\s-]', '', title or 'viral_short')[:40].strip()
+        output_path = platform_dir / f"{safe_title}_{platform}.mp4"
+
+        # Platform-specific music rule: YouTube = NO music (keep full revenue)
+        platform_music = music_path if PLATFORM_MUSIC_RULES.get(platform, True) else None
+        if not PLATFORM_MUSIC_RULES.get(platform, True):
+            print(f"[ViralShorts] {platform}: NO music (keep full revenue share)")
+
+        try:
+            result = await assemble_viral_short(
+                scenes=scenes,
+                audio_path=audio_path,
+                captions=captions,
+                output_path=output_path,
+                platform=platform,
+                music_path=platform_music,
+                niche=niche,
+                title=title,
+            )
+            results.append(result)
+            print(f"[ViralShorts] Rendered for {platform}: {output_path.name}")
+        except Exception as e:
+            print(f"[ViralShorts] {platform} render failed: {e}")
+
+    return results
+
+
 # CLI test
 if __name__ == "__main__":
     import asyncio
@@ -3447,6 +3856,8 @@ if __name__ == "__main__":
     async def test():
         print("[Assembler] Module loaded successfully (MoviePy v2)")
         print(f"[Assembler] Available formats: {list(VIDEO_SETTINGS.keys())}")
+        print("[Assembler] Viral shorts assembler: READY")
+        print("[Assembler] Multi-platform renderer: READY")
         print("[Assembler] Podcast split-screen assembler: READY")
 
     asyncio.run(test())

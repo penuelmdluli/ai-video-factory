@@ -24,6 +24,10 @@ from config import (
     NICHE_YOUTUBE_CATEGORY,
     TOKENS_DIR,
 )
+try:
+    from config import SET_CUSTOM_THUMBNAIL
+except Exception:
+    SET_CUSTOM_THUMBNAIL = False
 
 TOKEN_PATH = TOKENS_DIR / "youtube_token.json"
 CLIENT_SECRET_PATH = TOKENS_DIR / "youtube_client_secret.json"
@@ -145,6 +149,7 @@ async def upload_to_youtube(
     is_short: bool = False,
     privacy: str = "public",
     srt_path: str | None = None,
+    made_for_kids: bool | None = None,
 ) -> dict:
     """
     Upload a video to YouTube.
@@ -179,6 +184,12 @@ async def upload_to_youtube(
 
         category = NICHE_YOUTUBE_CATEGORY.get(niche, "28")
 
+        # COPPA: kids-content channels MUST self-declare "made for kids".
+        # Auto-detect for kids niches unless the caller overrides explicitly.
+        KIDS_NICHES = {"kids_songs"}
+        if made_for_kids is None:
+            made_for_kids = niche in KIDS_NICHES
+
         body = {
             "snippet": {
                 "title": title,
@@ -190,7 +201,7 @@ async def upload_to_youtube(
             },
             "status": {
                 "privacyStatus": privacy,
-                "selfDeclaredMadeForKids": False,
+                "selfDeclaredMadeForKids": bool(made_for_kids),
             },
         }
 
@@ -216,8 +227,8 @@ async def upload_to_youtube(
         video_id = response["id"]
         video_url = f"https://youtube.com/watch?v={video_id}"
 
-        # Set custom thumbnail (long-form only)
-        if thumbnail_path and Path(thumbnail_path).exists():
+        # Set custom thumbnail
+        if SET_CUSTOM_THUMBNAIL and thumbnail_path and Path(thumbnail_path).exists():
             try:
                 youtube.thumbnails().set(
                     videoId=video_id,
@@ -229,7 +240,19 @@ async def upload_to_youtube(
 
         # Upload SRT captions for SEO boost
         if srt_path:
-            await upload_srt_captions(youtube, video_id, srt_path)
+            await upload_srt_captions(youtube, video_id, srt_path, language="en")
+
+            # Multi-language caption tracks → international reach
+            try:
+                from config import SUBTITLE_TRANSLATE, SUBTITLE_LANGUAGES
+                if SUBTITLE_TRANSLATE:
+                    from modules.caption_generator import translate_srt
+                    for code, name in SUBTITLE_LANGUAGES.items():
+                        tpath = translate_srt(srt_path, code, name)
+                        if tpath:
+                            await upload_srt_captions(youtube, video_id, tpath, language=code)
+            except Exception as e:
+                print(f"[YouTube] Multi-language captions skipped: {e}")
 
         print(f"[YouTube] Uploaded: {video_url}")
 
@@ -287,35 +310,7 @@ def _build_seo_description(
         lines.append(" ".join(top_tags))
         lines.append("")
 
-    # Affiliate links (with disclaimer)
-    niche_affiliates = {
-        "ai_trading": ["tradingview", "binance", "3commas"],
-        "ai_money": ["elevenlabs", "chatgpt", "midjourney"],
-        "tech_news": ["chatgpt", "midjourney"],
-        "motivation": [],
-        "health_wellness": [],
-        "blissful_moments": [],
-    }
-
-    relevant_links = niche_affiliates.get(niche, [])
-    active_links = [
-        (name, url) for name, url in AFFILIATE_LINKS.items()
-        if name in relevant_links and "YOUR_ID" not in url
-    ]
-
-    if active_links:
-        lines.append("📌 Tools mentioned in this video:")
-        for name, url in active_links:
-            lines.append(f"  ▸ {name.title()}: {url}")
-        lines.append("")
-        lines.append("(Some links are affiliate links — using them supports this channel at no extra cost to you)")
-        lines.append("")
-
-    # Standard disclaimer
-    lines.append("─────────────────────────")
-    lines.append("This content is for educational and entertainment purposes only.")
-    if niche in ("ai_trading", "ai_money"):
-        lines.append("Not financial advice. Always do your own research before investing.")
+    # Pure content — no affiliate links
 
     return "\n".join(lines)[:5000]  # YT description limit
 
@@ -331,11 +326,13 @@ async def upload_to_deep_chill(
     srt_path: str | None = None,
 ) -> dict:
     """
-    Upload a video to the Deep Chill secondary YouTube channel.
-
-    Uses a dedicated token (youtube_token_deep_chill.json).
-    All niches cross-post here. Silently skips if token not set up.
+    DISABLED. Deep Chill (@DeepFocusBeats-w2f) is now the dedicated AlphaZone
+    Sounds MUSIC channel — only make_music.py posts there. War/news/other niches
+    must NOT cross-post here (mixed content confuses the algorithm + brand).
     """
+    return {"platform": "youtube_deep_chill", "status": "disabled",
+            "error": "deep_chill is now the dedicated music channel — no cross-posting"}
+
     if not DEEP_CHILL_TOKEN_PATH.exists():
         print("[YouTube/DeepChill] Token not found — skipping (run: python auth_one_channel.py deep_chill)")
         return {"platform": "youtube_deep_chill", "status": "skipped", "error": "no token"}
@@ -402,7 +399,7 @@ async def upload_to_deep_chill(
         video_id = response["id"]
         video_url = f"https://youtube.com/watch?v={video_id}"
 
-        if thumbnail_path and Path(thumbnail_path).exists():
+        if SET_CUSTOM_THUMBNAIL and thumbnail_path and Path(thumbnail_path).exists():
             try:
                 youtube.thumbnails().set(
                     videoId=video_id,

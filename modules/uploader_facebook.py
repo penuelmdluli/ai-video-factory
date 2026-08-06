@@ -78,16 +78,8 @@ NICHE_ENGAGEMENT_CTAS = {
 
 
 def _build_engagement_description(niche: str, description: str) -> str:
-    """Add engagement CTA + affiliate links + product promotion to the video description."""
-    from modules.affiliate_manager import get_full_description_footer
-
-    ctas = NICHE_ENGAGEMENT_CTAS.get(niche, NICHE_ENGAGEMENT_CTAS["motivation"])
-    cta = random.choice(ctas)
-
-    # Monetization footer: affiliate links + product CTA + signals + lead magnet + website
-    footer = get_full_description_footer(niche)
-
-    return f"{description}\n\n{cta}\n\n{footer}"
+    """Pure content — no links, no affiliate promotions. Just the description."""
+    return description
 
 # ── Configuration ──────────────────────────────────────────
 GRAPH_API_VERSION = "v24.0"
@@ -158,13 +150,26 @@ async def upload_to_facebook(
         tags = " ".join(h if h.startswith("#") else f"#{h}" for h in hashtags)
         full_desc = f"{full_desc}\n\n{tags}"
 
+    # Reel format guard: reels MUST be vertical (9:16). Refuse a landscape file as a
+    # reel (it either fails to publish or looks wrong) so the caller notices.
+    if is_reel:
+        try:
+            from moviepy import VideoFileClip as _VFC
+            with _VFC(str(video_file)) as _v:
+                if _v.size[0] > _v.size[1]:
+                    return {"platform": "facebook", "status": "failed",
+                            "error": f"Reel must be vertical 9:16; got {_v.size[0]}x{_v.size[1]} (landscape). "
+                                     "Pass the SHORT vertical clip, not the long-form."}
+        except Exception:
+            pass  # if probe fails, proceed and let Facebook validate
+
     try:
         if is_reel:
-            result = await _upload_reel(page_id, page_token, video_file, title, full_desc)
+            result = await _upload_reel(page_id, page_token, video_file, title, full_desc, thumbnail_path)
         else:
             result = await _upload_video(page_id, page_token, video_file, title, full_desc)
 
-        # Set custom thumbnail if available (for video posts — Reels auto-generate)
+        # Set custom cover/thumbnail (video posts here; Reels set it inside _upload_reel)
         if thumbnail_path and result.get("status") == "uploaded" and not is_reel:
             try:
                 _set_video_thumbnail(result.get("post_id", ""), page_token, thumbnail_path)
@@ -302,6 +307,7 @@ async def _upload_reel(
     video_file: Path,
     title: str,
     description: str,
+    thumbnail_path: str | None = None,
 ) -> dict:
     """Upload a Reel to a Facebook Page (short-form)."""
     # Step 1: Initialize Reel upload
@@ -379,6 +385,29 @@ async def _upload_reel(
     post_id = result.get("id") or result.get("post_id") or video_id
 
     print(f"[Facebook] Reel published: {post_id}")
+
+    # Set our generated thumbnail as the Reel COVER (otherwise FB picks a random
+    # frame). Reels accept a preferred thumbnail via the video_id/thumbnails edge.
+    try:
+        from config import SET_CUSTOM_THUMBNAIL as _SET_THUMB
+    except Exception:
+        _SET_THUMB = False
+    if _SET_THUMB and thumbnail_path and Path(thumbnail_path).exists():
+        try:
+            with open(thumbnail_path, "rb") as f:
+                cover_resp = requests.post(
+                    f"{GRAPH_API_BASE}/{video_id}/thumbnails",
+                    data={"is_preferred": "true", "access_token": page_token},
+                    files={"source": (Path(thumbnail_path).name, f, "image/jpeg")},
+                    timeout=60,
+                )
+            if cover_resp.status_code == 200:
+                print(f"[Facebook] Reel cover set from {Path(thumbnail_path).name}")
+            else:
+                print(f"[Facebook] Reel cover not set ({cover_resp.status_code}): {cover_resp.text[:150]}")
+        except Exception as ce:
+            print(f"[Facebook] Reel cover error (non-critical): {ce}")
+
     return {
         "platform": "facebook",
         "status": "uploaded",

@@ -12,6 +12,12 @@ moviepy>=1.0.3
 Pillow>=10.0.0
 faster-whisper>=1.0.0
 
+# AI Image Generation (Local Stable Diffusion XL — copyright-free visuals)
+diffusers>=0.27.0
+transformers>=4.40.0
+accelerate>=0.28.0
+safetensors>=0.4.0
+
 # Market Data & Charts
 yfinance>=0.2.0
 mplfinance>=0.12.0
@@ -22,6 +28,9 @@ pandas>=2.0.0
 # Stock Footage
 pexels-api-py>=1.0.0
 requests>=2.31.0
+
+# AI Video Generation (fal.ai — Kling 3.0, MiniMax, Seedance)
+fal-client>=0.5.0
 
 # Platform Uploaders
 google-api-python-client>=2.0.0

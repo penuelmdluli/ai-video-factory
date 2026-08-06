@@ -122,6 +122,30 @@ NICHE_CHANNELS = {
             "Subscribe and hit the bell for your daily tech briefing."
         ),
     },
+    "kids_songs": {
+        "channel_id": "UClg-hsIwpJk1yG3CUI3FMMg",
+        "name": "Zuzu & Friends",
+        "handle": "@ZuzuAndFriends-u3o",
+        "keywords": "nursery rhymes,kids songs,baby songs,lullaby,toddler songs,sing along,ABC song,learning colors,bedtime songs,children music,kids learning,preschool songs,twinkle twinkle,baby elephant",
+        "description": (
+            "Nursery Rhymes & Kids Songs to Sing, Dance and Learn\n"
+            "\n"
+            "Zuzu & Friends brings your little ones a magical world of "
+            "nursery rhymes, lullabies and sing-along songs — led by Zuzu "
+            "the lovable baby elephant. Bright, gentle and full of learning, "
+            "every video helps toddlers sing, dance, and drift off to sleep.\n"
+            "\n"
+            "Sing and learn with us:\n"
+            "• Classic Nursery Rhymes\n"
+            "• Gentle Bedtime Lullabies\n"
+            "• ABC, Numbers and Colors\n"
+            "• Fun Sing-Along Kids Songs\n"
+            "• Learning Adventures with Zuzu\n"
+            "\n"
+            "Safe, gentle and made for kids. Subscribe and join Zuzu & Friends "
+            "for a new song to sing every day!"
+        ),
+    },
     "motivation": {
         "channel_id": "UCb6vhwP8oKjcqUBri0Zd_Ew",
         "name": "Elevate You",

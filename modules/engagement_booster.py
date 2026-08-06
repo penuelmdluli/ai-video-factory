@@ -37,11 +37,12 @@ FIRST_COMMENT_TEMPLATES = {
         "🧠 What other AI money methods should I cover next?",
     ],
     "tech_news": [
-        "🤔 What do you think — is this the future or just hype?",
-        "🔔 Turn on notifications — I post tech updates daily!",
-        "💭 This changes everything. What's your take on this?",
-        "🌐 Tag someone in tech who needs to see this!",
-        "⚡ What tech topic should I cover next? Tell me below!",
+        "🌍 Where are you watching from? Drop your country 👇 We report all sides.",
+        "🕊️ What's your honest read on this? Keep it respectful — everyone's welcome here.",
+        "🔔 Follow for balanced, on-the-ground updates on this conflict — morning and evening.",
+        "💬 We stay neutral and just report the facts. What do you think happens next?",
+        "🌐 Tag someone who's been following this — what are they missing?",
+        "🙏 Praying for all innocent civilians caught in this. Share your thoughts below.",
     ],
     "motivation": [
         "💪 Type 'I'M READY' if this hit different!",

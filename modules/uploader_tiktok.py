@@ -264,21 +264,11 @@ async def upload_to_tiktok(
             ),
         }
 
-    # Build full description
-    from config import get_website_url
-    from modules.affiliate_manager import get_engagement_cta
-    website = get_website_url(niche)
+    # Build full description — pure content, no links
     full_description = description or ""
     if hashtags:
         tags_str = " ".join(h if h.startswith("#") else f"#{h}" for h in hashtags)
         full_description = f"{full_description}\n\n{tags_str}"
-    # Short engagement CTA (affiliate + product + lead magnet)
-    engagement_cta = get_engagement_cta(niche) if niche else ""
-    if engagement_cta:
-        full_description = f"{full_description}\n\n{engagement_cta}"
-    # Always include niche-specific website
-    if website and website not in full_description:
-        full_description = f"{full_description}\n\n🌐 {website}"
     full_description = full_description[:2200]
 
     auth_method = list(auth.keys())[0]

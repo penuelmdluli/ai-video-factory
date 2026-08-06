@@ -78,15 +78,12 @@ NICHE_COLORS = {
 
 # ── Page Display Names ────────────────────────────────────────
 NICHE_PAGE_NAMES = {
-    "ai_trading": "Beast Mode Academy",
     "ai_money": "Smart Money AI",
     "tech_news": "Tech Pulse Africa",
     "motivation": "Elevate You",
     "health_wellness": "Herbal Organic Life",
-    "blissful_moments": "Blissful Moments",
-    "daily_breakdown": "The Daily Breakdown",
-    "shopmo_products": "ShopMO",
-    "limitless_you": "Limitless You",
+    "blissful_moments": "Mzansi Baby Stars",
+    "limitless_you": "Africa 2050",
 }
 
 # ── Niche Emojis for visual punch ─────────────────────────────
@@ -322,14 +319,15 @@ def generate_engagement_image(
     secondary_text: str = "",
 ) -> str:
     """
-    Generate a premium engagement image card (1080x1080 square).
+    Generate a PREMIUM engagement image card (1080x1080 square).
 
-    Features:
-    - Diagonal gradient backgrounds with radial glow
-    - Centered, vertically distributed text
-    - Geometric accent patterns
-    - Accent divider lines
-    - Branded header and footer bars
+    v2 — Redesigned for maximum visual impact:
+    - Clean, modern layout with breathing room
+    - Properly wrapped text (no overflow)
+    - Brighter backgrounds with niche-matched photos
+    - Bold accent bar on left side (modern style)
+    - No broken emoji rendering
+    - Polls show A/B as separate styled blocks
     """
     W, H = 1080, 1080
     img = Image.new("RGB", (W, H))
@@ -340,160 +338,216 @@ def generate_engagement_image(
     accent2 = colors.get("accent2", accent)
     glow = colors.get("glow", accent)
 
-    # ── Background: try Pexels stock photo first, fallback to gradient ──
+    # ── Background: Pexels photo or clean gradient ──
     bg_photo = _fetch_pexels_bg(niche, W)
     if bg_photo:
         img = bg_photo.convert("RGB")
-        # Darken the photo significantly so text is readable
+        # Darken enough for readability but keep photo visible
         enhancer = ImageEnhance.Brightness(img)
-        img = enhancer.enhance(0.3)  # 30% brightness
-        # Add color tint matching niche
+        img = enhancer.enhance(0.40)  # 40% brightness (was 30%)
+        # Niche color tint
         tint = Image.new("RGB", (W, H), accent)
-        img = Image.blend(img, tint, 0.1)  # 10% tint
-        # Slight blur for depth
-        img = img.filter(ImageFilter.GaussianBlur(radius=2))
+        img = Image.blend(img, tint, 0.15)
+        # Soft blur for depth
+        img = img.filter(ImageFilter.GaussianBlur(radius=3))
         draw = ImageDraw.Draw(img)
     else:
-        # Fallback: diagonal gradient
         _draw_diagonal_gradient(draw, W, H, colors["bg_dark"], colors["bg_mid"],
                                tuple(max(0, c - 5) for c in colors["bg_dark"]))
 
-    # ── Radial glow from center ──
-    img = _draw_radial_gradient(img, (W // 2, H // 2 - 60), 500, glow, 0.18)
-    # Secondary glow at top-right
-    img = _draw_radial_gradient(img, (W - 100, 100), 350, accent2, 0.10)
+    # ── Subtle center glow (no harsh circle) ──
+    img = _draw_radial_gradient(img, (W // 2, H // 2), 600, glow, 0.10)
     draw = ImageDraw.Draw(img)
 
-    # ── Geometric accents ──
-    style = random.randint(0, 3)
-    _draw_geometric_accents(draw, W, H, accent, style)
+    # ── Geometric accents (subtle) ──
+    _draw_geometric_accents(draw, W, H, accent, random.randint(0, 3))
 
-    # ── Top accent bar (thick gradient feel) ──
-    for i in range(8):
-        alpha_ratio = 1.0 - (i / 8)
-        r = int(accent[0] * alpha_ratio)
-        g = int(accent[1] * alpha_ratio)
-        b = int(accent[2] * alpha_ratio)
-        draw.line([(0, i), (W, i)], fill=(r, g, b))
+    # ── BOLD LEFT ACCENT BAR (modern design element) ──
+    draw.rectangle([(0, 0), (12, H)], fill=accent)
 
-    # ── Header: Page name + emoji ──
+    # ── Top accent line ──
+    draw.rectangle([(0, 0), (W, 5)], fill=accent)
+
+    # ── Header: Page name ──
     page_name = NICHE_PAGE_NAMES.get(niche, "AI Video Factory")
-    emoji = NICHE_EMOJIS.get(niche, "💡")
-    name_font = _get_font(32)
-    header_text = f"{page_name.upper()}"
-    draw.text((50, 35), header_text, font=name_font, fill=accent)
+    name_font = _get_body_font(30, bold=True)
+    draw.text((50, 40), page_name.upper(), font=name_font, fill=accent)
 
-    # ── Content type badge (pill shape) ──
+    # ── Content type badge (pill shape, no emoji — avoids broken rendering) ──
     type_labels = {
-        "quote": "💬 DAILY QUOTE", "tip": "💡 PRO TIP",
-        "fact": "🔍 DID YOU KNOW?", "poll": "🗳️ YOUR OPINION",
+        "quote": "DAILY WISDOM", "tip": "HELPFUL TIP",
+        "fact": "DID YOU KNOW", "poll": "YOUR THOUGHTS",
+        "advice": "PRACTICAL ADVICE",
     }
-    badge_text = type_labels.get(content_type, "✨ INSIGHT")
-    badge_font = _get_font(22)
+    badge_text = type_labels.get(content_type, "FOR YOU")
+    badge_font = _get_body_font(20, bold=True)
     badge_bbox = draw.textbbox((0, 0), badge_text, font=badge_font)
-    badge_w = badge_bbox[2] - badge_bbox[0] + 40
-    badge_h = badge_bbox[3] - badge_bbox[1] + 16
+    badge_w = badge_bbox[2] - badge_bbox[0] + 36
+    badge_h = badge_bbox[3] - badge_bbox[1] + 14
 
-    # Pill-shaped badge
     bx, by = 50, 85
     draw.rounded_rectangle([(bx, by), (bx + badge_w, by + badge_h)],
                            radius=badge_h // 2, fill=accent)
-    draw.text((bx + 20, by + 5), badge_text, font=badge_font, fill=(0, 0, 0))
+    draw.text((bx + 18, by + 4), badge_text, font=badge_font, fill=(0, 0, 0))
 
-    # ── Accent divider line ──
-    divider_y = by + badge_h + 30
-    draw.line([(50, divider_y), (W - 50, divider_y)], fill=(*accent, 80), width=2)
+    # ── Thin divider line ──
+    divider_y = by + badge_h + 25
+    draw.line([(50, divider_y), (W - 50, divider_y)], fill=accent, width=2)
 
-    # ── Main text (CENTERED, vertically distributed) ──
+    # ── CONTENT AREA ──
+    margin = 80  # Side margins for text (prevents overflow)
+    max_text_w = W - margin * 2
+    top_of_content = divider_y + 30
+    footer_y = H - 90
+    bottom_of_content = footer_y - 20
+
     if content_type == "quote":
-        main_font = _get_font(48)
+        # ── QUOTE LAYOUT: Large italic-style text with attribution ──
+        main_font = _get_font(44)
         text_display = f'"{text}"'
+        lines = _wrap_text(text_display, main_font, max_text_w, draw)
+        line_height = 58
+
+        # Limit lines to fit
+        max_lines = (bottom_of_content - top_of_content - 80) // line_height
+        lines = lines[:max_lines]
+
+        total_h = len(lines) * line_height + (50 if secondary_text else 0)
+        y_start = top_of_content + (bottom_of_content - top_of_content - total_h) // 2
+        y_start = max(y_start, top_of_content)
+
+        for i, line in enumerate(lines):
+            y = y_start + i * line_height
+            bbox = draw.textbbox((0, 0), line, font=main_font)
+            x = (W - (bbox[2] - bbox[0])) // 2
+            _draw_text_with_glow(draw, img, (x, y), line, main_font, (255, 255, 255))
+
+        # Attribution (properly wrapped)
+        if secondary_text:
+            sec_font = _get_body_font(26)
+            sec_y = y_start + len(lines) * line_height + 20
+            sec_lines = _wrap_text(secondary_text, sec_font, max_text_w, draw)
+            for sl in sec_lines[:2]:
+                bbox = draw.textbbox((0, 0), sl, font=sec_font)
+                sx = (W - (bbox[2] - bbox[0])) // 2
+                draw.text((sx + 2, sec_y + 2), sl, font=sec_font, fill=(0, 0, 0))
+                draw.text((sx, sec_y), sl, font=sec_font, fill=accent)
+                sec_y += 34
+
+    elif content_type == "poll":
+        # ── POLL LAYOUT: Question + two styled option blocks ──
+        q_font = _get_font(40)
+        lines = _wrap_text(text, q_font, max_text_w, draw)
+        line_height = 54
+
+        max_lines = 4
+        lines = lines[:max_lines]
+        y_start = top_of_content + 20
+
+        for i, line in enumerate(lines):
+            y = y_start + i * line_height
+            bbox = draw.textbbox((0, 0), line, font=q_font)
+            x = (W - (bbox[2] - bbox[0])) // 2
+            _draw_text_with_glow(draw, img, (x, y), line, q_font, (255, 255, 255))
+
+        # Parse options from secondary_text ("A: xxx  |  B: yyy")
+        opt_a = "Option A"
+        opt_b = "Option B"
+        if secondary_text and "|" in secondary_text:
+            parts = secondary_text.split("|")
+            opt_a = parts[0].strip().lstrip("A:").strip()
+            opt_b = parts[1].strip().lstrip("B:").strip() if len(parts) > 1 else "Option B"
+
+        # Draw option boxes
+        opt_font = _get_body_font(32, bold=True)
+        opt_y = y_start + len(lines) * line_height + 40
+        box_h = 70
+        box_margin = 60
+
+        # Option A box
+        draw.rounded_rectangle(
+            [(box_margin, opt_y), (W - box_margin, opt_y + box_h)],
+            radius=15, fill=accent,
+        )
+        a_text = f"A:  {opt_a}"
+        a_lines = _wrap_text(a_text, opt_font, W - box_margin * 2 - 40, draw)
+        draw.text((box_margin + 20, opt_y + 18), a_lines[0] if a_lines else a_text,
+                  font=opt_font, fill=(0, 0, 0))
+
+        # Option B box
+        opt_y2 = opt_y + box_h + 20
+        draw.rounded_rectangle(
+            [(box_margin, opt_y2), (W - box_margin, opt_y2 + box_h)],
+            radius=15, fill=accent2,
+        )
+        b_text = f"B:  {opt_b}"
+        b_lines = _wrap_text(b_text, opt_font, W - box_margin * 2 - 40, draw)
+        draw.text((box_margin + 20, opt_y2 + 18), b_lines[0] if b_lines else b_text,
+                  font=opt_font, fill=(0, 0, 0))
+
     else:
-        main_font = _get_body_font(42, bold=True)
-        text_display = text
+        # ── TIP / FACT LAYOUT: Clean centered text + source ──
+        main_font = _get_body_font(40, bold=True)
+        lines = _wrap_text(text, main_font, max_text_w, draw)
+        line_height = 54
 
-    lines = _wrap_text(text_display, main_font, W - 120, draw)
-    line_height = 62 if content_type == "quote" else 56
+        max_lines = (bottom_of_content - top_of_content - 80) // line_height
+        lines = lines[:max_lines]
 
-    # Calculate vertical centering
-    total_text_height = len(lines) * line_height
-    sec_height = 50 if secondary_text else 0
-    content_block_height = total_text_height + sec_height
+        total_h = len(lines) * line_height + (40 if secondary_text else 0)
+        y_start = top_of_content + (bottom_of_content - top_of_content - total_h) // 2
+        y_start = max(y_start, top_of_content)
 
-    # Available space: between divider and bottom bar
-    top_of_content = divider_y + 20
-    bottom_of_content = H - 110  # Leave room for footer
-    available_height = bottom_of_content - top_of_content
+        for i, line in enumerate(lines):
+            y = y_start + i * line_height
+            bbox = draw.textbbox((0, 0), line, font=main_font)
+            x = (W - (bbox[2] - bbox[0])) // 2
+            _draw_text_with_glow(draw, img, (x, y), line, main_font, (255, 255, 255))
 
-    # Center the content block vertically
-    y_start = top_of_content + (available_height - content_block_height) // 2
-    y_start = max(y_start, top_of_content + 10)
+        # Source text (WRAPPED to fit)
+        if secondary_text:
+            sec_font = _get_body_font(22)
+            sec_y = y_start + len(lines) * line_height + 20
+            sec_lines = _wrap_text(secondary_text, sec_font, max_text_w, draw)
+            for sl in sec_lines[:2]:
+                bbox = draw.textbbox((0, 0), sl, font=sec_font)
+                sx = (W - (bbox[2] - bbox[0])) // 2
+                draw.text((sx + 1, sec_y + 1), sl, font=sec_font, fill=(0, 0, 0))
+                draw.text((sx, sec_y), sl, font=sec_font, fill=accent)
+                sec_y += 30
 
-    for i, line in enumerate(lines):
-        y = y_start + i * line_height
-        if y > bottom_of_content - 60:
-            break
-        # Center horizontally
-        bbox = draw.textbbox((0, 0), line, font=main_font)
-        text_w = bbox[2] - bbox[0]
-        x = (W - text_w) // 2
-
-        _draw_text_with_glow(draw, img, (x, y), line, main_font, (255, 255, 255))
-
-    # ── Secondary text (attribution/source) ──
-    if secondary_text:
-        sec_font = _get_body_font(28)
-        sec_y = y_start + len(lines) * line_height + 25
-        sec_y = min(sec_y, bottom_of_content - 40)
-        bbox = draw.textbbox((0, 0), secondary_text, font=sec_font)
-        sec_w = bbox[2] - bbox[0]
-        sec_x = (W - sec_w) // 2
-        draw.text((sec_x + 2, sec_y + 2), secondary_text, font=sec_font, fill=(0, 0, 0))
-        draw.text((sec_x, sec_y), secondary_text, font=sec_font, fill=accent)
-
-    # ── Bottom accent bar + gradient ──
-    footer_y = H - 85
-    # Gradient fade into bottom bar
-    for i in range(20):
-        alpha = int(255 * (i / 20))
-        r = int(accent[0] * i / 20)
-        g = int(accent[1] * i / 20)
-        b = int(accent[2] * i / 20)
-        draw.line([(0, footer_y - 20 + i), (W, footer_y - 20 + i)],
-                  fill=(r, g, b))
+    # ── FOOTER BAR ──
+    # Gradient fade into footer
+    for i in range(25):
+        r = int(accent[0] * i / 25)
+        g = int(accent[1] * i / 25)
+        b = int(accent[2] * i / 25)
+        draw.line([(0, footer_y - 25 + i), (W, footer_y - 25 + i)], fill=(r, g, b))
     draw.rectangle([(0, footer_y), (W, H)], fill=accent)
 
-    # Website URL (left)
-    url_font = _get_font(26)
-    website = get_website_url(niche)
-    draw.text((40, footer_y + 22), website, font=url_font, fill=(0, 0, 0))
+    # Page name on left (instead of website URL — more branded)
+    footer_font = _get_body_font(24, bold=True)
+    draw.text((40, footer_y + 25), page_name.upper(), font=footer_font, fill=(0, 0, 0))
 
-    # CTA text (right)
+    # CTA text on right
     cta_map = {
-        "quote": "SAVE & SHARE", "tip": "SAVE THIS!",
-        "fact": "SHARE THIS!", "poll": "COMMENT BELOW!",
+        "quote": "SAVE & SHARE", "tip": "SCREENSHOT THIS",
+        "fact": "SHARE THIS", "poll": "VOTE BELOW",
     }
-    cta = cta_map.get(content_type, "ENGAGE!")
-    cta_bbox = draw.textbbox((0, 0), cta, font=url_font)
+    cta = cta_map.get(content_type, "ENGAGE")
+    cta_bbox = draw.textbbox((0, 0), cta, font=footer_font)
     cta_w = cta_bbox[2] - cta_bbox[0]
-    draw.text((W - cta_w - 40, footer_y + 22), cta, font=url_font, fill=(0, 0, 0))
-
-    # ── Emoji accent in bottom-right area (above footer) ──
-    emoji_font = _get_body_font(72)
-    try:
-        draw.text((W - 120, footer_y - 90), emoji, font=emoji_font, fill=(255, 255, 255))
-    except Exception:
-        pass  # Emoji rendering may fail on some systems
+    draw.text((W - cta_w - 40, footer_y + 25), cta, font=footer_font, fill=(0, 0, 0))
 
     # ── ShopMO logo overlay ──
     if niche == "shopmo_products":
         img = _overlay_shopmo_logo(img)
 
-    # ── Slight vignette for depth ──
+    # ── Subtle vignette for depth ──
     vignette = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     v_draw = ImageDraw.Draw(vignette)
-    for i in range(100):
-        alpha = int(40 * (1 - i / 100))
+    for i in range(80):
+        alpha = int(30 * (1 - i / 80))
         v_draw.rectangle([(i, i), (W - i, H - i)], outline=(0, 0, 0, alpha))
     img_rgba = img.convert("RGBA")
     img = Image.alpha_composite(img_rgba, vignette).convert("RGB")
@@ -508,94 +562,137 @@ def generate_engagement_image(
 
 async def generate_engagement_content(niche: str, content_type: str) -> dict:
     """
-    Generate engagement content using AI (Gemini/Claude).
+    Generate VIRAL engagement content using Claude AI as the brain.
+
+    Claude crafts everything: the image text, the full caption, hashtags,
+    and engagement hooks — all optimized for maximum Facebook reach.
 
     Returns: {type, text, secondary_text, caption, hashtags}
     """
     niche_name = NICHES.get(niche, {}).get("name", niche)
+    page_name = NICHE_PAGE_NAMES.get(niche, niche)
     hashtags = NICHES.get(niche, {}).get("hashtags", [])[:5]
-
-    # Self-improvement niches get AI-coach framing for authority
-    is_self_improvement = niche in ("limitless_you", "motivation")
-    ai_frame = " Frame it as an insight from AI analysis of research/data — e.g. 'AI analyzed 10,000+ success stories and found...' or 'Data shows that...'. Make it feel like wisdom backed by AI intelligence, not generic motivation." if is_self_improvement else ""
-
-    prompts = {
-        "quote": f"""Generate ONE powerful, original motivational quote relevant to the {niche_name} niche.
-The quote should be inspiring, shareable, and under 25 words.{ai_frame}
-Also provide a short attribution (real or "- {NICHE_PAGE_NAMES.get(niche, 'Unknown')}").
-
-Return JSON: {{"quote": "...", "attribution": "- ..."}}""",
-
-        "tip": f"""Generate ONE practical, actionable tip for the {niche_name} audience.
-The tip should be specific, useful, and under 30 words. Something people would save.{ai_frame}
-Include a concrete number, timeframe, or method — not vague advice.
-
-Return JSON: {{"tip": "...", "source": "Based on latest research"}}""",
-
-        "fact": f"""Generate ONE surprising, true fact relevant to {niche_name}.
-Include a specific number or statistic. Under 30 words. Must be factual.{ai_frame}
-
-Return JSON: {{"fact": "...", "source": "Source: ..."}}""",
-
-        "poll": f"""Generate ONE engaging poll question for the {niche_name} audience.
-Include exactly 2 options (A and B). Should spark debate in comments.{ai_frame}
-
-Return JSON: {{"question": "...?", "option_a": "...", "option_b": "..."}}""",
-    }
 
     if content_type == "mixed":
         content_type = random.choice(["quote", "tip", "fact", "poll"])
 
+    # ── NICHE VOICE PROFILES (genuinely helpful, not clickbait) ──
+    voice_profiles = {
+        "ai_money": "You are a practical AI tools advisor for Smart Money AI. Share real, tested advice about using AI to earn. Be honest about what works and what doesn't. Speak like a helpful friend.",
+        "tech_news": "You are a world news analyst for Tech Pulse Africa. Break down global events — wars, politics, geopolitics — so people understand what's really happening. Be factual, balanced, and direct.",
+        "motivation": "You are a supportive life coach for Elevate You. Share practical steps people can take today. Be warm, encouraging, and honest. Give real advice, not empty hype.",
+        "health_wellness": "You are a trusted wellness advisor for Herbal Organic Life. Share evidence-based health tips. Be caring and responsible. Always recommend consulting a doctor for serious issues.",
+        "blissful_moments": "You are a loving parenting guide for Mzansi Baby Stars. Share practical tips for South African parents. Be warm, relatable, and celebrate family moments.",
+        "daily_breakdown": "You are a proud South African voice for Mzansi Daily. Share what makes SA great — culture, food, nature, people, innovation. Cover news honestly. Celebrate the country. Be warm, patriotic, real.",
+        "limitless_you": "You are an inspiring voice for Africa 2050. Share stories of African progress, innovation, and opportunity. Be proud, forward-looking, and empowering.",
+    }
+    voice = voice_profiles.get(niche, "You speak with warmth and genuine helpfulness.")
+
+    # ── HELPFUL CONTENT PROMPTS ──
+    prompts = {
+        "tip": f"""You are the voice behind the Facebook page "{page_name}".
+{voice}
+
+Create ONE genuinely helpful tip that will improve someone's day.
+
+RULES:
+- Under 25 words — clear and practical
+- Must include a SPECIFIC action someone can do TODAY
+- Be honest and realistic — no exaggerations
+- The tip should genuinely help people solve a real problem
+- Make it feel like advice from a trusted friend
+- Be relevant and timely for July 2026
+
+Also provide why this works.
+
+Return JSON: {{"tip": "...", "source": "Why it works: ..."}}""",
+
+        "advice": f"""You are the voice behind the Facebook page "{page_name}".
+{voice}
+
+Create ONE piece of practical life advice that people will genuinely appreciate and share.
+
+RULES:
+- Under 30 words — warm, clear, and useful
+- Focus on a real problem people face and offer a simple solution
+- Be specific: include a number, timeframe, or exact method
+- NO generic motivation like "believe in yourself"
+- Write like you're helping a friend — genuine, caring, practical
+- The advice should make people feel supported, not lectured
+
+Also create a short follow-up question to encourage comments.
+
+Return JSON: {{"advice": "...", "question": "What do you think? ..."}}""",
+
+        "quote": f"""You are the voice behind the Facebook page "{page_name}".
+{voice}
+
+Create ONE meaningful quote that genuinely inspires and helps people.
+
+RULES:
+- Under 20 words — memorable and warm
+- Must feel authentic and earned, not like a greeting card
+- Focus on practical wisdom, not empty motivation
+- Should make someone feel understood and encouraged
+
+Return JSON: {{"quote": "...", "attribution": "- {page_name}"}}""",
+
+        "fact": f"""You are the voice behind the Facebook page "{page_name}".
+{voice}
+
+Share ONE interesting fact that teaches people something useful.
+
+RULES:
+- Under 25 words — clear and informative
+- Must be TRUE and verifiable
+- Choose something practical that helps people make better decisions
+- Make it educational, not shocking for shock's sake
+
+Return JSON: {{"fact": "...", "source": "Source: ..."}}""",
+
+        "poll": f"""You are the voice behind the Facebook page "{page_name}".
+{voice}
+
+Create ONE thoughtful question that encourages genuine discussion.
+
+RULES:
+- Under 15 words
+- Both options should be valid — no trick answers
+- Should spark real conversation, not just reactions
+- Make it relevant to your audience's daily life
+
+Return JSON: {{"question": "...?", "option_a": "...", "option_b": "..."}}""",
+    }
+
     prompt = prompts.get(content_type, prompts["tip"])
 
-    # Try Gemini first, then Claude
+    # ── Try Claude FIRST (primary brain) then Gemini fallback ──
     result = await _generate_with_ai(prompt)
 
     if not result:
-        # Fallback to hardcoded content
         result = _get_fallback_content(niche, content_type)
 
-    # Build output
+    # ── BUILD VIRAL CAPTION (Claude-crafted, not template) ──
+    caption = await _build_viral_caption(content_type, result, niche, page_name, hashtags)
+
+    # Build image text
     if content_type == "quote":
-        text = result.get("quote", "Stay focused. Stay hungry. Stay humble.")
-        secondary = result.get("attribution", f"- {NICHE_PAGE_NAMES.get(niche, 'Unknown')}")
-        caption = f'"{text}" {secondary}\n\n' + " ".join(hashtags)
+        text = result.get("quote", "Your future self is watching. Make them proud.")
+        secondary = result.get("attribution", f"- {page_name}")
     elif content_type == "tip":
-        text = result.get("tip", "Start small. Stay consistent. Results follow.")
+        text = result.get("tip", "The 2-minute rule: if it takes less than 2 minutes, do it NOW.")
         secondary = result.get("source", "")
-        caption = f"💡 PRO TIP: {text}\n\nSave this for later!\n\n" + " ".join(hashtags)
     elif content_type == "fact":
-        text = result.get("fact", "The average person spends 2 hours daily on social media.")
+        text = result.get("fact", "Your brain processes images 60,000x faster than text.")
         secondary = result.get("source", "")
-        caption = f"🔍 DID YOU KNOW?\n\n{text}\n\n" + " ".join(hashtags)
     elif content_type == "poll":
-        question = result.get("question", "Which do you prefer?")
+        text = result.get("question", "Which matters more?")
         opt_a = result.get("option_a", "Option A")
         opt_b = result.get("option_b", "Option B")
-        text = question
         secondary = f"A: {opt_a}  |  B: {opt_b}"
-        caption = f"🗳️ YOUR OPINION MATTERS!\n\n{question}\n\nA: {opt_a}\nB: {opt_b}\n\nComment A or B below! 👇\n\n" + " ".join(hashtags)
     else:
-        text = "Stay focused on your goals."
+        text = "Level up today."
         secondary = ""
-        caption = text + "\n\n" + " ".join(hashtags)
-
-    # Add monetization CTAs to caption
-    from modules.affiliate_manager import get_engagement_cta, get_lead_magnet_cta
-    engagement_cta = get_engagement_cta(niche)
-    if engagement_cta:
-        caption += f"\n\n{engagement_cta}"
-
-    # Add lead magnet CTA every ~3rd post (33% chance)
-    if random.random() < 0.33:
-        lead_cta = get_lead_magnet_cta(niche)
-        if lead_cta:
-            caption += f"\n\n{lead_cta}"
-
-    # Add website URL to caption
-    website = get_website_url(niche)
-    if website not in caption:
-        caption += f"\n\n🔗 {website}"
 
     return {
         "type": content_type,
@@ -606,9 +703,137 @@ Return JSON: {{"question": "...?", "option_a": "...", "option_b": "..."}}""",
     }
 
 
+async def _build_viral_caption(content_type: str, content: dict, niche: str,
+                                page_name: str, hashtags: list[str]) -> str:
+    """
+    Build a viral Facebook caption using Claude AI.
+
+    Facebook algorithm rewards: comments, shares, saves, time spent reading.
+    This caption is engineered for all four.
+    """
+    # Build the content summary for the caption prompt
+    if content_type == "quote":
+        core_text = content.get("quote", "")
+        attribution = content.get("attribution", "")
+        content_summary = f'Quote: "{core_text}" {attribution}'
+    elif content_type == "tip":
+        core_text = content.get("tip", "")
+        content_summary = f"Tip: {core_text}"
+    elif content_type == "fact":
+        core_text = content.get("fact", "")
+        source = content.get("source", "")
+        content_summary = f"Fact: {core_text} ({source})"
+    elif content_type == "poll":
+        q = content.get("question", "")
+        a = content.get("option_a", "")
+        b = content.get("option_b", "")
+        content_summary = f"Poll: {q} | A: {a} | B: {b}"
+    else:
+        content_summary = str(content)
+
+    caption_prompt = f"""Write a VIRAL Facebook caption for this content from the page "{page_name}".
+
+CONTENT: {content_summary}
+TYPE: {content_type}
+
+CAPTION RULES (Facebook algorithm optimization):
+1. HOOK (first line): Pattern interrupt that stops the scroll. Use caps, a bold claim, or a question. This is the ONLY line people see before clicking "See more"
+2. BODY: Present the content naturally. Add context or a mini-story (2-3 lines max)
+3. ENGAGEMENT TRIGGER: End with something that DEMANDS a response — a question, challenge, or "tag someone"
+4. Use line breaks for readability (Facebook loves whitespace)
+5. Use 2-4 emojis strategically (not every line)
+6. Keep total caption under 300 characters for maximum reach
+7. DO NOT include hashtags (I'll add them separately)
+8. DO NOT include any URLs
+
+{"For polls: present both options clearly with A: and B: and say 'Comment your answer below!'" if content_type == "poll" else ""}
+
+Return ONLY the caption text, no quotes:"""
+
+    caption = None
+
+    # Try Claude for the caption
+    if ANTHROPIC_API_KEY:
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+            response = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=250,
+                messages=[{"role": "user", "content": caption_prompt}],
+            )
+            caption = response.content[0].text.strip().strip('"')
+        except Exception as e:
+            print(f"[Engagement] Claude caption gen failed: {e}")
+
+    # Fallback to template captions
+    if not caption:
+        if content_type == "quote":
+            quote = content.get("quote", "")
+            attr = content.get("attribution", "")
+            caption = f'THIS hit different 🔥\n\n"{quote}"\n{attr}\n\nType "YES" if this resonates 👇'
+        elif content_type == "tip":
+            tip = content.get("tip", "")
+            caption = f"SAVE THIS before you forget 💡\n\n{tip}\n\nTag someone who needs to see this 👇"
+        elif content_type == "fact":
+            fact = content.get("fact", "")
+            caption = f"Wait... WHAT? 🤯\n\n{fact}\n\nDid you know this? Comment below 👇"
+        elif content_type == "poll":
+            q = content.get("question", "")
+            a = content.get("option_a", "")
+            b = content.get("option_b", "")
+            caption = f"This is DIVIDING our community 🔥\n\n{q}\n\nA: {a}\nB: {b}\n\nDrop your answer below! 👇"
+        else:
+            caption = f"Thoughts? 💭\n\n{content_summary}\n\nComment below 👇"
+
+    # ── Add hashtags ──
+    caption += "\n\n" + " ".join(hashtags)
+
+    # ── Add monetization CTAs ──
+    from modules.affiliate_manager import get_engagement_cta, get_lead_magnet_cta
+    engagement_cta = get_engagement_cta(niche)
+    if engagement_cta:
+        caption += f"\n\n{engagement_cta}"
+
+    # Lead magnet CTA (25% chance — not too spammy)
+    if random.random() < 0.25:
+        lead_cta = get_lead_magnet_cta(niche)
+        if lead_cta:
+            caption += f"\n\n{lead_cta}"
+
+    # Website URL
+    website = get_website_url(niche)
+    if website not in caption:
+        caption += f"\n\n🔗 {website}"
+
+    return caption
+
+
 async def _generate_with_ai(prompt: str) -> dict | None:
-    """Generate content using Gemini or Claude."""
-    # Try Gemini first
+    """Generate content using Claude (primary) or Gemini (fallback).
+
+    Claude is primary because Gemini free tier quota is easily exhausted
+    by the video pipeline, leaving nothing for engagement posts.
+    """
+    # Try Claude first (reliable, no free-tier quota issues)
+    if ANTHROPIC_API_KEY:
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+            response = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=200,
+                messages=[{"role": "user", "content": prompt + "\n\nRespond with ONLY the JSON, no markdown."}],
+            )
+            text = response.content[0].text.strip()
+            # Strip markdown code block if present
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1].rsplit("```", 1)[0]
+            return json.loads(text)
+        except Exception as e:
+            print(f"[Engagement] Claude failed: {e}")
+
+    # Fallback to Gemini
     if GEMINI_API_KEY:
         try:
             import google.generativeai as genai
@@ -621,24 +846,6 @@ async def _generate_with_ai(prompt: str) -> dict | None:
             return json.loads(response.text)
         except Exception as e:
             print(f"[Engagement] Gemini failed: {e}")
-
-    # Try Claude
-    if ANTHROPIC_API_KEY:
-        try:
-            import anthropic
-            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-            response = client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=200,
-                messages=[{"role": "user", "content": prompt + "\n\nRespond with ONLY the JSON, no markdown."}],
-            )
-            text = response.content[0].text.strip()
-            # Strip markdown code block if present
-            if text.startswith("```"):
-                text = text.split("\n", 1)[1].rsplit("```", 1)[0]
-            return json.loads(text)
-        except Exception as e:
-            print(f"[Engagement] Claude failed: {e}")
 
     return None
 

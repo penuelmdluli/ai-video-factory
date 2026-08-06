@@ -7,6 +7,11 @@ Fallback: Uses faster-whisper for transcription when edge-tts subs unavailable
 import re
 from pathlib import Path
 
+try:
+    from config import CAPTION_MAX_WORDS
+except Exception:
+    CAPTION_MAX_WORDS = 3
+
 
 def parse_subtitle_to_segments(sub_path: str | Path) -> list[dict]:
     """
@@ -61,6 +66,56 @@ def _seconds_to_srt_timestamp(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 
+def translate_srt(srt_path: str | Path, lang_code: str, lang_name: str) -> str | None:
+    """
+    Translate an English SRT into `lang_name`, keeping timestamps.
+    Returns the translated SRT path (e.g. captions.ar.srt) or None.
+    Used to attach multi-language caption tracks for international reach.
+    """
+    import os
+    segs = parse_subtitle_to_segments(srt_path)
+    if not segs:
+        return None
+    key = os.getenv("ANTHROPIC_API_KEY", "")
+    if not key:
+        return None
+    # Batch: numbered lines in, numbered lines out — preserves alignment.
+    numbered = "\n".join(f"{i+1}. {s['text']}" for i, s in enumerate(segs))
+    prompt = (
+        f"Translate each numbered caption line into {lang_name}. This is neutral "
+        f"war/news content. Keep it concise for on-screen subtitles, keep the SAME "
+        f"numbering, one line each, translation only (no notes, no transliteration).\n\n{numbered}"
+    )
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=key)
+        msg = client.messages.create(
+            model="claude-haiku-4-5-20251001", max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        out = msg.content[0].text.strip()
+    except Exception as e:
+        print(f"[Captions] Translate to {lang_name} failed: {e}")
+        return None
+
+    # Parse "N. text" back into order
+    import re as _re
+    trans = {}
+    for line in out.splitlines():
+        m = _re.match(r"\s*(\d+)[.)]\s*(.+)", line)
+        if m:
+            trans[int(m.group(1))] = m.group(2).strip()
+    if not trans:
+        return None
+    for i, s in enumerate(segs):
+        s["text"] = trans.get(i + 1, s["text"])
+
+    out_path = Path(srt_path).with_suffix(f".{lang_code}.srt")
+    segments_to_srt(segs, out_path)
+    print(f"[Captions] Translated captions -> {out_path.name} ({lang_name})")
+    return str(out_path)
+
+
 def segments_to_srt(segments: list[dict], output_path: str | Path) -> str:
     """Convert segments to SRT subtitle file."""
     output_path = Path(output_path)
@@ -81,7 +136,7 @@ def segments_to_srt(segments: list[dict], output_path: str | Path) -> str:
 
 def group_words_into_phrases(
     segments: list[dict],
-    max_words: int = 4,
+    max_words: int = CAPTION_MAX_WORDS,
     min_words: int = 2,
     max_duration: float = 3.0,
 ) -> list[dict]:
@@ -290,10 +345,10 @@ async def generate_captions(
             avg_words = sum(len(s["text"].split()) for s in segments) / len(segments)
             if avg_words <= 1.5:
                 # Word-level (Kokoro/edge-tts word timestamps) — group into phrases
-                phrases = group_words_into_phrases(segments, max_words=4, min_words=2)
+                phrases = group_words_into_phrases(segments, min_words=2)
             else:
                 # Sentence-level — split into shorter caption phrases
-                phrases = split_sentences_into_phrases(segments, max_words=4)
+                phrases = split_sentences_into_phrases(segments, max_words=CAPTION_MAX_WORDS)
             srt_file = segments_to_srt(phrases, srt_path)
             print(f"[Captions] Parsed subtitles -> SRT: {len(phrases)} phrases")
             return {

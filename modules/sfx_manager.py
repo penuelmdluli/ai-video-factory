@@ -45,6 +45,37 @@ SFX_LIBRARY = {
         "prompt": "Cinematic dramatic boom with echo, movie trailer impact",
         "duration": 2.0,
     },
+    # ── War / conflict (Tech Pulse Africa) ──
+    "explosion": {
+        "prompt": "Massive explosion blast, deep boom with debris and rumble, war zone",
+        "duration": 2.0,
+    },
+    "gunfire": {
+        "prompt": "Rapid automatic gunfire, distant machine gun bursts, war zone combat",
+        "duration": 1.5,
+    },
+    "jet": {
+        "prompt": "Fighter jet flyover, fast military aircraft screaming past, sonic roar",
+        "duration": 1.8,
+    },
+    "missile": {
+        "prompt": "Missile launch ignition and whoosh, rocket firing into the sky",
+        "duration": 1.6,
+    },
+    "helicopter": {
+        "prompt": "Military helicopter rotor blades thumping, chopper flyover",
+        "duration": 1.5,
+    },
+    "war_siren": {
+        "prompt": "Air raid siren wailing, ominous emergency warning, war",
+        "duration": 2.0,
+    },
+    # Long ominous bed used as the music track for war content (loops).
+    "war_tension_bed": {
+        "prompt": "Dark ominous cinematic tension drone, deep pulsing bass, building "
+                  "suspense, distant rumble, war documentary underscore, no melody",
+        "duration": 22.0,
+    },
     # ── Money & Success ──
     "money": {
         "prompt": "Cash register cha-ching sound, coins and money",
@@ -178,6 +209,17 @@ SFX_LIBRARY = {
 
 # Keyword -> SFX type mapping for auto-detection from narration text
 KEYWORD_SFX_MAP = {
+    # War / conflict (checked first for the war page)
+    "explosion": "explosion", "explode": "explosion", "blast": "explosion",
+    "bomb": "explosion", "airstrike": "explosion", "strike": "explosion",
+    "attack": "explosion", "bombard": "explosion", "detonat": "explosion",
+    "missile": "missile", "rocket": "missile", "launch": "missile",
+    "gunfire": "gunfire", "shooting": "gunfire", "firefight": "gunfire",
+    "troops": "gunfire", "soldiers": "gunfire", "combat": "gunfire", "battle": "gunfire",
+    "jet": "jet", "fighter": "jet", "aircraft": "jet", "warplane": "jet", "f-35": "jet",
+    "helicopter": "helicopter", "chopper": "helicopter",
+    "siren": "war_siren", "air raid": "war_siren", "evacuat": "war_siren",
+    "war": "explosion", "conflict": "gunfire", "military": "gunfire",
     # Money & finance
     "profit": "money", "earn": "money", "income": "money", "$": "money",
     "revenue": "money", "salary": "money", "million": "coins", "billion": "coins",
@@ -232,6 +274,39 @@ KEYWORD_SFX_MAP = {
 def _cache_key(sfx_type: str) -> str:
     """Generate a cache filename for an SFX type."""
     return f"sfx_{sfx_type}.mp3"
+
+
+def get_sfx_sync(sfx_type: str) -> str | None:
+    """
+    Synchronous SFX/bed fetch (for the assembler's sync music picker).
+    Returns a cached path, generating once via ElevenLabs if missing.
+    """
+    if sfx_type not in SFX_LIBRARY:
+        return None
+    cache_path = SFX_CACHE_DIR / _cache_key(sfx_type)
+    if cache_path.exists() and cache_path.stat().st_size > 0:
+        return str(cache_path)
+    if not ENABLE_SFX or not ELEVENLABS_API_KEY:
+        return None
+    try:
+        import requests
+        cfg = SFX_LIBRARY[sfx_type]
+        SFX_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        r = requests.post(
+            "https://api.elevenlabs.io/v1/sound-generation",
+            headers={"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"},
+            json={"text": cfg["prompt"], "duration_seconds": cfg["duration"],
+                  "prompt_influence": 0.5},
+            timeout=45,
+        )
+        if r.status_code == 200 and r.content:
+            cache_path.write_bytes(r.content)
+            print(f"[SFX] Generated {sfx_type} ({len(r.content)/1024:.0f}KB) -> cached")
+            return str(cache_path)
+        print(f"[SFX] {sfx_type} API error {r.status_code}")
+    except Exception as e:
+        print(f"[SFX] {sfx_type} sync gen failed: {e}")
+    return None
 
 
 def _get_cached(sfx_type: str) -> str | None:

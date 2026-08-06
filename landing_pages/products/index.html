@@ -827,6 +827,50 @@
                 });
             });
         })();
+
+        // Stripe Checkout Handler
+        const PRODUCT_MAP = {
+            'ai-trading-starter-kit': 'trading-kit',
+            '100-ai-side-hustle-prompts': 'ai-prompts',
+            'tech-career-pivot-guide': 'tech-guide',
+            '90-day-transformation-journal': 'journal',
+            'herbal-remedies-quick-guide': 'herbal-guide',
+            'mindfulness-meditation-pack': 'meditation',
+            'limitless-mind-mastery-course': 'mind-mastery',
+            'daily-productivity-system': 'productivity',
+            'dropshipping-blueprint': 'dropship',
+            'complete-bundle': 'complete-bundle',
+            'build-your-ai-video-empire': 'ai-video-empire',
+        };
+
+        document.querySelectorAll('.card-btn, .bundle-btn, .featured-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var href = this.getAttribute('href');
+                var slug = href.split('/').pop();
+                var productId = PRODUCT_MAP[slug] || slug;
+
+                this.textContent = 'Processing...';
+                this.style.opacity = '0.7';
+
+                fetch('/api/products/' + productId + '/checkout', { method: 'POST' })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.success && data.data && data.data.checkoutUrl) {
+                            window.location.href = data.data.checkoutUrl;
+                        } else {
+                            alert('Checkout is being set up. Please email support@gettraderadar.com to purchase.');
+                            btn.textContent = 'Get It Now';
+                            btn.style.opacity = '1';
+                        }
+                    })
+                    .catch(function() {
+                        alert('Checkout is being set up. Please email support@gettraderadar.com to purchase.');
+                        btn.textContent = 'Get It Now';
+                        btn.style.opacity = '1';
+                    });
+            });
+        });
     </script>
 
 </body>

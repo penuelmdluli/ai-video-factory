@@ -30,6 +30,7 @@ NICHE_CHANNELS = {
     "health_wellness": ("Herbal Organic Life", "UCs3Y2sZ0ImXQ9QEwR5gFHfw"),
     "blissful_moments": ("Blissful Moments", "UCPNgMBuOOUQ5-lvdm5miruQ"),
     "deep_chill": ("Deep Chill", "UCEBYlpBOjEOZBJ8EG999yWA"),
+    "kids_songs": ("Zuzu & Friends", "UClg-hsIwpJk1yG3CUI3FMMg"),
 }
 
 niche = sys.argv[1] if len(sys.argv) > 1 else None

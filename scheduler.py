@@ -5,9 +5,9 @@ Two-phase scheduling: BUILD videos 3 hours before UPLOAD time.
 This ensures videos are ready and uploaded exactly at optimal posting times.
 
 Schedule (daily, all 6 niches):
-    BUILD 5:00 AM  -> UPLOAD 8:00 AM   (shorts)
-    BUILD 11:00 AM -> UPLOAD 2:00 PM   (podcast)
-    BUILD 5:00 PM  -> UPLOAD 8:00 PM   (long-form)
+    BUILD 6:00 AM  -> UPLOAD 8:00 AM   (shorts)
+    BUILD 12:00 PM -> UPLOAD 2:00 PM   (shorts)
+    BUILD 6:00 PM  -> UPLOAD 8:00 PM   (shorts)
 
 Features:
 - Build phase: Generate video content (script, voice, visuals, assembly)
@@ -37,7 +37,9 @@ from pathlib import Path
 
 from config import (
     NICHES, SCHEDULE, ENABLE_NICHE_PRIORITIZATION,
-    ENABLE_ENGAGEMENT_POSTS, ENGAGEMENT_HOURS, ENGAGEMENT_CONTENT_TYPES,
+    ENABLE_ENGAGEMENT_POSTS, ENABLE_BLOG_PROMO, ENGAGEMENT_HOURS, ENGAGEMENT_CONTENT_TYPES,
+    ENABLE_GROWTH_ENGINE, COMMUNITY_CHECK_HOURS,
+    INSIGHTS_COLLECTION_HOUR, CROSS_PROMO_HOUR, GROWTH_REPORT_HOUR,
 )
 
 LOG_DIR = Path("logs")
@@ -45,30 +47,30 @@ LOG_DIR.mkdir(exist_ok=True)
 SCHEDULE_LOG = LOG_DIR / "schedule_log.json"
 
 
-# ── Two-Phase Schedule Configuration ─────────────────────
-# Videos are BUILT 2 hours before their UPLOAD time.
-# Each slot handles one format type for ALL 6 niches.
+# ── Schedule Configuration ────────────────────────────────
+# QUALITY OVER QUANTITY — war-news short in the morning AND later the same day.
+# Build a couple hours ahead, upload at prime times.
 
-BUILD_LEAD_HOURS = 3
+# The quality pipeline (SVD 15 steps + GFPGAN/ESRGAN enhance) takes ~2.5 hr/video,
+# so build must start well before the upload slot or the clip won't be ready in time.
+BUILD_LEAD_HOURS = 2
 
-# Upload slots: 3 per day (morning, afternoon, evening)
-UPLOAD_HOURS = [8, 14, 20]
+# 2 upload slots per day: early morning + evening prime time.
+UPLOAD_HOURS = [7, 18]   # 7 AM (morning) and 6 PM (evening)
 
-# Build slots: 2 hours before each upload
-BUILD_HOURS = [h - BUILD_LEAD_HOURS for h in UPLOAD_HOURS]
+# Build 2 hours before each upload — plenty for the ~30 min Wan render
+BUILD_HOURS = [h - BUILD_LEAD_HOURS for h in UPLOAD_HOURS]   # 5 AM, 4 PM
 
-# Map each slot index to a video format
+# Two daily slots (both short-form)
 SLOT_FORMATS = {
-    0: "short",    # 5 AM build -> 8 AM upload (shorts = fast morning engagement)
-    1: "podcast",  # 11 AM build -> 2 PM upload (podcast debates = afternoon)
-    2: "long",     # 5 PM build -> 8 PM upload (long-form = evening deep content)
+    0: "short",   # 5 AM build -> 7 AM upload (morning)
+    1: "short",   # 4 PM build -> 6 PM upload (evening prime time)
 }
 
 # Readable slot names for logging
 SLOT_NAMES = {
-    0: "Morning (Shorts)",
-    1: "Afternoon (Podcast)",
-    2: "Evening (Long-form)",
+    0: "Morning War Brief",
+    1: "Evening War Brief",
 }
 
 
@@ -260,15 +262,102 @@ def mark_engagement_done(niche: str, slot_hour: int, result: dict):
     save_schedule_log(log)
 
 
+def _run_blog_promo(slot_hour: int):
+    """Post a ROTATING blog-article link to each Facebook page at the engagement
+    slot — drives traffic to our owned blog (SEO + AdSense) instead of throwaway
+    tip images. A different article each slot/day, so it never spams the same link."""
+    import json, os, urllib.request, urllib.parse
+    from pathlib import Path
+    SITE_URL = os.getenv("BLOG_URL", "https://blog.genesisstudio.app").rstrip("/")
+    GRAPH = "https://graph.facebook.com/v19.0"
+    # blog niche -> FB page key  (mirror of blog/cross_post_fb.py FB_NICHE)
+    FB_NICHE = {"kids": "blissful_moments", "news": "tech_news",
+                "study": "limitless_you", "sleep": "limitless_you", "coding": "limitless_you",
+                "wellness": "health_wellness", "sa": "sa_pulse"}
+    BLURB = {"kids": "New on our blog for parents 👶", "news": "Fresh explainer on our blog 🌍",
+             "study": "New focus & study tips on our blog 🎧", "sleep": "Sleep better — new guide 🌙",
+             "coding": "For the coders — new post 💻", "wellness": "New organic-living tips 🌿",
+             "sa": "New on Genesis News — South Africa, explained 🇿🇦"}
+    state = Path("blog/state.json")
+    if not state.exists():
+        print("[BlogPromo] no blog/state.json — run the blog generator first"); return []
+    posts = json.loads(state.read_text(encoding="utf-8")).get("posts", [])
+    by_page = {}
+    for p in posts:
+        key = FB_NICHE.get(p.get("niche", ""))
+        if key:
+            by_page.setdefault(key, []).append(p)
+    try:
+        slot_idx = ENGAGEMENT_HOURS.index(slot_hour)
+    except ValueError:
+        slot_idx = 0
+    yday = datetime.now().timetuple().tm_yday
+    results = []
+    for key, arts in by_page.items():
+        pid = os.getenv(f"FB_PAGE_ID_{key}", ""); tok = os.getenv(f"FB_PAGE_TOKEN_{key}", "")
+        if not pid or not tok:
+            continue
+        if already_posted_engagement(key, slot_hour):
+            continue
+        # Pick a rotating article that is actually LIVE (blog deploy can lag, and a
+        # dead link would hurt the page). Use a browser UA — Cloudflare 403s bare
+        # bot requests (Facebook's scraper is allowed, so live links post fine).
+        _UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+               "(KHTML, like Gecko) Chrome/120 Safari/537.36")
+        art = None; url = None
+        n = len(arts)
+        for off in range(n):
+            cand = arts[(yday * len(ENGAGEMENT_HOURS) + slot_idx + off) % n]
+            cand_url = f"{SITE_URL}/posts/{cand['slug']}"
+            try:
+                with urllib.request.urlopen(
+                        urllib.request.Request(cand_url, headers={"User-Agent": _UA}), timeout=15) as hr:
+                    if getattr(hr, "status", 200) == 200:
+                        art, url = cand, cand_url; break
+            except Exception:
+                continue
+        if not art:
+            print(f"[BlogPromo] {key}: no live article yet — skip"); continue
+        msg = f"{BLURB.get(art.get('niche', ''), 'New on our blog')}\n\n{art['title']}\n\n{url}"
+        data = urllib.parse.urlencode({"message": msg, "link": url, "access_token": tok}).encode()
+        try:
+            req = urllib.request.Request(f"{GRAPH}/{pid}/feed", data=data, method="POST")
+            with urllib.request.urlopen(req, timeout=30) as r:
+                res = json.loads(r.read().decode())
+            print(f"[BlogPromo] {key}: {art['slug']} -> {res.get('id')}")
+            mark_engagement_done(key, slot_hour, {"niche": key, "success": True, "blog": art["slug"]})
+            results.append({"niche": key, "success": True})
+        except Exception as e:
+            print(f"[BlogPromo] {key} failed: {str(e)[:140]}")
+            results.append({"niche": key, "success": False})
+    print(f"[BlogPromo] slot {slot_hour}:00 — {sum(1 for r in results if r['success'])}/{len(results)} blog links posted")
+    return results
+
+
 async def run_engagement_phase(slot_hour: int | None = None):
     """
     Run engagement posts for all configured Facebook pages.
 
     Args:
-        slot_hour: The engagement hour slot (9, 12, 15, 18, 21).
-                  Determines content type rotation. None = auto-detect.
+        slot_hour: The engagement hour slot. None = auto-detect.
     """
+    if slot_hour is None:
+        slot_hour = datetime.now().hour
+
+    # Post blog links first, then engagement posts for any pages the blog didn't cover.
+    blog_results = []
+    blog_covered_pages = set()
+    if ENABLE_BLOG_PROMO:
+        blog_results = _run_blog_promo(slot_hour)
+        # Track which FB pages got a blog link
+        FB_NICHE_MAP = {"kids": "blissful_moments", "news": "tech_news",
+                        "study": "limitless_you", "sleep": "limitless_you", "coding": "limitless_you",
+                        "wellness": "health_wellness", "sa": "sa_pulse"}
+        blog_covered_pages = set(FB_NICHE_MAP.values())
+
     if not ENABLE_ENGAGEMENT_POSTS:
+        if blog_results:
+            return blog_results
         print("[Engagement] Disabled via ENABLE_ENGAGEMENT_POSTS=false")
         return []
 
@@ -285,19 +374,23 @@ async def run_engagement_phase(slot_hour: int | None = None):
 
     content_type = ENGAGEMENT_CONTENT_TYPES[slot_idx % len(ENGAGEMENT_CONTENT_TYPES)]
 
-    # Filter niches that haven't been posted yet
+    # Post engagement to ALL pages that didn't get a blog link AND haven't been posted yet
     import os
     niches = [n for n in NICHES.keys()
               if os.getenv(f"FB_PAGE_ID_{n}", "")
+              and n not in blog_covered_pages
               and not already_posted_engagement(n, slot_hour)]
 
     if not niches:
+        if blog_results:
+            print(f"[Engagement] Blog promo covered all pages for hour {slot_hour}")
+            return blog_results
         print(f"[Engagement] All niches already posted for hour {slot_hour}")
         return []
 
     print(f"\n{'#'*60}")
     print(f"# ENGAGEMENT PHASE — {content_type.upper()} posts")
-    print(f"# Hour: {slot_hour}:00 | Niches: {len(niches)}")
+    print(f"# Hour: {slot_hour}:00 | Niches: {len(niches)} (uncovered by blog)")
     print(f"# {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'#'*60}\n")
 
@@ -309,8 +402,8 @@ async def run_engagement_phase(slot_hour: int | None = None):
             mark_engagement_done(niche, slot_hour, r)
 
     posted = sum(1 for r in results if r.get("success"))
-    print(f"\n[Engagement] Phase complete: {posted}/{len(results)} posted")
-    return results
+    print(f"\n[Engagement] Phase complete: {posted}/{len(results)} engagement + {len(blog_results)} blog posted")
+    return blog_results + results
 
 
 # ── Build Phase ──────────────────────────────────────────
@@ -357,6 +450,16 @@ async def run_build_phase(slot: int | None = None):
                 save_schedule_log(log)
         except Exception as e:
             print(f"[Scheduler] Niche prioritization failed (using default order): {e}")
+
+    # Single-page mode: only build the active page(s) (default: Tech Pulse Africa).
+    try:
+        from config import BUILD_NICHES
+        filtered = [n for n in niche_order if n in BUILD_NICHES]
+        if filtered:
+            niche_order = filtered
+            print(f"[Scheduler] Single-page build: {', '.join(niche_order)}")
+    except Exception:
+        pass
 
     for s in slots_to_build:
         fmt = SLOT_FORMATS[s]
@@ -427,7 +530,9 @@ async def run_upload_phase():
     print(f"# {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'#'*60}\n")
 
-    results = await upload_prebuilt_videos()
+    # most_recent_only: post just the newest un-posted video per niche/format so an
+    # upload run never fires multiple videos to the same page back-to-back.
+    results = await upload_prebuilt_videos(most_recent_only=True)
 
     uploaded = sum(1 for r in results if r.get("status") == "uploaded")
     failed = sum(1 for r in results if r.get("status") == "failed")
@@ -509,6 +614,72 @@ async def _run_engagement_background(eng_hour: int):
         print(f"[Scheduler] Engagement failed (hour {eng_hour}): {e}")
 
 
+# ── Growth Engine Phase ────────────────────────────────────
+
+async def _check_and_run_growth(completed_phases: set, today: str):
+    """
+    Check for growth engine phases that should run NOW.
+
+    Growth phases:
+    - Insights collection: 6 AM daily
+    - Community management: every 2 hours (8-20)
+    - Cross-promotion: 11 AM daily
+    - Growth report: 10 PM daily
+    """
+    if not ENABLE_GROWTH_ENGINE:
+        return
+
+    current_hour = datetime.now().hour
+
+    # Insights collection
+    if current_hour == INSIGHTS_COLLECTION_HOUR:
+        phase_key = (today, INSIGHTS_COLLECTION_HOUR, "growth_insights", 0)
+        if phase_key not in completed_phases:
+            print(f"\n[Growth] {datetime.now().strftime('%H:%M')} — Collecting page insights")
+            try:
+                from modules.growth_engine import run_growth_cycle
+                await run_growth_cycle(["insights"])
+            except Exception as e:
+                print(f"[Growth] Insights collection failed: {e}")
+            completed_phases.add(phase_key)
+
+    # Community management (every 2 hours during active hours)
+    if current_hour in COMMUNITY_CHECK_HOURS:
+        phase_key = (today, current_hour, "growth_community", 0)
+        if phase_key not in completed_phases:
+            print(f"\n[Growth] {datetime.now().strftime('%H:%M')} — Community management round")
+            try:
+                from modules.growth_engine import run_growth_cycle
+                await run_growth_cycle(["community"])
+            except Exception as e:
+                print(f"[Growth] Community management failed: {e}")
+            completed_phases.add(phase_key)
+
+    # Cross-promotion
+    if current_hour == CROSS_PROMO_HOUR:
+        phase_key = (today, CROSS_PROMO_HOUR, "growth_crosspromo", 0)
+        if phase_key not in completed_phases:
+            print(f"\n[Growth] {datetime.now().strftime('%H:%M')} — Cross-page promotion")
+            try:
+                from modules.growth_engine import run_growth_cycle
+                await run_growth_cycle(["cross_promo"])
+            except Exception as e:
+                print(f"[Growth] Cross-promotion failed: {e}")
+            completed_phases.add(phase_key)
+
+    # Daily growth report
+    if current_hour == GROWTH_REPORT_HOUR:
+        phase_key = (today, GROWTH_REPORT_HOUR, "growth_report", 0)
+        if phase_key not in completed_phases:
+            print(f"\n[Growth] {datetime.now().strftime('%H:%M')} — Daily growth report")
+            try:
+                from modules.growth_engine import run_growth_cycle
+                await run_growth_cycle(["optimize", "report"])
+            except Exception as e:
+                print(f"[Growth] Report generation failed: {e}")
+            completed_phases.add(phase_key)
+
+
 async def _check_and_run_engagement(completed_phases: set, today: str):
     """
     Check for any engagement slots that should run NOW or were MISSED.
@@ -548,13 +719,13 @@ async def scheduler_loop():
     """
     Main scheduler daemon — two-phase scheduling.
 
-    BUILD phase runs 3 hours before UPLOAD phase:
-        5:00 AM  BUILD shorts      ->  8:00 AM  UPLOAD shorts
-        11:00 AM BUILD podcasts    ->  2:00 PM  UPLOAD podcasts
-        5:00 PM  BUILD long-form   ->  8:00 PM  UPLOAD long-form
+    BUILD phase runs 2 hours before UPLOAD phase:
+        6:00 AM  BUILD shorts  ->  8:00 AM  UPLOAD shorts
+        12:00 PM BUILD shorts  ->  2:00 PM  UPLOAD shorts
+        6:00 PM  BUILD shorts  ->  8:00 PM  UPLOAD shorts
 
     Engagement posts run at 9, 12, 15, 18, 21 and catch up on missed slots
-    after long-running build/upload phases complete.
+    after build/upload phases complete.
 
     Checks every 15 minutes. Each phase runs once per slot per day.
     """
@@ -574,6 +745,11 @@ async def scheduler_loop():
     if ENABLE_ENGAGEMENT_POSTS:
         eng_str = ", ".join(f"{h:02d}:00" for h in ENGAGEMENT_HOURS)
         print(f"    Engagement: {eng_str} (with catch-up)")
+    if ENABLE_GROWTH_ENGINE:
+        comm_str = ", ".join(f"{h:02d}:00" for h in COMMUNITY_CHECK_HOURS)
+        print(f"    Growth Engine: ON")
+        print(f"      Insights: {INSIGHTS_COLLECTION_HOUR:02d}:00 | Community: {comm_str}")
+        print(f"      Cross-promo: {CROSS_PROMO_HOUR:02d}:00 | Report: {GROWTH_REPORT_HOUR:02d}:00")
     print()
 
     completed_phases = set()  # Track (date, hour, phase) to avoid re-running
@@ -587,10 +763,13 @@ async def scheduler_loop():
         # This runs before build/upload so engagement isn't blocked.
         await _check_and_run_engagement(completed_phases, today)
 
+        # ── GROWTH ENGINE: insights, community, cross-promo, reports ──
+        await _check_and_run_growth(completed_phases, today)
+
         # ── BUILD slots ──
         for slot_idx, build_hour in enumerate(BUILD_HOURS):
             phase_key = (today, build_hour, "build", slot_idx)
-            if current_hour == build_hour and phase_key not in completed_phases:
+            if current_hour >= build_hour and phase_key not in completed_phases:
                 fmt = SLOT_FORMATS[slot_idx]
                 print(f"\n[Scheduler] {now.strftime('%H:%M')} — BUILD phase for {fmt} (slot {slot_idx+1})")
                 try:
@@ -600,13 +779,26 @@ async def scheduler_loop():
                     await _send_alert(f"Scheduler build failed: {e}")
                 completed_phases.add(phase_key)
 
+                # After long build, catch up on any missed upload slots
+                now_after_build = datetime.now()
+                for ui, uh in enumerate(UPLOAD_HOURS):
+                    up_key = (today, uh, "upload", ui)
+                    if now_after_build.hour >= uh and up_key not in completed_phases:
+                        print(f"\n[Scheduler] {now_after_build.strftime('%H:%M')} — CATCH-UP UPLOAD for slot {ui+1} (build overran past {uh:02d}:00)")
+                        try:
+                            await run_upload_phase()
+                        except Exception as e:
+                            print(f"[Scheduler] Catch-up upload failed: {e}")
+                            await _send_alert(f"Scheduler catch-up upload failed: {e}")
+                        completed_phases.add(up_key)
+
                 # After long build, catch up on any missed engagement slots
                 await _check_and_run_engagement(completed_phases, today)
 
         # ── UPLOAD slots ──
         for slot_idx, upload_hour in enumerate(UPLOAD_HOURS):
             phase_key = (today, upload_hour, "upload", slot_idx)
-            if current_hour == upload_hour and phase_key not in completed_phases:
+            if current_hour >= upload_hour and phase_key not in completed_phases:
                 fmt = SLOT_FORMATS[slot_idx]
                 print(f"\n[Scheduler] {now.strftime('%H:%M')} — UPLOAD phase for {fmt} (slot {slot_idx+1})")
                 try:
@@ -618,6 +810,27 @@ async def scheduler_loop():
 
                 # After long upload, catch up on any missed engagement slots
                 await _check_and_run_engagement(completed_phases, today)
+
+        # ── MUSIC VIDEO (once daily at noon — AlphaZone Sounds channel) ──
+        music_key = (today, 12, "music", 0)
+        if current_hour >= 12 and music_key not in completed_phases:
+            print(f"\n[Scheduler] {now.strftime('%H:%M')} — MUSIC VIDEO build (AlphaZone Sounds)")
+            try:
+                import subprocess as _sp
+                result = _sp.run(
+                    [sys.executable, "make_music.py", "--type", "rotate", "--clips", "4"],
+                    cwd=str(Path(__file__).parent),
+                    capture_output=True, text=True, timeout=7200,
+                )
+                if result.returncode == 0:
+                    print(f"[Scheduler] Music video built + posted successfully")
+                else:
+                    print(f"[Scheduler] Music video failed: {result.stderr[-300:]}")
+                    await _send_alert(f"Music video build failed: {result.stderr[-200:]}")
+            except Exception as e:
+                print(f"[Scheduler] Music video error: {e}")
+                await _send_alert(f"Music video error: {e}")
+            completed_phases.add(music_key)
 
         # Reset tracking at midnight
         if current_hour == 0:
@@ -717,11 +930,17 @@ def main():
     parser.add_argument("--once", action="store_true", help="Run one full build+upload cycle and exit")
     parser.add_argument("--build", action="store_true", help="Run build phase only (generate videos, no upload)")
     parser.add_argument("--upload", action="store_true", help="Run upload phase only (upload pre-built videos)")
-    parser.add_argument("--slot", type=int, choices=[0, 1, 2], help="Specific slot to build (0=shorts, 1=podcast, 2=long)")
+    parser.add_argument("--slot", type=int, choices=[0, 1, 2], help="Specific slot to build (0=morning, 1=afternoon, 2=evening)")
     parser.add_argument("--status", action="store_true", help="Show schedule status")
     parser.add_argument("--optimize", action="store_true", help="Show optimal posting times")
     parser.add_argument("--engagement", action="store_true", help="Run one round of engagement posts to all FB pages")
     parser.add_argument("--niche-heat", action="store_true", help="Show current niche trend heat rankings")
+    parser.add_argument("--growth", action="store_true", help="Run one full growth engine cycle")
+    parser.add_argument("--community", action="store_true", help="Run community management (reply to comments)")
+    parser.add_argument("--insights", action="store_true", help="Collect Facebook page insights")
+    parser.add_argument("--cross-promo", action="store_true", help="Run cross-page promotion")
+    parser.add_argument("--growth-report", action="store_true", help="Generate daily growth report")
+    parser.add_argument("--growth-goals", action="store_true", help="Show daily growth goal progress")
     args = parser.parse_args()
 
     if args.status:
@@ -739,6 +958,46 @@ def main():
 
     if args.engagement:
         asyncio.run(run_engagement_phase())
+        return
+
+    if args.growth:
+        from modules.growth_engine import run_growth_cycle
+        asyncio.run(run_growth_cycle())
+        return
+
+    if args.community:
+        from modules.growth_engine import run_growth_cycle
+        asyncio.run(run_growth_cycle(["community"]))
+        return
+
+    if args.insights:
+        from modules.growth_engine import run_growth_cycle
+        asyncio.run(run_growth_cycle(["insights"]))
+        return
+
+    if args.cross_promo:
+        from modules.growth_engine import run_growth_cycle
+        asyncio.run(run_growth_cycle(["cross_promo"]))
+        return
+
+    if args.growth_report:
+        from modules.growth_engine import run_growth_cycle
+        asyncio.run(run_growth_cycle(["optimize", "report"]))
+        return
+
+    if args.growth_goals:
+        from modules.growth_engine import check_goal_progress, ACTIVE_NICHES, NICHE_PAGE_NAMES
+        print("\n" + "=" * 60)
+        print("  DAILY GOAL PROGRESS")
+        print("=" * 60)
+        for niche in ACTIVE_NICHES:
+            progress = check_goal_progress(niche)
+            status = "DONE" if progress["overall_complete"] else "IN PROGRESS"
+            print(f"\n  {progress['page_name']} [{progress['tier']}] - {status}")
+            for key, p in progress["progress"].items():
+                check = "x" if p["complete"] else " "
+                print(f"    [{check}] {key}: {p['actual']}/{p['target']}")
+        print("=" * 60)
         return
 
     if args.build:

@@ -740,7 +740,7 @@ async def _generate_podcast_gemini(prompt: str) -> dict | None:
         from google import genai
         client = genai.Client(api_key=GEMINI_API_KEY)
 
-        models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+        models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]  # Current models (July 2026)
         for model_name in models:
             try:
                 response = client.models.generate_content(
@@ -770,7 +770,7 @@ async def _generate_podcast_claude(prompt: str) -> dict | None:
         import anthropic
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         message = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-haiku-4-5-20251001",
             max_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
         )

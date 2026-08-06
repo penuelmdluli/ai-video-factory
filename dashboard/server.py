@@ -34,7 +34,7 @@ from config import (
     GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY,
     ELEVENLABS_API_KEY, PEXELS_API_KEY, DID_API_KEY,
     YOUTUBE_CLIENT_ID, TWITTER_API_KEY,
-    VOICE_YOUTUBE_LONG, VOICE_SHORTS, DEFAULT_EDGE_VOICE,
+    VOICE_SHORTS, DEFAULT_EDGE_VOICE,
     ELEVENLABS_VOICE_ID, ENABLE_KEN_BURNS, ENABLE_TRANSITIONS,
     ENABLE_LOWER_THIRDS, ENABLE_SFX, ENABLE_AVATAR,
     CAPTION_FONT_SIZE, CAPTION_MAX_WORDS,
@@ -372,7 +372,7 @@ async def get_settings():
             "twitter": {"set": bool(TWITTER_API_KEY), "masked": _mask_key(TWITTER_API_KEY)},
         },
         "voice": {
-            "youtube_long": VOICE_YOUTUBE_LONG,
+            "youtube_long": "N/A",
             "shorts": VOICE_SHORTS,
             "edge_default": DEFAULT_EDGE_VOICE,
             "elevenlabs_voice_id": ELEVENLABS_VOICE_ID,
