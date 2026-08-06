@@ -1,17 +1,37 @@
-"""Premium thumbnail generator — ONE 'best' 1280x720 YouTube thumbnail for every channel.
+"""Premium thumbnail / cover generator — ONE 'best' look for EVERY channel, both
+16:9 YouTube thumbnails and 9:16 Facebook-Reel / Shorts covers.
 
 Hero image (cover-fit) + accent-tinted cinematic gradient + soft drop-shadowed BIG bold
-outlined title + accent eyebrow tag + accent underline + brand. Per-kind typography
-(kids / news / music / default). Robust font fallbacks (Windows fonts → DejaVu → default).
+outlined title + accent eyebrow pill + accent underline + brand. Per-kind typography
+(kids / news / music / default). Portrait covers place the title in the reel-safe zone
+(below the top chyron, above the bottom caption/UI). Robust font fallbacks.
 
-    from modules.thumbnail_pro import make_pro_thumbnail
-    make_pro_thumbnail(hero_jpg, "Count in isiZulu 1-10", "thumb.jpg",
-                       accent="#E85D9E", eyebrow="LEARN", brand="Zuzu & Friends", kind="kids")
+    from modules.thumbnail_pro import make_pro_thumbnail, niche_style
+    make_pro_thumbnail(hero, "Count in isiZulu 1-10", "thumb.jpg", *niche_style("kids_songs"))          # 16:9
+    make_pro_thumbnail(hero, "BREAKING", "cover.jpg", *niche_style("tech_news"), size=(1080, 1920))     # 9:16 reel
 """
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-W, H = 1280, 720
+# Per-channel style: (accent, eyebrow, brand, kind). Use via niche_style(niche).
+NICHE_STYLE = {
+    "tech_news":       ("#FF3131", "BREAKING", "Tech Pulse Africa",   "news"),
+    "daily_breakdown": ("#2F7FE0", "TODAY",    "Daily Breakdown",     "news"),
+    "ai_money":        ("#E0A400", "MONEY",    "Smart Money AI",      "default"),
+    "ai_trading":      ("#E0A400", "MARKETS",  "",                    "default"),
+    "motivation":      ("#A855F7", "MINDSET",  "Elevate You",         "default"),
+    "health_wellness": ("#2E9E6B", "WELLNESS", "Herbal Organic Life", "default"),
+    "blissful_moments":("#00C2A0", "",         "Blissful Moments",    "default"),
+    "shopmo_products": ("#E8720C", "MUST-HAVE","ShopMo",              "default"),
+    "limitless_you":   ("#6366F1", "GROW",     "Limitless You",       "default"),
+    "kids_songs":      ("#E85D9E", "LEARN",    "Zuzu & Friends",      "kids"),
+    "deep_chill":      ("#22D3EE", "",         "AlphaZone Sounds",    "music"),
+}
+
+
+def niche_style(niche):
+    """(accent, eyebrow, brand, kind) for a niche — sensible red default if unknown."""
+    return NICHE_STYLE.get(niche, ("#FF3131", "", "", "default"))
 
 
 def _hex(c):
@@ -29,12 +49,12 @@ def _font(size, kind):
     }
     for f in presets.get(kind, presets["default"]):
         try:
-            return ImageFont.truetype(f, size)
+            return ImageFont.truetype(f, max(8, int(size)))
         except Exception:
             continue
     try:
         from matplotlib import font_manager
-        return ImageFont.truetype(font_manager.findfont("DejaVu Sans:bold"), size)
+        return ImageFont.truetype(font_manager.findfont("DejaVu Sans:bold"), max(8, int(size)))
     except Exception:
         return ImageFont.load_default()
 
@@ -64,10 +84,15 @@ def _outline(d, xy, text, fnt, fill, outline, ow):
 
 
 def make_pro_thumbnail(base_image, title, out_path, accent="#FF3131",
-                       eyebrow="", brand="", kind="default"):
+                       eyebrow="", brand="", kind="default", size=(1280, 720)):
+    """Render a premium thumbnail/cover. size=(1280,720) landscape (YouTube) or
+    (1080,1920) portrait (Reel/Short cover)."""
+    W, H = int(size[0]), int(size[1])
+    portrait = H > W
     ac = _hex(accent)
+    margin = int(W * 0.05)
 
-    # hero cover-fit (or a dark ground if the image is missing)
+    # hero cover-fit (or a dark ground if the image is missing/unreadable)
     try:
         img = Image.open(base_image).convert("RGB")
         scale = max(W / img.width, H / img.height)
@@ -78,29 +103,38 @@ def make_pro_thumbnail(base_image, title, out_path, accent="#FF3131",
         img = Image.new("RGB", (W, H), (18, 22, 28))
     img = img.convert("RGBA")
 
-    # cinematic gradient: strong accent-tinted rise from the bottom + a soft top darken
+    # gradient / darken for text legibility
     grad = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     gd = ImageDraw.Draw(grad)
-    bh = int(H * 0.62)
-    for i in range(bh):
-        a = int(230 * (i / bh) ** 1.3)
-        col = (int(ac[0] * 0.16), int(ac[1] * 0.16), int(ac[2] * 0.16), a)
-        gd.line([(0, H - bh + i), (W, H - bh + i)], fill=col)
-    th = int(H * 0.22)
-    for i in range(th):
-        gd.line([(0, i), (W, i)], fill=(0, 0, 0, int(130 * (1 - i / th))))
+    tint = (int(ac[0] * 0.16), int(ac[1] * 0.16), int(ac[2] * 0.16))
+    if portrait:
+        # reel/short cover: keep the hero visible in the middle, darken toward the edges
+        for i in range(H):
+            f = abs((i / H) - 0.5) * 2.0
+            a = int(70 + 150 * (f ** 1.3))
+            gd.line([(0, i), (W, i)], fill=(*tint, a))
+    else:
+        bh = int(H * 0.62)
+        for i in range(bh):
+            a = int(230 * (i / bh) ** 1.3)
+            gd.line([(0, H - bh + i), (W, H - bh + i)], fill=(*tint, a))
+        th = int(H * 0.22)
+        for i in range(th):
+            gd.line([(0, i), (W, i)], fill=(0, 0, 0, int(130 * (1 - i / th))))
     img.alpha_composite(grad)
 
-    margin = 56
-    # title (uppercase, wrapped) sized to fit
-    fs = 128 if kind == "news" else 116
+    # title — sized to the frame width so it fits + wraps
+    fs = int(W * (0.10 if kind == "news" else 0.092))
     fnt = _font(fs, kind)
     probe = ImageDraw.Draw(img)
-    lines = _wrap(probe, title.upper(), fnt, int(W * 0.9))
-    while len(lines) > 2 and fs > 62:
-        fs -= 10; fnt = _font(fs, kind); lines = _wrap(probe, title.upper(), fnt, int(W * 0.9))
+    max_lines = 3 if portrait else 2
+    lines = _wrap(probe, str(title).upper(), fnt, int(W * 0.9), max_lines)
+    while len(lines) > max_lines and fs > int(W * 0.05):
+        fs -= int(W * 0.008); fnt = _font(fs, kind)
+        lines = _wrap(probe, str(title).upper(), fnt, int(W * 0.9), max_lines)
     lh = int(fs * 1.06)
-    y0 = H - margin - lh * len(lines)
+    total = lh * len(lines)
+    y0 = int(H * 0.30) if portrait else (H - margin - total)   # reel-safe zone vs bottom
 
     # soft drop shadow behind the title
     sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -109,34 +143,36 @@ def make_pro_thumbnail(base_image, title, out_path, accent="#FF3131",
     for ln in lines:
         sd.text((margin + 6, y + 9), ln, font=fnt, fill=(0, 0, 0, 190))
         y += lh
-    img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(11)))
+    img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(max(6, int(fs * 0.09)))))
 
     d = ImageDraw.Draw(img)
-    # accent underline bar above the title
-    d.rectangle([margin, y0 - 26, margin + int(W * 0.15), y0 - 12], fill=ac + (255,))
-    # crisp title
+    ow = max(4, int(fs * 0.05))
+    # accent underline above the title
+    d.rectangle([margin, y0 - int(fs * 0.24), margin + int(W * 0.15), y0 - int(fs * 0.11)], fill=ac + (255,))
     y = y0
     for ln in lines:
-        _outline(d, (margin, y), ln, fnt, (255, 255, 255), (12, 14, 20), 6)
+        _outline(d, (margin, y), ln, fnt, (255, 255, 255), (12, 14, 20), ow)
         y += lh
 
     # eyebrow pill (top-left)
     if eyebrow:
-        ef = _font(46, kind)
+        efs = int(W * 0.036)
+        ef = _font(efs, kind)
         et = str(eyebrow).upper()
-        tb = d.textbbox((0, 0), et, font=ef)
-        tw, tht = tb[2] - tb[0], tb[3] - tb[1]
-        pad = 18
-        d.rounded_rectangle([margin, 42, margin + tw + pad * 2, 42 + tht + pad * 2 + tb[1]],
-                            radius=14, fill=ac + (255,))
-        d.text((margin + pad, 42 + pad), et, font=ef, fill=(255, 255, 255))
+        tw = d.textlength(et, font=ef)
+        pad = int(W * 0.014)
+        d.rounded_rectangle([margin, margin, margin + tw + pad * 2, margin + efs + pad * 2],
+                            radius=int(pad * 0.8), fill=ac + (255,))
+        d.text((margin + pad, margin + pad - int(efs * 0.05)), et, font=ef, fill=(255, 255, 255))
 
-    # brand (bottom-right)
+    # brand — under the title on portrait (bottom is the UI zone), bottom-right on landscape
     if brand:
-        bf = _font(40, kind)
-        tb = d.textbbox((0, 0), brand, font=bf)
-        tw = tb[2] - tb[0]
-        _outline(d, (W - margin - tw, H - margin - 44), brand, bf, (255, 255, 255), (12, 14, 20), 3)
+        bf = _font(int(W * 0.031), kind)
+        tw = d.textlength(brand, font=bf)
+        if portrait:
+            _outline(d, (margin, y0 + total + int(fs * 0.18)), brand, bf, (255, 255, 255), (12, 14, 20), 3)
+        else:
+            _outline(d, (W - margin - tw, H - margin - int(fs * 0.35)), brand, bf, (255, 255, 255), (12, 14, 20), 3)
 
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     img.convert("RGB").save(out_path, "JPEG", quality=92)
@@ -146,6 +182,7 @@ def make_pro_thumbnail(base_image, title, out_path, accent="#FF3131",
 if __name__ == "__main__":
     import sys
     base = sys.argv[1] if len(sys.argv) > 1 else ""
-    make_pro_thumbnail(base, "Count in isiZulu 1-10", "thumb_demo.jpg",
-                       accent="#E85D9E", eyebrow="LEARN", brand="Zuzu & Friends", kind="kids")
-    print("wrote thumb_demo.jpg")
+    make_pro_thumbnail(base, "Count in isiZulu 1-10", "thumb_demo.jpg", *niche_style("kids_songs"))
+    make_pro_thumbnail(base, "Breaking: Global Conflict Explained", "cover_demo.jpg",
+                       *niche_style("tech_news"), size=(1080, 1920))
+    print("wrote thumb_demo.jpg + cover_demo.jpg")

@@ -147,9 +147,23 @@ def main():
         k = h.lstrip("#").lower()
         if k not in seen:
             seen.add(k); deduped.append(h)
+    # Premium 9:16 Reel cover from a frame of the finished video (includes the map opener)
+    cover = None
+    try:
+        from modules.thumbnail_pro import make_pro_thumbnail, niche_style
+        frame = out / "cover_hero.png"
+        subprocess.run([_ff(), "-y", "-ss", "1.5", "-i", str(dest), "-frames:v", "1", str(frame)],
+                       capture_output=True)
+        acc, eye, brand, kind = niche_style("tech_news")
+        cover = str(out / "cover.jpg")
+        make_pro_thumbnail(str(frame) if frame.exists() else "", pkg["title"], cover,
+                           accent=acc, eyebrow=(pkg.get("lowerthird_label") or eye),
+                           brand=brand, kind=kind, size=(1080, 1920))
+    except Exception as e:
+        print(f"  cover gen skipped ({e})", flush=True); cover = None
     res = asyncio.run(upload_to_facebook(video_path=str(dest), title=pkg["title"], description=desc,
                                          niche="tech_news", hashtags=deduped,
-                                         is_reel=True))
+                                         is_reel=True, thumbnail_path=cover))
     print("  POST:", res, flush=True)
     if res.get("status") == "uploaded":
         log_posted(pkg)

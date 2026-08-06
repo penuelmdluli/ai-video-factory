@@ -249,7 +249,7 @@ def loop_to_length(src, out, target_seconds=170):
     return str(out)
 
 # ---------- 8. post ----------
-async def post(video, short, lesson, do_short, thumb=None):
+async def post(video, short, lesson, do_short, thumb=None, fb_cover=None):
     from modules.uploader_youtube import upload_to_youtube
     from modules.uploader_facebook import upload_to_facebook
     desc = build_description(lesson)
@@ -267,7 +267,8 @@ async def post(video, short, lesson, do_short, thumb=None):
     try:
         if short and Path(short).exists():
             res["fb"] = await upload_to_facebook(str(short), title, desc,
-                                                 niche="blissful_moments", is_reel=True)
+                                                 niche="blissful_moments", is_reel=True,
+                                                 thumbnail_path=fb_cover)
             log(f"FB reel: {res['fb'].get('status', res['fb'])}")
         else:
             log("FB reel SKIPPED: no vertical short available (reels must be <=90s, 9:16)")
@@ -351,7 +352,8 @@ def main():
     else:
         loop_to_length(out16, out_long, 170)
     # auto thumbnail — bright hero scene + big title (needs verified channel to upload)
-    thumb = None
+    thumb = None      # 16:9 YouTube thumbnail
+    fb_cover = None    # 9:16 Facebook-Reel cover
     try:
         from modules.thumbnail_pro import make_pro_thumbnail
         zstills = sorted((ROOT / "zuzu_lora" / "dataset").glob("zuzu_0*.png"))
@@ -367,13 +369,16 @@ def main():
             thumb = str(work / "thumb.jpg")
             make_pro_thumbnail(hero, lesson["title"], thumb, accent="#E85D9E",
                                eyebrow="LEARN", brand="Zuzu & Friends", kind="kids")
+            fb_cover = str(work / "cover.jpg")
+            make_pro_thumbnail(hero, lesson["title"], fb_cover, accent="#E85D9E",
+                               eyebrow="LEARN", brand="Zuzu & Friends", kind="kids", size=(1080, 1920))
     except Exception as e:
         log(f"thumbnail gen skipped: {e}")
     _lennote = "teaching, single outro" if learn_remotion else "looped ~3min"
     log(f"BUILT: {out_long} ({_lennote}) + {short}" + (" + thumb" if thumb else ""))
     if a.dry_run:
         log("DRY-RUN — not posting."); return
-    log("STAGE 5/5 post"); asyncio.run(post(str(out_long), short, lesson, not a.no_short, thumb=thumb))
+    log("STAGE 5/5 post"); asyncio.run(post(str(out_long), short, lesson, not a.no_short, thumb=thumb, fb_cover=fb_cover))
     log("DONE")
 
 if __name__ == "__main__":

@@ -523,6 +523,17 @@ def generate_reel_cover(
     title placed in the reel-safe zone (clear of the top chyron and the bottom
     caption/UI). Use this for Facebook Reels; use generate_thumbnail() for 16:9
     YouTube video pages."""
+    # ── Premium portrait cover (migrated) — falls back to the legacy layout on any error ──
+    try:
+        from modules.thumbnail_pro import make_pro_thumbnail, niche_style
+        _acc, _eye, _brand, _kind = niche_style(niche)
+        if accent_text:
+            _eye = str(accent_text).upper()
+        return make_pro_thumbnail(background_image, title_text, str(output_path),
+                                  accent=_acc, eyebrow=_eye, brand=_brand, kind=_kind, size=(1080, 1920))
+    except Exception as _e:
+        print(f"[reel_cover] premium generator failed ({_e}); using legacy layout")
+
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     colors = NICHE_COLORS.get(niche, NICHE_COLORS["ai_trading"])
@@ -615,6 +626,23 @@ def generate_thumbnail_from_script(
         layout: Layout name (classic/centered/diagonal/split/bottom_bar)
                or index (0-4), or None for random
     """
+    # ── Premium thumbnail (migrated) — hero + cinematic gradient + bold outlined title
+    # + per-niche accent eyebrow + brand. Falls back to the legacy 5-layout system below
+    # on any error, so this can never break a build.
+    try:
+        import re as _re
+        from modules.thumbnail_pro import make_pro_thumbnail, niche_style
+        _title = script.get("thumbnail_text") or script.get("title", "AI VIDEO")
+        _acc, _eye, _brand, _kind = niche_style(script.get("niche", "tech_news"))
+        _m = _re.search(r'\$[\d,]+[KkMmBb]?', script.get("title", ""))   # money hook → eyebrow
+        if _m:
+            _eye = _m.group().upper()
+        return make_pro_thumbnail(chart_image, _title, str(output_path),
+                                  accent=_acc, eyebrow=_eye, brand=_brand, kind=_kind)
+    except Exception as _e:
+        print(f"[thumbnail] premium generator failed ({_e}); using legacy layout")
+
+    # ── Legacy fallback: original 5-layout system ──
     thumbnail_text = script.get("thumbnail_text", script.get("title", "AI VIDEO")[:30])
 
     # Try to extract a number/dollar amount for the accent
