@@ -31,6 +31,8 @@ def make_synced_reel(beats, out_path, size=(1080, 1920), accent="#FF3131", fps=3
     seed = sum(ord(c) for c in (beats[0].get("say", "") if beats else "x")) % 9973
     bg = make_bg_provider(accent=accent, seed=seed)
     offset = 0   # cumulative frames -> motion stays continuous across beats
+    tcur = 0.0   # running start time (s) of each beat, for SFX placement
+    beat_marks = []   # (time, sfx_name)
     try:
         clips = []
         for i, b in enumerate(beats):
@@ -65,13 +67,27 @@ def make_synced_reel(beats, out_path, size=(1080, 1920), accent="#FF3131", fps=3
             clip = VideoFileClip(vpath)
             if audio is not None:
                 clip = clip.with_audio(audio)
+
+            # SFX marks (absolute time). whoosh on cuts, pop on emoji land, ticks+ding on counters
+            if i > 0:
+                beat_marks.append((tcur, "whoosh"))
+            if b.get("hook"):
+                beat_marks.append((tcur + 0.02, "ding"))
+            elif (b.get("device") or {}).get("type") == "stat":
+                for k in range(6):
+                    beat_marks.append((tcur + 0.30 + k * 0.16, "tick"))
+                beat_marks.append((tcur + min(dur - 0.4, 1.5), "ding"))
+            else:
+                beat_marks.append((tcur + 0.13, "pop"))
             clips.append(clip)
+            tcur += clip.duration
 
         if not clips:
             return None
         base = concatenate_videoclips(clips, method="compose")
         total = base.duration
 
+        # ---- audio: per-beat voice (already on base) + music bed ----
         if music and Path(music).exists():
             try:
                 m = AudioFileClip(music).with_effects([
@@ -91,15 +107,48 @@ def make_synced_reel(beats, out_path, size=(1080, 1920), accent="#FF3131", fps=3
             except Exception:
                 pass
 
+        # ---- SFX punctuation: one full-length track mixed via ffmpeg (channel-safe) ----
+        base_src = base_out
+        if beat_marks:
+            try:
+                import subprocess
+                import imageio_ffmpeg
+                from modules.sfx_synth import arrays as _sfx_arrays, SR as _SR, write_stereo_wav
+                sfx = _sfx_arrays()
+                buf = __import__("numpy").zeros(int(total * _SR) + _SR, dtype="float32")
+                vol = {"whoosh": 0.4, "pop": 0.5, "tick": 0.35, "ding": 0.42}
+                for tstart, kind in beat_marks:
+                    a = sfx.get(kind)
+                    if a is None:
+                        continue
+                    off = int(max(0.0, tstart - (0.08 if kind == "whoosh" else 0.0)) * _SR)
+                    seg = a * vol.get(kind, 0.4)
+                    end = min(len(buf), off + len(seg))
+                    if end > off:
+                        buf[off:end] += seg[:end - off]
+                sfx_wav = write_stereo_wav(str(work / "sfx_track.wav"), buf)
+                ff = imageio_ffmpeg.get_ffmpeg_exe()
+                mixed = work / "synced_sfx.mp4"
+                subprocess.run([ff, "-y", "-i", str(base_out), "-i", str(sfx_wav),
+                                "-filter_complex", "[0:a][1:a]amix=inputs=2:normalize=0:duration=first[a]",
+                                "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", str(mixed)],
+                               capture_output=True)
+                if mixed.exists() and mixed.stat().st_size > 10000:
+                    base_src = mixed
+                else:
+                    print("[synced] sfx mix produced no file — using clean audio", flush=True)
+            except Exception as e:
+                print(f"[synced] sfx skipped: {e}", flush=True)
+
         out_path = str(out_path); Path(out_path).parent.mkdir(parents=True, exist_ok=True)
         if breaking:
             from modules.overlays import add_news_overlays
-            r = add_news_overlays(str(base_out), out_path, label=label, accent=accent,
+            r = add_news_overlays(str(base_src), out_path, label=label, accent=accent,
                                   handle=handle, follow=follow, comment_prompt=comment_prompt)
             if not r:
-                shutil.copy(str(base_out), out_path)
+                shutil.copy(str(base_src), out_path)
         else:
-            shutil.copy(str(base_out), out_path)
+            shutil.copy(str(base_src), out_path)
         # the spoken lines, in order, are the standalone narration — return them for captions/description
         return {"path": out_path, "narration": " ".join(lines_spoken), "duration": total}
     finally:
