@@ -59,7 +59,7 @@ def _font(size, kind):
         return ImageFont.load_default()
 
 
-def _wrap(draw, text, fnt, max_w, max_lines=3):
+def _wrap(draw, text, fnt, max_w, max_lines=3, truncate=True):
     words, lines, cur = text.split(), [], ""
     for w in words:
         t = (cur + " " + w).strip()
@@ -71,7 +71,7 @@ def _wrap(draw, text, fnt, max_w, max_lines=3):
             cur = w
     if cur:
         lines.append(cur)
-    return lines[:max_lines]
+    return lines[:max_lines] if truncate else lines
 
 
 def _outline(d, xy, text, fnt, fill, outline, ow):
@@ -128,10 +128,12 @@ def make_pro_thumbnail(base_image, title, out_path, accent="#FF3131",
     fnt = _font(fs, kind)
     probe = ImageDraw.Draw(img)
     max_lines = 3 if portrait else 2
-    lines = _wrap(probe, str(title).upper(), fnt, int(W * 0.9), max_lines)
-    while len(lines) > max_lines and fs > int(W * 0.05):
-        fs -= int(W * 0.008); fnt = _font(fs, kind)
-        lines = _wrap(probe, str(title).upper(), fnt, int(W * 0.9), max_lines)
+    # shrink the font until the WHOLE title fits within max_lines (don't chop words off)
+    lines = _wrap(probe, str(title).upper(), fnt, int(W * 0.9), max_lines, truncate=False)
+    while len(lines) > max_lines and fs > int(W * 0.045):
+        fs -= int(W * 0.006); fnt = _font(fs, kind)
+        lines = _wrap(probe, str(title).upper(), fnt, int(W * 0.9), max_lines, truncate=False)
+    lines = lines[:max_lines]   # final safety if it still won't fit at the min size
     lh = int(fs * 1.06)
     total = lh * len(lines)
     y0 = int(H * 0.30) if portrait else (H - margin - total)   # reel-safe zone vs bottom

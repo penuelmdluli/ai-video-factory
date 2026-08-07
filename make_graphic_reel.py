@@ -88,15 +88,16 @@ def run(niche, dry_run=False):
     print(f"  built -> {reel}  ({r['duration']:.1f}s)", flush=True)
     print(f"  STANDALONE NARRATION: {r['narration']}", flush=True)
 
-    # premium 9:16 cover from a frame of the reel
+    # premium 9:16 cover on a CLEAN animated-style background — NEVER a reel frame, which
+    # already carries big card text and would double/ghost the overlaid title.
     cover = out / "cover.jpg"
     try:
         from modules.thumbnail_pro import make_pro_thumbnail
-        import imageio_ffmpeg
-        ff = imageio_ffmpeg.get_ffmpeg_exe()
-        frame = out / "hero.png"
-        subprocess.run([ff, "-y", "-ss", "1.5", "-i", str(reel), "-frames:v", "1", str(frame)], capture_output=True)
-        make_pro_thumbnail(str(frame) if frame.exists() else "", pkg.get("title", ""), str(cover),
+        from modules.motion_bg import make_bg_provider
+        hero = out / "hero.png"
+        seed = sum(ord(c) for c in pkg.get("title", "x")) % 997
+        make_bg_provider(accent=acc, seed=seed)(24, 90, W, H).save(str(hero))
+        make_pro_thumbnail(str(hero), pkg.get("title", ""), str(cover),
                            accent=acc, eyebrow=(pkg.get("lowerthird_label") or eye), brand=brand, kind=kind, size=(W, H))
     except Exception as e:
         print(f"  cover skipped ({e})", flush=True); cover = None
