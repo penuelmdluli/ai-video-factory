@@ -7,7 +7,8 @@ import traceback
 
 from make_graphic_reel import run
 
-NICHES = sys.argv[1:] or ["tech_news", "ai_money", "motivation", "health_wellness", "blissful_moments"]
+# blissful_moments removed — that page is now SAGA OF THE NORTH (Viking), posted by post_next_viking.py
+NICHES = sys.argv[1:] or ["tech_news", "ai_money", "motivation", "health_wellness"]
 DRY = "--dry-run" in NICHES
 NICHES = [n for n in NICHES if not n.startswith("--")]
 
