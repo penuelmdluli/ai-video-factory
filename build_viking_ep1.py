@@ -100,7 +100,7 @@ def main():
 
     # $0 finish: deep saga-narrator + score + brand + synced subtitles + follow + comment-bait
     from finish_short import finish
-    final = finish(out)
+    final = finish(out, voiceover=False)
     print(f"EPISODE -> {final}", flush=True)
 
 

@@ -85,7 +85,7 @@ def main():
         if not clips:
             continue
         concat_uniform(clips, str(out / "visuals.mp4"))
-        final = finish(str(out), saga=sh["saga"], comment=sh["comment"])
+        final = finish(str(out), saga=sh["saga"], comment=sh["comment"], voiceover=False)
         if final:
             done.append(str(final))
             print(f"  DONE -> {final}", flush=True)
