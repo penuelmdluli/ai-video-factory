@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 BASE = "https://api.kie.ai/api/v1/veo"
+UPLOAD_URL = "https://kieai.redpandaai.co/api/file-base64-upload"
 
 
 def _key():
@@ -30,18 +31,44 @@ def _key():
     return k
 
 
+_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+       "(KHTML, like Gecko) Chrome/120 Safari/537.36")
+
+
 def _post(url, payload, key):
     req = urllib.request.Request(
         url, data=json.dumps(payload).encode(),
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=60) as r:
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
+                 "User-Agent": _UA}, method="POST")
+    with urllib.request.urlopen(req, timeout=90) as r:
         return json.loads(r.read().decode())
 
 
 def _get(url, key):
-    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {key}"}, method="GET")
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {key}", "User-Agent": _UA},
+                                 method="GET")
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.loads(r.read().decode())
+
+
+def upload_image(path, upload_path="wildminds"):
+    """Base64-upload a local image to Kie's file host; return its public fileUrl (expires ~3 days)."""
+    import base64
+    import mimetypes
+    key = _key()
+    if not key:
+        raise RuntimeError("KIE_API_KEY not set")
+    mime = mimetypes.guess_type(str(path))[0] or "image/png"
+    b64 = base64.b64encode(Path(path).read_bytes()).decode()
+    payload = {"base64Data": f"data:{mime};base64,{b64}",
+               "uploadPath": upload_path, "fileName": Path(path).name}
+    r = _post(UPLOAD_URL, payload, key)
+    d = r.get("data") if isinstance(r.get("data"), dict) else r
+    url = (d or {}).get("fileUrl") or (d or {}).get("downloadUrl")
+    if not url:
+        raise RuntimeError(f"image upload failed: {r}")
+    print(f"[Veo] uploaded reference -> {url}", flush=True)
+    return url
 
 
 def estimate_cost(model, duration, resolution="720p"):
@@ -50,8 +77,9 @@ def estimate_cost(model, duration, resolution="720p"):
 
 
 def generate_veo(prompt, out_path, model="veo3_fast", aspect="9:16", resolution="720p",
-                 duration=8, image_urls=None, timeout=900, poll=12):
-    """Generate one Veo 3 clip and download it. Returns out_path. Raises on failure."""
+                 duration=8, image_urls=None, generation_type=None, timeout=900, poll=12):
+    """Generate one Veo 3 clip and download it. Returns out_path. Raises on failure.
+    Pass image_urls + generation_type='REFERENCE_2_VIDEO' to lock characters to a reference image."""
     key = _key()
     if not key:
         raise RuntimeError("KIE_API_KEY not set — add it to .env (sign up + add credit at https://kie.ai)")
@@ -59,6 +87,8 @@ def generate_veo(prompt, out_path, model="veo3_fast", aspect="9:16", resolution=
             "resolution": resolution, "duration": duration}
     if image_urls:
         body["imageUrls"] = image_urls if isinstance(image_urls, list) else [image_urls]
+    if generation_type:
+        body["generationType"] = generation_type
     r = _post(f"{BASE}/generate", body, key)
     if r.get("code") != 200:
         raise RuntimeError(f"Veo create failed: code={r.get('code')} msg={r.get('msg')}")
