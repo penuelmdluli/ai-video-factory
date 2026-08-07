@@ -56,7 +56,7 @@ def stitch(clips, out):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--test", action="store_true", help="generate only the first shot")
-    ap.add_argument("--model", default="veo3_fast", choices=["veo3_fast", "veo3_lite", "veo3"])
+    ap.add_argument("--model", default="veo3_lite", choices=["veo3_lite", "veo3_fast", "veo3"])
     ap.add_argument("--resolution", default="720p", choices=["720p", "1080p"])
     a = ap.parse_args()
 

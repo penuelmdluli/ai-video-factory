@@ -30,7 +30,7 @@ def main():
     for i, p in enumerate(NEW, 1):
         c = out / f"shot_{i}.mp4"
         try:
-            generate_veo(p, str(c), model="veo3_fast", aspect="9:16", resolution="720p", duration=8)
+            generate_veo(p, str(c), model="veo3_lite", aspect="9:16", resolution="720p", duration=8)
             clips.append(str(c))
         except Exception as e:
             print(f"shot {i} FAILED: {e}", flush=True)

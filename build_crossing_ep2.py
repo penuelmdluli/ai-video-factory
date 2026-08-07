@@ -127,7 +127,7 @@ def main():
         print(f"  continuing from Ep1 final frame: {start_img}", flush=True)
 
     print("=== THE CROSSING EP2 — frame-chained 1080p (~$7.20) ===", flush=True)
-    clips = build_chained_episode(prompts(), cast_image=CAST, out_dir=out, model="veo3_fast",
+    clips = build_chained_episode(prompts(), cast_image=CAST, out_dir=out, model="veo3_lite",
                                   resolution="1080p", duration=8, start_image=str(start_img) if start_img else None)
     if not clips:
         print("no clips generated.", flush=True)

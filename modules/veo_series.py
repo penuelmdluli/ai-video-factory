@@ -22,7 +22,7 @@ def _last_frame(video, out_png):
     return out_png
 
 
-def build_chained_episode(prompts, cast_image, out_dir, model="veo3_fast", resolution="720p",
+def build_chained_episode(prompts, cast_image, out_dir, model="veo3_lite", resolution="720p",
                           duration=8, aspect="9:16", start_image=None):
     """Generate a frame-chained episode. Returns the list of shot clip paths (in order).
     If `start_image` is given (e.g. the last frame of the previous EPISODE), shot 0 continues

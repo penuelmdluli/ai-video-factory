@@ -72,11 +72,11 @@ def upload_image(path, upload_path="wildminds"):
 
 
 def estimate_cost(model, duration, resolution="720p"):
-    per_sec = {"veo3_fast": 0.15, "veo3_lite": 0.10, "veo3": 0.40}.get(model, 0.15)
+    per_sec = {"veo3_fast": 0.15, "veo3_lite": 0.05, "veo3": 0.40}.get(model, 0.05)
     return per_sec * duration
 
 
-def generate_veo(prompt, out_path, model="veo3_fast", aspect="9:16", resolution="720p",
+def generate_veo(prompt, out_path, model="veo3_lite", aspect="9:16", resolution="720p",
                  duration=8, image_urls=None, generation_type=None, timeout=900, poll=12):
     """Generate one Veo 3 clip and download it. Returns out_path. Raises on failure.
     Pass image_urls + generation_type='REFERENCE_2_VIDEO' to lock characters to a reference image."""

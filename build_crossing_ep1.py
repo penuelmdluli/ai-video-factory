@@ -131,13 +131,13 @@ def main():
         print(f"cast upload FAILED: {e}", flush=True)
         return
 
-    est = sum(estimate_cost("veo3_fast", 8) for _ in SCRIPT)
+    est = sum(estimate_cost("veo3_lite", 8) for _ in SCRIPT)
     print(f"=== THE CROSSING EP1 — {len(SCRIPT)} character-locked shots ~${est:.2f} ===", flush=True)
     clips = []
     for i, (who, action, line) in enumerate(SCRIPT):
         c = out / f"shot_{i}.mp4"
         try:
-            generate_veo(shot_prompt(who, action, line), str(c), model="veo3_fast", aspect="9:16",
+            generate_veo(shot_prompt(who, action, line), str(c), model="veo3_lite", aspect="9:16",
                          resolution="720p", duration=8, image_urls=[cast_url],
                          generation_type="REFERENCE_2_VIDEO")
             clips.append(str(c))
