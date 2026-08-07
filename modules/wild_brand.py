@@ -18,8 +18,8 @@ def _probe_size(path):
     return (int(m.group(1)), int(m.group(2))) if m else (720, 1280)
 
 
-def brand_video(src, out, name="WILD MINDS", emoji="\U0001F981"):
-    """Overlay the WILD MINDS badge + follow prompt onto `src`, write to `out`. Returns out."""
+def brand_video(src, out, name="WILD MINDS", emoji="\U0001F981", follow=True):
+    """Overlay the badge (+ optional FOLLOW FOR MORE prompt) onto `src`, write to `out`. Returns out."""
     ff = imageio_ffmpeg.get_ffmpeg_exe()
     W, H = _probe_size(src)
     work = Path(out).parent
@@ -59,8 +59,13 @@ def brand_video(src, out, name="WILD MINDS", emoji="\U0001F981"):
     hbp = work / "_brand_handle.png"
     hb.save(hbp)
 
-    subprocess.run([ff, "-y", "-i", src, "-i", str(bp), "-i", str(hbp), "-filter_complex",
-                    f"[0:v][1:v]overlay=(W-w)/2:{int(H*0.03)}[a];[a][2:v]overlay=0:H-{int(H*0.08)}[v]",
+    if follow:
+        fc = (f"[0:v][1:v]overlay=(W-w)/2:{int(H*0.03)}[a];[a][2:v]overlay=0:H-{int(H*0.08)}[v]")
+        ins = ["-i", src, "-i", str(bp), "-i", str(hbp)]
+    else:
+        fc = f"[0:v][1:v]overlay=(W-w)/2:{int(H*0.03)}[v]"
+        ins = ["-i", src, "-i", str(bp)]
+    subprocess.run([ff, "-y", *ins, "-filter_complex", fc,
                     "-map", "[v]", "-map", "0:a", "-c:v", "libx264", "-pix_fmt", "yuv420p",
                     "-c:a", "copy", out], capture_output=True)
     return out
