@@ -34,7 +34,7 @@ def _dur(p):
     return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3)) if m else 16.0
 
 
-def finish(dir_):
+def finish(dir_, saga=SAGA, comment=COMMENT, name=NAME, emoji=EMOJI, handle=HANDLE):
     d = Path(dir_)
     ff = imageio_ffmpeg.get_ffmpeg_exe()
     visuals = d / "visuals.mp4"
@@ -43,7 +43,7 @@ def finish(dir_):
         return
     narr, srt = d / "narr.mp3", d / "narr.srt"
     print("  narrating (am_onyx)...", flush=True)
-    asyncio.run(generate_voice_kokoro(SAGA, narr, voice="am_onyx", speed=1.0, output_subs=srt))
+    asyncio.run(generate_voice_kokoro(saga, narr, voice="am_onyx", speed=1.0, output_subs=srt))
     if not narr.exists():
         print("  narration failed", flush=True)
         return
@@ -64,9 +64,9 @@ def finish(dir_):
                     "-c:v", "copy", "-c:a", "aac", str(mixed)], capture_output=True)
 
     branded = d / "branded.mp4"
-    brand_video(str(mixed), str(branded), name=NAME, emoji=EMOJI, follow=False)
+    brand_video(str(mixed), str(branded), name=name, emoji=emoji, follow=False)
     final = d / "final.mp4"
-    add_subs_and_follow(str(branded), str(srt), str(final), handle=HANDLE, accent=GOLD, comment=COMMENT)
+    add_subs_and_follow(str(branded), str(srt), str(final), handle=handle, accent=GOLD, comment=comment)
     print(f"FINAL -> {final}", flush=True)
     return final
 
