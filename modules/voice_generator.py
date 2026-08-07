@@ -525,8 +525,8 @@ async def generate_voice(
     # Speed LOCKED to 1.0 — Kokoro >1.0 introduces voice-shift artifacts ("chipmunk"/robotic
     # tone) that made the news voice sound bad. Control length via script word count, NOT speed.
     kokoro_voices = {
-        "blissful_moments": ("af_bella", 1.0),    # Best voice — warm, clear, professional
-        "health_wellness":  ("af_bella", 1.0),    # Same quality — trustworthy for health
+        "blissful_moments": ("af_heart", 1.0),    # Kokoro flagship — warm, calm (best voice)
+        "health_wellness":  ("af_heart", 1.0),    # Kokoro flagship — warm, trustworthy (best voice)
         "tech_news":        ("af_heart", 1.0),    # Kokoro flagship — warmest, most natural (best voice)
         "ai_money":         ("af_heart", 1.0),    # Kokoro flagship — warm, trustworthy for money
         "motivation":       ("af_heart", 1.0),    # Kokoro flagship — warm, natural for motivation

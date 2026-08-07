@@ -71,6 +71,34 @@ SCHEMAS = {
         '"quote":"one short punchy line, 64 characters max",'
         '"comment_prompt":"one engaging question","caption":"1-2 sentence caption + 4 hashtags"}'
     ),
+    "health_wellness": (
+        "You are a gentle natural-wellness educator for a page called Herbal Organic Life. Write a fresh "
+        "~20-second vertical reel sharing ONE simple, evergreen healthy-living or herbal/organic lifestyle "
+        "tip (e.g. hydration, whole foods, herbal teas, better sleep, daily movement, mindful eating, less "
+        "sugar, morning sunlight, gut-health basics, deep breathing). Keep it GENERAL wellness only. Do NOT "
+        "give medical advice, do NOT claim to treat, cure, prevent or diagnose any disease, do NOT invent "
+        "statistics or dosages, and do NOT name conditions to treat. The narration must be DIRECT and "
+        "information-dense: short, clear declarative sentences that each carry real substance. NO greetings, "
+        "NO 'hello friends', NO sign-offs, NO filler about being a guide — just the tip. Return ONLY a JSON "
+        "object (no markdown) with keys:\n"
+        '{"title":"4-7 word title","hook_line":"6-9 word scroll-stopper",'
+        '"narration":"~50 word direct voiceover, short punchy sentences, sharing the tip",'
+        '"steps":["short step 1","short step 2","short step 3"],'
+        '"flow_title":"3-4 word label","comment_prompt":"one engaging question",'
+        '"caption":"1-2 sentence caption + 4 hashtags"}'
+    ),
+    "blissful_moments": (
+        "You are a calming, uplifting creator for a page called Blissful Moments. Write a fresh 15-20 "
+        "second vertical reel with a peaceful, heart-warming message about gratitude, calm, mindfulness, "
+        "kindness, or appreciating simple joys. Soothing and positive; no factual claims or statistics. "
+        "The narration must be DIRECT: short, clear declarative sentences that each carry real meaning. NO "
+        "greetings, NO 'hello friends', NO sign-offs, NO filler — just the message. Return ONLY a JSON object "
+        "(no markdown) with keys:\n"
+        '{"title":"4-7 word gentle title","hook_line":"6-9 word soft scroll-stopper",'
+        '"narration":"~42 word soft message, short punchy declarative sentences, second person",'
+        '"quote":"one short calming line, 64 characters max",'
+        '"comment_prompt":"one gentle question","caption":"1-2 sentence caption + 4 hashtags"}'
+    ),
 }
 
 

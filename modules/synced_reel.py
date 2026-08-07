@@ -74,11 +74,13 @@ def make_synced_reel(beats, out_path, size=(1080, 1920), accent="#FF3131", fps=3
 
         if music and Path(music).exists():
             try:
-                m = AudioFileClip(music).with_effects([afx.AudioLoop(duration=total), afx.MultiplyVolume(0.11)])
+                m = AudioFileClip(music).with_effects([
+                    afx.AudioLoop(duration=total), afx.MultiplyVolume(0.16),
+                    afx.AudioFadeIn(0.4), afx.AudioFadeOut(0.8)])
                 tracks = [base.audio, m] if base.audio is not None else [m]
                 base = base.with_audio(CompositeAudioClip(tracks))
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[synced] music mix skipped: {e}", flush=True)
 
         base_out = work / "synced_base.mp4"
         base.write_videofile(str(base_out), fps=fps, codec="libx264", audio_codec="aac",

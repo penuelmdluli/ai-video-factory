@@ -7,7 +7,7 @@ import traceback
 
 from make_graphic_reel import run
 
-NICHES = sys.argv[1:] or ["tech_news", "ai_money", "motivation"]
+NICHES = sys.argv[1:] or ["tech_news", "ai_money", "motivation", "health_wellness", "blissful_moments"]
 DRY = "--dry-run" in NICHES
 NICHES = [n for n in NICHES if not n.startswith("--")]
 

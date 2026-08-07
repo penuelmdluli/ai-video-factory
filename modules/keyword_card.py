@@ -7,6 +7,7 @@ the voice says exactly what's on screen — the baby-channel formula for grown-u
     from modules.keyword_card import make_keyword_card
     make_keyword_card("Africa sits at the center", "AFRICA", "🌍", "kw.mp4", duration=2.2)
 """
+import math
 import subprocess
 import tempfile
 from pathlib import Path
@@ -119,20 +120,41 @@ def make_keyword_card(say, keyword, emoji, out_path, duration=2.2, size=(1080, 1
             frame = bg_provider(i, n, W, H, frame_offset).copy() if bg_provider else bg.copy()
             d = ImageDraw.Draw(frame, "RGBA")
 
-            # emoji pop (0 -> 0.32)
+            cy_e = em_y + em_px // 2
+            bob = int(math.sin(t * 3.2) * H * 0.010) if t > 0.30 * duration else 0
+
+            # pulsing rings behind the emoji — same living energy as the map pin
+            appear = _ease(t / (0.30 * duration))
+            if appear > 0.05:
+                period = 1.3
+                for k in range(3):
+                    ph = ((t / period) + k / 3.0) % 1.0
+                    rr = em_px * (0.5 + 0.62 * ph)
+                    aa = int(85 * appear * (1 - ph))
+                    if aa > 4:
+                        d.ellipse([cx - rr, cy_e + bob - rr, cx + rr, cy_e + bob + rr],
+                                  outline=ac + (aa,), width=max(2, int(W * 0.006)))
+
+            # emoji pop (0 -> 0.32) + gentle bob
             if em_img is not None:
                 p = _back(t / (0.32 * duration)) if t < 0.32 * duration else 1.0
                 p = max(0.05, p)
                 ew = max(1, int(em_img.width * p)); eh = max(1, int(em_img.height * p))
                 es = em_img.resize((ew, eh), Image.LANCZOS)
-                frame.paste(es, (cx - ew // 2, em_y + (em_px - eh) // 2), es)
+                frame.paste(es, (cx - ew // 2, em_y + (em_px - eh) // 2 + bob), es)
 
-            # keyword rise+fade (0.12 -> 0.44)
+            # keyword rise+fade (0.12 -> 0.44) + animated underline draw-on
             kp = _ease((t - 0.12 * duration) / (0.32 * duration))
             if kp > 0:
                 a = int(255 * kp); yo = int((1 - kp) * kfs * 0.4)
                 kw_w = dmy.textlength(keyword, font=kfont)
-                _outline(d, ((W - kw_w) // 2, kw_y - yo), keyword, kfont, ac + (a,), ow)
+                kx = (W - kw_w) // 2
+                _outline(d, (kx, kw_y - yo), keyword, kfont, ac + (a,), ow)
+                uw = kw_w * _ease((t - 0.30 * duration) / (0.42 * duration))
+                if uw > 2:
+                    uy = kw_y + int(kfs * 1.04)
+                    d.rounded_rectangle([kx, uy, kx + uw, uy + max(4, int(kfs * 0.075))],
+                                        radius=max(2, int(kfs * 0.038)), fill=ac + (235,))
 
             # subtitle fade-in (0.10 -> 0.30) and fade-out (last 0.18)
             fade_in = min(1.0, (t) / (0.22 * duration))

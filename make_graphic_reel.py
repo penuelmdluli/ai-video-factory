@@ -40,6 +40,14 @@ NICHE_META = {
                        hashtags=["Motivation", "Mindset", "Discipline", "Success", "Reels"],
                        tag="",
                        comment="Tag someone who needs this."),
+    "health_wellness": dict(label="WELLNESS", handle="HerbalOrganicLife", follow=True,
+                            hashtags=["Wellness", "Herbal", "Organic", "NaturalLiving", "Reels"],
+                            tag="\U0001F33F General wellness — not medical advice",
+                            comment="Will you try this?"),
+    "blissful_moments": dict(label="CALM", handle="BlissfulMoments", follow=True,
+                             hashtags=["Gratitude", "Mindfulness", "Calm", "Peace", "Reels"],
+                             tag="",
+                             comment="Tag someone who needs calm today."),
 }
 
 
@@ -64,10 +72,16 @@ def run(niche, dry_run=False):
         (b.get("device", {}).get("type", "kw") if b.get("device") else
          ("hook" if b.get("hook") else "kw")) + ":" + (b.get("say", "")[:22]) for b in beats), flush=True)
 
+    # niche-appropriate background music bed ($0, cached)
+    music_bed = ROOT / "assets" / "ai_music_cache" / f"bgm_{niche}.mp3"
+    music = str(music_bed) if music_bed.exists() else None
+    print(f"  music: {music_bed.name if music else 'none'}", flush=True)
+
     reel = out / "reel.mp4"
     r = make_synced_reel(beats, str(reel), size=(W, H), accent=acc, fps=FPS, breaking=True,
                          label=meta["label"], handle=meta["handle"], follow=meta["follow"],
-                         comment_prompt=pkg.get("comment_prompt", meta["comment"]), niche=niche)
+                         comment_prompt=pkg.get("comment_prompt", meta["comment"]), niche=niche,
+                         music=music)
     if not r:
         raise SystemExit("synced reel render failed")
     reel = Path(r["path"])

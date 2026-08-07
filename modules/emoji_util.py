@@ -67,6 +67,19 @@ KEYWORD_EMOJI = {
     "phone": "📱", "tech": "💻", "computer": "💻", "chip": "🧠", "data": "📊", "internet": "🌐",
     "app": "📱", "battery": "🔋", "car": "🚗", "space": "🚀", "climate": "🌡️",
     "ai": "🤖", "robot": "🤖",
+    # wellness / herbal / natural living
+    "hydrate": "💧", "water": "💧", "sleep": "😴", "rest": "🛌", "tea": "🍵", "herbal": "🌿",
+    "herb": "🌿", "organic": "🌱", "plant": "🌱", "seed": "🌰", "vegetable": "🥦", "veggie": "🥦",
+    "fruit": "🍎", "salad": "🥗", "whole food": "🥗", "sugar": "🧁", "exercise": "🏃", "walk": "🚶",
+    "movement": "🏃", "stretch": "🧘", "yoga": "🧘", "breathe": "🌬️", "breath": "🌬️", "sunlight": "☀️",
+    "sunshine": "☀️", "gut": "🦠", "immune": "🛡️", "skin": "✨", "detox": "🍋", "lemon": "🍋",
+    "ginger": "🫚", "garlic": "🧄", "honey": "🍯", "natural": "🌿", "healthy": "🥗", "body": "🧘",
+    "energy boost": "⚡", "morning": "🌅",
+    # calm / gratitude / blissful
+    "gratitude": "🙏", "grateful": "🙏", "thankful": "🙏", "peace": "🕊️", "calm": "🌊",
+    "mindful": "🧘", "kindness": "🤍", "kind": "🤍", "smile": "😊", "joy": "✨", "happy": "😊",
+    "love": "❤️", "heart": "❤️", "soul": "✨", "nature": "🌿", "flower": "🌸", "ocean": "🌊",
+    "sky": "🌤️", "moment": "🌸", "gentle": "🕊️", "bless": "🙏", "hope": "🌟", "light": "🌟",
 }
 
 
