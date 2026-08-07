@@ -12,6 +12,7 @@ import math
 import random
 from functools import lru_cache
 
+import numpy as np
 from PIL import Image, ImageDraw
 
 
@@ -33,33 +34,25 @@ def make_bg_provider(accent="#FF3131", seed=0, density=40):
 
     @lru_cache(maxsize=4)
     def _base(W, H):
-        """Static layers (gradient + glow + vignette) — built once per size."""
-        img = Image.new("RGB", (W, H), (8, 11, 16))
-        gd0 = ImageDraw.Draw(img)
-        # vertical gradient: a touch of accent up top fading to deep ground (per-row line = fast)
-        for y in range(H):
-            f = y / H
-            r = int(8 + (ac[0] * 0.10) * (1 - f))
-            g = int(11 + (ac[1] * 0.10) * (1 - f))
-            b = int(16 + (ac[2] * 0.10) * (1 - f) + 6 * (1 - f))
-            gd0.line([(0, y), (W, y)], fill=(r, g, b))
-        # soft accent glow behind the emoji zone (upper third)
-        glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        gd = ImageDraw.Draw(glow)
-        cx, cy = W // 2, int(H * 0.34)
-        for rr in range(int(W * 0.6), 0, -14):
-            a = int(20 * (1 - rr / (W * 0.6)))
-            gd.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], fill=ac + (a,))
-        img = Image.alpha_composite(img.convert("RGBA"), glow)
-        # dark vignette so edges recede and center text pops
-        vg = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        vd = ImageDraw.Draw(vg)
-        maxr = int((W ** 2 + H ** 2) ** 0.5 / 2)
-        for rr in range(maxr, int(maxr * 0.55), -16):
-            a = int(120 * (rr - maxr * 0.55) / (maxr * 0.45))
-            vd.ellipse([W // 2 - rr, H // 2 - rr, W // 2 + rr, H // 2 + rr], outline=(0, 0, 0, min(150, a)), width=16)
-        img = Image.alpha_composite(img, vg)
-        return img.convert("RGB")
+        """Smooth static layers (deep ground + subtle accent glow + vignette) via numpy —
+        no banding, and only a HINT of accent so it reads as clean cinematic dark, not a wash."""
+        yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+        acc = np.array(ac, np.float32)
+        base = np.empty((H, W, 3), np.float32)
+        base[:] = np.array([9.0, 12.0, 17.0])                       # deep near-black ground
+        # very subtle accent tint, strongest at the top, gone by mid-frame
+        ft = np.clip(1.0 - yy / (H * 0.62), 0.0, 1.0)[..., None] ** 1.5
+        base += acc[None, None, :] * 0.05 * ft
+        # soft accent glow behind the emoji zone (upper third) — smooth radial
+        r = np.sqrt((xx - W * 0.5) ** 2 + (yy - H * 0.34) ** 2)
+        glow = np.clip(1.0 - r / (W * 0.55), 0.0, 1.0) ** 2.2
+        base += acc[None, None, :] * 0.11 * glow[..., None]
+        # smooth vignette: darken from ~55% radius outward
+        rc = np.sqrt((xx - W * 0.5) ** 2 + (yy - H * 0.5) ** 2)
+        maxr = math.sqrt((W * 0.5) ** 2 + (H * 0.5) ** 2)
+        vig = np.clip((rc / maxr - 0.5) / 0.5, 0.0, 1.0) ** 1.6
+        base *= (1.0 - 0.5 * vig[..., None])
+        return Image.fromarray(np.clip(base, 0, 255).astype(np.uint8), "RGB")
 
     def frame(i, n, W, H, offset=0):
         img = _base(W, H).copy()
