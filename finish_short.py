@@ -249,7 +249,7 @@ def finish(dir_, saga=SAGA, beats=None, comment=COMMENT, hook=None, lesson=None,
 
     if voiceover:
         lines = beats or [saga]
-        print(f"  narrating {len(lines)} beat(s) (am_onyx)...", flush=True)
+        print(f"  narrating {len(lines)} beat(s) ({KOKORO_VOICE})...", flush=True)
         placed, narr_end = _narrate_beats(d, lines, max(4.0, dur - hold))
         if not placed:
             print("  narration failed", flush=True)
