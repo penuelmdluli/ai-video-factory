@@ -45,8 +45,14 @@ def _built_episodes():
     return sorted(best.items())
 
 
-def _transcode(src: Path, out_mp4: Path, poster: Path):
-    """Small, fast-loading vertical web clip + a poster frame. Returns True on success."""
+def _transcode(src: Path, out_mp4: Path, poster: Path, card: Path):
+    """Small web clip + a vertical poster (for the player) + a 16:9 card thumb (for the grid/OG).
+
+    The card matters: the video is 9:16, but the hub's grid cards are 16:9, so a raw vertical frame
+    gets cropped to an ugly middle strip. The card image places the whole vertical frame centred on a
+    dark themed background, so it reads cleanly in the grid and as the Facebook share image.
+    Returns True on success.
+    """
     VIDEOS.mkdir(parents=True, exist_ok=True)
     # 720x1280 max, H.264 CRF 28, faststart — a ~22s clip lands around 4-7 MB.
     v = subprocess.run([FFMPEG, "-y", "-i", str(src), "-vf", "scale=-2:1280",
@@ -56,8 +62,13 @@ def _transcode(src: Path, out_mp4: Path, poster: Path):
     if v.returncode != 0 or not out_mp4.exists():
         print(f"[viking-blog] transcode failed: {v.stderr.decode()[-200:]}")
         return False
+    # vertical poster for the inline player
     subprocess.run([FFMPEG, "-y", "-ss", "1", "-i", str(src), "-frames:v", "1",
                     "-vf", "scale=-2:1280", "-q:v", "3", str(poster)], capture_output=True)
+    # 16:9 card: vertical frame centred on a dark navy (#1a1240) background
+    subprocess.run([FFMPEG, "-y", "-ss", "1", "-i", str(src), "-frames:v", "1",
+                    "-vf", "scale=-2:360,pad=640:360:(ow-iw)/2:0:color=0x1a1240",
+                    "-q:v", "3", str(card)], capture_output=True)
     return True
 
 
@@ -100,21 +111,22 @@ def publish(force=False):
         slug = f"saga-of-the-north-ep-{n}-{ep['slug']}"
         web_mp4 = VIDEOS / f"viking_ep{n:02d}.mp4"
         poster = VIDEOS / f"viking_ep{n:02d}.jpg"
-        if slug in by_slug and web_mp4.exists() and not force:
+        card = VIDEOS / f"viking_ep{n:02d}_card.jpg"
+        if slug in by_slug and web_mp4.exists() and card.exists() and not force:
             continue  # already on the blog
         print(f"[viking-blog] EP.{n} {ep['title']} -> transcoding...")
-        if not _transcode(mp4, web_mp4, poster):
+        if not _transcode(mp4, web_mp4, poster, card):
             continue
         a = _article(ep, n)
         t = {"slug": slug, "title": a["title"], "date": gb._today(), "niche": "viking",
              "channel": "SAGA OF THE NORTH", "channel_url": FB_PAGE_URL, "keywords": KEYWORDS,
              "self_hosted": True, "video": f"/videos/{web_mp4.name}",
-             "poster": f"/videos/{poster.name}"}
+             "poster": f"/videos/{poster.name}", "thumb": f"/videos/{card.name}"}
         gb.POSTS.mkdir(parents=True, exist_ok=True)
         (gb.POSTS / f"{slug}.html").write_text(gb._post_html(a, t), encoding="utf-8")
-        # store the fields the index/card needs (poster + the rest)
+        # store the fields the index/card needs (poster + 16:9 card thumb + the rest)
         by_slug[slug] = {k: t[k] for k in ("slug", "title", "date", "video", "channel", "niche",
-                                           "poster", "self_hosted", "channel_url")}
+                                           "poster", "thumb", "self_hosted", "channel_url")}
         published += 1
         print(f"[viking-blog] wrote /posts/{slug}")
 

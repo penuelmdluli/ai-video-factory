@@ -247,7 +247,8 @@ def _post_html(a, t):
         disc = ""
     # Video block + share image differ for self-hosted (Viking mp4) vs embedded YouTube.
     if t.get("self_hosted"):
-        og_image = f"{SITE_URL}{t.get('poster', '')}"
+        # Facebook/link previews want a landscape image — use the 16:9 card, not the vertical poster.
+        og_image = f"{SITE_URL}{t.get('thumb') or t.get('poster', '')}"
         watch_url = t.get("channel_url", SITE_URL)
         video_block = (
             f'<div class="vplayer"><video controls playsinline preload="none" '
@@ -291,8 +292,9 @@ def _post_html(a, t):
 </main>{FOOTER}</body></html>"""
 
 def _card(p):
-    # Self-hosted posts (e.g. Viking) carry their own poster; YouTube posts use the YT thumbnail.
-    thumb = p.get("poster") or f'https://i.ytimg.com/vi/{p["video"]}/mqdefault.jpg'
+    # Self-hosted posts (e.g. Viking) carry their own 16:9 card thumb (falls back to poster);
+    # YouTube posts use the YT thumbnail.
+    thumb = p.get("thumb") or p.get("poster") or f'https://i.ytimg.com/vi/{p["video"]}/mqdefault.jpg'
     return (f'<a class="card" href="/posts/{p["slug"]}">'
             f'<img loading="lazy" src="{thumb}" alt="">'
             f'<div><h3>{html.escape(p["title"])}</h3><span>{p["date"]} · {p["channel"]}</span></div></a>')
