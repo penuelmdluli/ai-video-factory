@@ -79,6 +79,29 @@ def _load_baseline():
         return None
 
 
+def _reply_stats_lines():
+    """The OTHER half of the loop: auto-reply stats for the Viking page from community_manager.
+
+    Pulls the 7-day community_stats for blissful_moments so the report shows both seeding (comments
+    on our posts) AND the auto-reply bot (replies the page sent to real commenters). Fully
+    best-effort — any import/DB problem just drops this section, never breaks the engagement report.
+    """
+    try:
+        from modules.community_manager import get_reply_stats
+        s = (get_reply_stats(7) or {}).get("blissful_moments")
+        if not s:
+            return ["", "## Auto-reply (7-day)", "No community-manager activity recorded yet for the "
+                    "Viking page (it replies to real commenters, not the page's own seeds)."]
+        return ["", "## Auto-reply (7-day)",
+                f"- comments found: {s.get('total_comments', 0)}",
+                f"- replies sent: {s.get('total_replies', 0)}",
+                f"- negative flagged: {s.get('negative', 0)}  |  escalations: {s.get('escalations', 0)}",
+                "", "Replies sent > 0 means real people are commenting and the bot is answering in "
+                "the skald voice — the full seed→reply→reach loop is live."]
+    except Exception as e:
+        return ["", f"_(auto-reply stats unavailable: {str(e)[:80]})_"]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--reset", action="store_true", help="overwrite baseline with current numbers")
@@ -120,6 +143,7 @@ def main():
               "", "Reading it: comments climbing above the one seeded comment means real people are "
               "replying — the seeding worked. Flat comments but rising views means the prompt needs "
               "to be easier to answer (binary / one-word)."]
+    lines += _reply_stats_lines()
     report = "\n".join(lines)
     REPORT.write_text(report, encoding="utf-8")
     # ascii-safe console echo
