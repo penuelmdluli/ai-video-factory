@@ -34,7 +34,7 @@ CHANNELS = [
 ]
 CATEGORIES = {"study": "Music & Focus", "sleep": "Music & Focus", "coding": "Music & Focus",
               "kids": "Kids", "wellness": "Health & Organic", "news": "World News",
-              "sa": "South Africa"}
+              "sa": "South Africa", "viking": "Viking Saga"}
 # Niches that need a "general info, not medical advice" note on their articles.
 WELLNESS_NICHES = {"wellness"}
 # Sensitive current-affairs niches: articles must stay neutral, balanced, solutions-focused;
@@ -245,6 +245,24 @@ def _post_html(a, t):
                 'neutral and factual.</em></p>')
     else:
         disc = ""
+    # Video block + share image differ for self-hosted (Viking mp4) vs embedded YouTube.
+    if t.get("self_hosted"):
+        og_image = f"{SITE_URL}{t.get('poster', '')}"
+        watch_url = t.get("channel_url", SITE_URL)
+        video_block = (
+            f'<div class="vplayer"><video controls playsinline preload="none" '
+            f'poster="{t.get("poster", "")}"><source src="{t["video"]}" type="video/mp4"></video></div>'
+            f'<p class="cta">▶ Follow the saga on <a href="{watch_url}" rel="noopener">'
+            f'{html.escape(t["channel"])}</a></p>')
+    else:
+        og_image = f"https://i.ytimg.com/vi/{t['video']}/maxresdefault.jpg"
+        video_block = (
+            f'<div class="video"><iframe src="https://www.youtube.com/embed/{t["video"]}" '
+            f'title="Watch on {html.escape(t["channel"])}" frameborder="0" '
+            f'allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" '
+            f'allowfullscreen loading="lazy"></iframe></div>'
+            f'<p class="cta">▶ Watch more on <a href="https://youtube.com/watch?v={t["video"]}" '
+            f'rel="noopener">{html.escape(t["channel"])}</a></p>')
     return f"""<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 {GSC_META}<title>{html.escape(a['title'])} | {SITE_NAME}</title>
@@ -254,7 +272,7 @@ def _post_html(a, t):
 <meta property="og:type" content="article"><meta property="og:title" content="{html.escape(a['title'])}">
 <meta property="og:description" content="{html.escape(a['meta'])}">
 <meta property="og:url" content="{SITE_URL}/posts/{t['slug']}">
-<meta property="og:image" content="https://i.ytimg.com/vi/{t['video']}/maxresdefault.jpg">
+<meta property="og:image" content="{og_image}">
 <script type="application/ld+json">{{"@context":"https://schema.org","@type":"Article",
 "headline":"{html.escape(a['title'])}","description":"{html.escape(a['meta'])}",
 "datePublished":"{t['date']}","author":{{"@type":"Organization","name":"{SITE_NAME}"}}}}</script>
@@ -266,17 +284,17 @@ def _post_html(a, t):
 <p class="lead">{html.escape(a['intro'])}</p>
 {ad}
 {secs}
-<div class="video"><iframe src="https://www.youtube.com/embed/{t['video']}" title="Watch on {t['channel']}"
- frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
-<p class="cta">▶ Watch more on <a href="https://youtube.com/watch?v={t['video']}" rel="noopener">{t['channel']}</a></p>
+{video_block}
 <p>{html.escape(a['conclusion'])}</p>
 {disc}
 {ad}
 </main>{FOOTER}</body></html>"""
 
 def _card(p):
+    # Self-hosted posts (e.g. Viking) carry their own poster; YouTube posts use the YT thumbnail.
+    thumb = p.get("poster") or f'https://i.ytimg.com/vi/{p["video"]}/mqdefault.jpg'
     return (f'<a class="card" href="/posts/{p["slug"]}">'
-            f'<img loading="lazy" src="https://i.ytimg.com/vi/{p["video"]}/mqdefault.jpg" alt="">'
+            f'<img loading="lazy" src="{thumb}" alt="">'
             f'<div><h3>{html.escape(p["title"])}</h3><span>{p["date"]} · {p["channel"]}</span></div></a>')
 
 def _index_html(posts):
@@ -315,6 +333,8 @@ main{max-width:1040px;margin:0 auto;padding:24px}h1{font-size:2rem;line-height:1
 .post{max-width:820px}
 .date{color:#888;font-size:.9rem}.post h2{margin-top:1.6em}.video{position:relative;padding-top:56.25%;margin:24px 0;border-radius:12px;overflow:hidden}
 .video iframe{position:absolute;inset:0;width:100%;height:100%}.cta a{color:#6d3bd4;font-weight:700}
+.vplayer{max-width:360px;margin:24px auto;border-radius:12px;overflow:hidden;background:#000}
+.vplayer video{width:100%;display:block;border-radius:12px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px}
 .card{display:flex;flex-direction:column;background:#fff;border-radius:12px;overflow:hidden;text-decoration:none;color:inherit;box-shadow:0 2px 10px rgba(0,0,0,.06)}
 .card img{width:100%;aspect-ratio:16/9;object-fit:cover}.card div{padding:12px}.card h3{margin:0 0 6px;font-size:1.05rem}
