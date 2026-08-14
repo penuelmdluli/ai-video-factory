@@ -337,8 +337,10 @@ def build_cards(script: dict, images: list[dict], briefing: dict, work: Path,
                               log_rows=log_rows if (i == 1 or len(images) == 1)
                               else None,
                               # big crest fills the photo zone wherever the
-                              # live video window is NOT playing
-                              big_crest=(i > 0) or not has_video)
+                              # live video window is NOT playing; on the video
+                              # card the crest-VS-crest rides ON the footage
+                              big_crest=(i > 0) or not has_video,
+                              show_crests=(i > 0) or not has_video)
         if made:
             cards.append(made)
     _log(f"news cards: {len(cards)}")
@@ -379,6 +381,49 @@ def _caption_clips(segments, video_w, work: Path):
         except Exception as e:
             print(f"[PSL] caption clip skipped: {e}")
     return clips
+
+
+def _vs_badge(clubs: list[str], work: Path) -> str | None:
+    """Crest-VS-crest bug that rides on the live video window (broadcast style)."""
+    from PIL import Image, ImageDraw, ImageFont
+    from modules.club_brand import official_badge
+    badges = [official_badge(c) for c in clubs[:2]]
+    badges = [b for b in badges if b]
+    if not badges:
+        return None
+    try:
+        vf = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 44)
+    except Exception:
+        vf = ImageFont.load_default()
+    box, pad = 128, 22
+    img = Image.new("RGBA", (CANVAS[0], box + pad * 2 + 8), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    vs_w = int(d.textlength("VS", font=vf)) + 26 if len(badges) == 2 else 0
+    panels = []
+    for b in badges:
+        crest = Image.open(b).convert("RGBA")
+        r = min(box / crest.width, box / crest.height)
+        crest = crest.resize((int(crest.width * r), int(crest.height * r)),
+                             Image.LANCZOS)
+        panels.append(crest)
+    total = sum(p.width + pad * 2 for p in panels) + (vs_w + 14 if vs_w else 0)
+    x = (CANVAS[0] - total) // 2
+    for j, crest in enumerate(panels):
+        pw, ph = crest.width + pad * 2, crest.height + pad * 2
+        panel = Image.new("RGBA", (pw, ph), (0, 0, 0, 0))
+        ImageDraw.Draw(panel).rounded_rectangle([0, 0, pw - 1, ph - 1], radius=22,
+                                                fill=(255, 255, 255, 235))
+        img.alpha_composite(panel, (x, 4))
+        img.alpha_composite(crest, (x + pad, 4 + pad))
+        x += pw
+        if j == 0 and len(panels) == 2:
+            vy = 4 + ph // 2 - 26
+            d.text((x + 16, vy + 3), "VS", font=vf, fill=(0, 0, 0, 235))
+            d.text((x + 13, vy), "VS", font=vf, fill=(255, 193, 7, 255))
+            x += vs_w + 14
+    p = work / "vs_badge.png"
+    img.save(p)
+    return str(p)
 
 
 def _subscribe_strip(work: Path) -> str:
@@ -481,6 +526,12 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
                 ImageClip(_credit_strip(cc_clip["credit"], work))
                 .with_start(0.3).with_duration(emb_dur)
                 .with_position(("center", WIN_Y + WIN_H - 70)))
+            # crest VS crest rides ON the footage, broadcast-bug style
+            vs = _vs_badge(resolve_clubs(script.get("title", "")), work)
+            if vs:
+                overlay_layers.append(
+                    ImageClip(vs).with_start(0.3).with_duration(emb_dur)
+                    .with_position((0, WIN_Y + 16)))
             _log(f"live window: {emb_dur:.1f}s of real footage fills card 1")
         except Exception as e:
             _log(f"cc clip window skipped: {e}")

@@ -94,6 +94,7 @@ def make_news_card(
     log_rows: list | None = None,
     cover_mode: bool = False,
     big_crest: bool = False,
+    show_crests: bool = True,
 ) -> str | None:
     """
     Render a branded news card. Returns the output path, or None on failure.
@@ -154,6 +155,8 @@ def make_news_card(
     show = ([club] if official_badge(club) else []) + \
            [c for c in matchup if official_badge(c)]
     show = show[:2]
+    if not show_crests:
+        show = []          # crests ride ON the live video window instead
     if show:
         try:
             crest_box = 176 if len(show) == 1 else 148

@@ -261,11 +261,13 @@ async def post(video, short, lesson, do_short, thumb=None, fb_cover=None):
     _vid = (res.get("yt_long") or {}).get("video_id")
     add_to_playlists(_vid, lesson.get("category", ""))
     set_video_thumbnail(_vid, thumb)
-    # Facebook (Mzansi Baby Stars) = REELS only (<=90s, vertical). ALWAYS post the
-    # SHORT vertical clip — NEVER fall back to the 3-min long-form (that fails the
-    # Reel format and nothing lands on the page).
+    # Facebook: the old Mzansi Baby Stars page is now SAGA OF THE NORTH (Vikings)
+    # and is locked to post_next_viking.py — Zuzu posts to YouTube only.
+    from config import page_locked
     try:
-        if short and Path(short).exists():
+        if page_locked("blissful_moments"):
+            log("FB reel SKIPPED: blissful_moments page locked to the Viking poster")
+        elif short and Path(short).exists():
             res["fb"] = await upload_to_facebook(str(short), title, desc,
                                                  niche="blissful_moments", is_reel=True,
                                                  thumbnail_path=fb_cover)
