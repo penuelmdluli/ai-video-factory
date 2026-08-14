@@ -207,14 +207,16 @@ async def gather_images(script: dict, briefing: dict, work: Path) -> tuple[list[
     #    clip library (daily sweep) answers instantly; live fetch is fallback.
     cc_clip = None
     try:
-        from modules.clip_library import get_clips
+        from modules.clip_library import pick_clip
         # any club in the story can supply the live window — Chiefs footage
-        # is valid on a Chiefs-vs-Sundowns story even when Sundowns lead it
+        # is valid on a Chiefs-vs-Sundowns story even when Sundowns lead it.
+        # pick_clip rotates: a FRESH clip every build, never the same one twice
+        # in a row while alternatives exist.
         for ck in ([club] + [c for c in story_clubs if c != club]):
-            lib = get_clips(ck, 1)
-            if lib:
-                cc_clip = {**lib[0], "club": ck}
-                _log(f"clip from library ({ck}): {lib[0]['title'][:45]}")
+            chosen = pick_clip(ck)
+            if chosen:
+                cc_clip = {**chosen, "club": ck}
+                _log(f"clip from library ({ck}, rotated): {chosen['title'][:45]}")
                 break
     except Exception as e:
         _log(f"clip library skipped: {e}")

@@ -55,6 +55,30 @@ def get_clips(club: str, limit: int = 2) -> list[dict]:
     return out
 
 
+USAGE = LIB / "usage.json"
+
+
+def pick_clip(club: str) -> dict | None:
+    """
+    A FRESH clip every build: least-recently-used of the club's library.
+    Usage timestamps persist in usage.json so consecutive builds rotate
+    through the library instead of replaying the newest clip forever.
+    """
+    clips = get_clips(club, 10)
+    if not clips:
+        return None
+    try:
+        usage = json.loads(USAGE.read_text(encoding="utf-8"))
+    except Exception:
+        usage = {}
+    clips.sort(key=lambda c: usage.get(Path(c["path"]).stem, 0))
+    chosen = clips[0]
+    usage[Path(chosen["path"]).stem] = time.time()
+    USAGE.parent.mkdir(parents=True, exist_ok=True)
+    USAGE.write_text(json.dumps(usage, indent=2), encoding="utf-8")
+    return chosen
+
+
 async def sweep(clubs: list[str] | None = None):
     """Refresh the library: fetch new CC clips, prune stale ones."""
     from modules.cc_clips import search_cc_videos, _download
