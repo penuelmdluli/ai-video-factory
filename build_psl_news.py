@@ -161,6 +161,7 @@ async def gather_images(script: dict, briefing: dict, work: Path) -> tuple[list[
                      if isinstance(briefing.get(k), list)
                      for i in briefing[k][:3] if isinstance(i, dict))
     players = _player_names(title, narrations, heads)[:8]
+    story_clubs = []
 
     # Validate against CURRENT squads — title-case headlines make the
     # capitalised-bigram heuristic hallucinate "players" like "Warning Means".
@@ -207,10 +208,14 @@ async def gather_images(script: dict, briefing: dict, work: Path) -> tuple[list[
     cc_clip = None
     try:
         from modules.clip_library import get_clips
-        lib = get_clips(club, 1)
-        if lib:
-            cc_clip = {**lib[0], "club": club}
-            _log(f"clip from library: {lib[0]['title'][:45]}")
+        # any club in the story can supply the live window — Chiefs footage
+        # is valid on a Chiefs-vs-Sundowns story even when Sundowns lead it
+        for ck in ([club] + [c for c in story_clubs if c != club]):
+            lib = get_clips(ck, 1)
+            if lib:
+                cc_clip = {**lib[0], "club": ck}
+                _log(f"clip from library ({ck}): {lib[0]['title'][:45]}")
+                break
     except Exception as e:
         _log(f"clip library skipped: {e}")
     if not cc_clip:
