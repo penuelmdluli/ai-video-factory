@@ -477,27 +477,29 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
     return str(out)
 
 
-def write_manifest(script: dict, video_path: str, work: Path, voice: dict, images: list | None = None, prediction: str = "") -> Path:
+def write_manifest(script: dict, video_path: str, work: Path, voice: dict, images: list | None = None, prediction: str = "", log_rows: list | None = None) -> Path:
     hashtags = NICHES[NICHE]["hashtags"]
     caption = script.get("caption") or script.get("title", "")
 
     # Reel cover: BOTH club badges, huge — a badge-first thumbnail out-pulls a
     # photo card at feed size (owner rule 2026-08-14).
+    # Cover = the card_2 look the owner picked: real photo, crests, live log,
+    # headline — with the Genesis logo BIG in the top space (cover_mode).
     thumb = str(work / "card_1.png")
     try:
-        from modules.matchup_cover import make_matchup_cover
+        from modules.news_card import make_news_card
         clubs = resolve_clubs(script.get("title", "") + " " + caption)
-        if clubs:
-            # real (licensed) photo behind the badges — fans/stadium texture
-            bg, bg_credit = None, ""
-            for img in images or []:
-                if img.get("real") and Path(img["path"]).exists():
-                    bg, bg_credit = img["path"], img.get("credit", "")
-                    break
-            c = make_matchup_cover(work / "cover.png", clubs[0],
-                                   clubs[1] if len(clubs) > 1 else None,
-                                   bg_path=bg, bg_credit=bg_credit,
-                                   title=script.get("title", ""))
+        bg, bg_credit = None, ""
+        for img in images or []:
+            if Path(img.get("path", "")).exists():
+                bg, bg_credit = img["path"], img.get("credit", "")
+                break
+        if bg:
+            kicker = CLUB_BRAND.get(clubs[0] if clubs else "", {}).get("name", "PSL")
+            c = make_news_card(bg, work / "cover.png",
+                               headline=script.get("title", ""), kicker=kicker,
+                               credit=bg_credit, club=clubs[0] if clubs else "",
+                               log_rows=log_rows or None, cover_mode=True)
             if c:
                 thumb = c
     except Exception as e:
@@ -558,7 +560,7 @@ async def main():
 
     cards = build_cards(script, images, briefing, work, prediction, log_rows)
     video = await assemble(script, voice, cards, work, cc_clip=cc_clip)
-    write_manifest(script, video, work, voice, images, prediction)
+    write_manifest(script, video, work, voice, images, prediction, log_rows)
 
     _log("BUILD COMPLETE")
     if args.post:

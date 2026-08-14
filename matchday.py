@@ -173,6 +173,73 @@ async def _scorers(fixture_id: str) -> tuple[list[str], list[str], str, str]:
     return [], [], "", ""
 
 
+async def _post_motm(f, sh: list[str], sa: list[str], post: bool) -> bool:
+    """
+    Full-time MAN OF THE MATCH post — a real face on a real award.
+    Pick: top scorer on the winning side (first scorer on a draw). Image:
+    licensed photo of the player, else a same-day fan-shot CC still of the club
+    (real match texture), else skip — never a fake face.
+    """
+    try:
+        hs, as_ = int(f["home_score"] or 0), int(f["away_score"] or 0)
+    except ValueError:
+        return False
+    if hs > as_:
+        pool, club = sh, f["home_key"]
+    elif as_ > hs:
+        pool, club = sa, f["away_key"]
+    else:
+        pool, club = (sh or sa), (f["home_key"] if sh else f["away_key"])
+    if not pool or not club:
+        return False
+    from collections import Counter
+    surname = Counter(s.split()[0] for s in pool if s.split()).most_common(1)[0][0]
+
+    from modules.psl_squads import get_squad
+    full = next((p["name"] for p in await get_squad(club)
+                 if p["name"].split()[-1].lower() == surname.lower()), surname)
+
+    img, credit = None, ""
+    try:
+        from modules.free_press_images import photos_for_player, download
+        hits = await photos_for_player(full, 1)
+        if hits:
+            img = await download(hits[0], Path("output/matchday") / f"motm_{surname}.jpg")
+            credit = hits[0]["credit"]
+    except Exception:
+        pass
+    if not img:
+        try:
+            from modules.cc_clips import fetch_cc_clip
+            from build_psl_news import _frames_from_clip
+            name = _name(club)
+            clip = await fetch_cc_clip(f"{name} highlights", Path("output/matchday/cc"))
+            if clip:
+                frames = _frames_from_clip({**clip, "club": club},
+                                           Path("output/matchday"), 1)
+                if frames:
+                    img, credit = frames[0]["path"], frames[0]["credit"]
+        except Exception:
+            pass
+    if not img:
+        print("[Auto] MOTM skipped — no licensed image available")
+        return False
+
+    from modules.news_card import make_news_card
+    out = make_news_card(
+        img, _out("motm"),
+        headline=f"{full} — Our Man of the Match",
+        kicker="MAN OF THE MATCH", credit=credit, club=club)
+    if not out:
+        return False
+    if post:
+        caption = (f"🏆 OUR MAN OF THE MATCH: {full} — "
+                   f"{_name(f['home_key'])} {f['home_score']}-{f['away_score']} "
+                   f"{_name(f['away_key'])} ⚽\n\n#PSL #BetwayPremiership")
+        await _post_photo(out, caption, "Agree? Or who was YOUR man of the match? 👇")
+    return True
+
+
 async def cmd_auto(a):
     """
     Fixture-aware cadence — safe to run every hour of every day:
@@ -252,6 +319,13 @@ async def cmd_auto(a):
                 status="FULL-TIME", post=a.post)
             await cmd_result(ns)
             st["result"] = now.isoformat()
+            # follow the score card with the MOTM face — the post-match pair
+            if not st.get("motm"):
+                try:
+                    if await _post_motm(f, sh, sa, a.post):
+                        st["motm"] = now.isoformat()
+                except Exception as e:
+                    print(f"[Auto] MOTM failed: {e}")
 
     state_p.parent.mkdir(parents=True, exist_ok=True)
     state_p.write_text(_json.dumps(state, indent=2), encoding="utf-8")

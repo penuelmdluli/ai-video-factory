@@ -92,6 +92,7 @@ def make_news_card(
     archive_year: str = "",
     prediction: str = "",
     log_rows: list | None = None,
+    cover_mode: bool = False,
 ) -> str | None:
     """
     Render a branded news card. Returns the output path, or None on failure.
@@ -124,14 +125,21 @@ def make_news_card(
     d = ImageDraw.Draw(card)
 
     # ── Logo (top-left) ──
+    # cover_mode: the thumbnail wants the brand BIG in the empty top space —
+    # one large logo (it carries its own wordmark), no small text lines.
     try:
         if LOGO.exists():
-            logo = Image.open(LOGO).convert("RGBA").resize((150, 150), Image.LANCZOS)
-            card.paste(logo, (44, 40), logo)
+            size = 250 if cover_mode else 150
+            logo = Image.open(LOGO).convert("RGBA").resize((size, size), Image.LANCZOS)
+            card.paste(logo, (44, 26 if cover_mode else 40), logo)
     except Exception:
         pass
-    d.text((214, 74), "GENESIS NEWS", font=_font(44), fill=(255, 255, 255))
-    d.text((216, 126), "PSL & MZANSI FOOTBALL", font=_font(26, bold=False), fill=(190, 195, 200))
+    if not cover_mode:
+        d.text((214, 74), "GENESIS NEWS", font=_font(44), fill=(255, 255, 255))
+        d.text((216, 126), "PSL & MZANSI FOOTBALL", font=_font(26, bold=False),
+               fill=(190, 195, 200))
+    # cover_mode: no wordmark text — the big logo carries it, and the crests
+    # own the rest of the top row
 
     # ── Official club crest(s) (top-right) ──
     # Shown on every card so the reel reads as the club at a glance. A soft white
