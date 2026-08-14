@@ -202,18 +202,28 @@ async def gather_images(script: dict, briefing: dict, work: Path) -> tuple[list[
                 _log(f"player photo: {name} ({hit.get('year') or 'undated'})")
 
     # 2) Still frames from a recent CC-BY highlight video of this club —
-    #    real footage from THIS WEEK beats an old Commons photo.
+    #    real footage from THIS WEEK beats an old Commons photo. The local
+    #    clip library (daily sweep) answers instantly; live fetch is fallback.
     cc_clip = None
     try:
-        from modules.cc_clips import fetch_cc_clip
-        club_name = CLUB_BRAND.get(club, {}).get("name", "PSL")
-        cc_clip = await fetch_cc_clip(f"{club_name} highlights", work / "cc")
-        if cc_clip:
-            cc_clip["club"] = club
-            if len(out) < MAX_CARDS:
-                out += _frames_from_clip(cc_clip, work, MAX_CARDS - len(out))
+        from modules.clip_library import get_clips
+        lib = get_clips(club, 1)
+        if lib:
+            cc_clip = {**lib[0], "club": club}
+            _log(f"clip from library: {lib[0]['title'][:45]}")
     except Exception as e:
-        _log(f"cc clip lookup skipped: {e}")
+        _log(f"clip library skipped: {e}")
+    if not cc_clip:
+        try:
+            from modules.cc_clips import fetch_cc_clip
+            club_name = CLUB_BRAND.get(club, {}).get("name", "PSL")
+            cc_clip = await fetch_cc_clip(f"{club_name} highlights", work / "cc")
+            if cc_clip:
+                cc_clip["club"] = club
+        except Exception as e:
+            _log(f"cc clip lookup skipped: {e}")
+    if cc_clip and len(out) < MAX_CARDS:
+        out += _frames_from_clip(cc_clip, work, MAX_CARDS - len(out))
 
     # 3) Club/matchday photos to fill the remainder. A photo whose title lists
     #    ANOTHER team first ("Go Ahead Eagles - Mamelodi Sundowns ...") is shot
@@ -408,43 +418,35 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
     segments = align_captions(get_full_narration(script), segments)
     captions = group_words_into_phrases(segments, max_words=4)
 
-    # Timeline: cards held static (a news frame wants to be read), with an
-    # optional short burst of REAL CC-licensed footage in the middle — credited
-    # on-frame, muted, voice carries on over it.
-    stills = []
+    # Timeline: cards held static (a news frame wants to be read). Real
+    # CC-licensed footage PLAYS INSIDE the card's photo window — the zone
+    # between the top bar and the headline block — so the title, log and
+    # credits stay on screen while live match video runs above them.
+    per = duration / max(1, len(cards))
+    stills = [ImageClip(str(c)).with_duration(per).resized(CANVAS) for c in cards]
+    base = concatenate_videoclips(stills, method="compose").with_duration(duration)
+
     overlay_layers = []
-    mid = None
     if cc_clip:
         try:
             from moviepy import VideoFileClip
+            WIN_Y, WIN_H = 307, 650          # photo zone: below brand bar, above kicker
             vc = VideoFileClip(cc_clip["path"]).without_audio()
-            mid_dur = float(min(vc.duration, 6.0, duration * 0.25))
-            scale = max(CANVAS[0] / vc.w, CANVAS[1] / vc.h)
-            mid = (vc.subclipped(0, mid_dur).resized(scale)
-                   .with_position("center"))
+            emb_dur = float(min(vc.duration, per - 0.6, 9.0))
+            s = max(CANVAS[0] / vc.w, WIN_H / vc.h)
+            emb = vc.subclipped(0, emb_dur).resized(s)
+            x1 = max(0, int((emb.w - CANVAS[0]) / 2))
+            y1 = max(0, int((emb.h - WIN_H) / 2))
+            emb = (emb.cropped(x1=x1, y1=y1, width=CANVAS[0], height=WIN_H)
+                   .with_start(0.5).with_position((0, WIN_Y)))
+            overlay_layers.append(emb)
+            overlay_layers.append(
+                ImageClip(_credit_strip(cc_clip["credit"], work))
+                .with_start(0.5).with_duration(emb_dur)
+                .with_position(("center", WIN_Y + WIN_H - 70)))
+            _log(f"live window: {emb_dur:.1f}s of real footage in card 1")
         except Exception as e:
-            _log(f"cc clip skipped: {e}")
-            mid = None
-
-    if mid is not None:
-        per = (duration - mid.duration) / max(1, len(cards))
-        t = 0.0
-        for i, c in enumerate(cards):
-            stills.append(ImageClip(str(c)).with_duration(per).resized(CANVAS)
-                          .with_start(t))
-            t += per
-            if i == 0:                      # footage after the opening card
-                stills.append(mid.with_start(t))
-                overlay_layers.append(
-                    ImageClip(_credit_strip(cc_clip["credit"], work))
-                    .with_start(t).with_duration(mid.duration)
-                    .with_position(("center", 190)))
-                t += mid.duration
-        base = CompositeVideoClip(stills, size=CANVAS).with_duration(duration)
-    else:
-        per = duration / max(1, len(cards))
-        stills = [ImageClip(str(c)).with_duration(per).resized(CANVAS) for c in cards]
-        base = concatenate_videoclips(stills, method="compose").with_duration(duration)
+            _log(f"cc clip window skipped: {e}")
 
     layers = [base] + overlay_layers + _caption_clips(captions, CANVAS[0], work)
     video = CompositeVideoClip(layers, size=CANVAS).with_duration(duration)
