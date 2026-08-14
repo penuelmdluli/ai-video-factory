@@ -72,7 +72,13 @@ async def sweep(clubs: list[str] | None = None):
         except Exception as e:
             print(f"[ClipLib] {club}: search failed ({e})")
             continue
+        # a clip only belongs in this club's folder if the title actually
+        # names the club — search relevance alone filed a Chiefs video
+        # under Sekhukhune on the first sweep
+        club_words = [w.lower() for w in name.split() if len(w) > 3] or [name.lower()]
         for h in hits:
+            if not any(w in h["title"].lower() for w in club_words):
+                continue
             vid = h["video_id"]
             dest = LIB / club / f"{vid}.mp4"
             if vid in meta and dest.exists():
