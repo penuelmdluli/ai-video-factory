@@ -92,7 +92,7 @@ async def sweep(clubs: list[str] | None = None):
         meta = _load_meta(club)
         try:
             hits = await search_cc_videos(f"{name} highlights", limit=MAX_PER_CLUB,
-                                          days=MAX_AGE_DAYS)
+                                          days=MAX_AGE_DAYS, strict_fanshot=True)
         except Exception as e:
             print(f"[ClipLib] {club}: search failed ({e})")
             continue

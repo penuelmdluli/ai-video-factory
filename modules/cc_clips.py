@@ -39,7 +39,8 @@ _PREFER = re.compile(
     r"warm ?up|training|open day)", re.IGNORECASE)
 
 
-async def search_cc_videos(query: str, limit: int = 5, days: int = 14) -> list[dict]:
+async def search_cc_videos(query: str, limit: int = 5, days: int = 14,
+                           strict_fanshot: bool = False) -> list[dict]:
     """Recent CC-BY YouTube videos for a query. Licence verified twice."""
     if not KEY:
         print("[CCClips] YOUTUBE_API_KEY not set")
@@ -78,6 +79,11 @@ async def search_cc_videos(query: str, limit: int = 5, days: int = 14) -> list[d
                     "credit": f"video: {sn.get('channelTitle', 'YouTube')} (CC BY, via YouTube)",
                     "score": 1 if _PREFER.search(blob) else 0,
                 })
+            if strict_fanshot:
+                # library-grade: must SHOW fan-shot signals, not merely lack
+                # commentary words — a presenter video slipped past the
+                # blocklist with a clean title
+                out = [h for h in out if h["score"] == 1]
             out.sort(key=lambda h: h["score"], reverse=True)
             return out[:limit]
     except Exception as e:
@@ -88,20 +94,52 @@ async def search_cc_videos(query: str, limit: int = 5, days: int = 14) -> list[d
 def _download(video_id: str, dest: Path) -> str | None:
     import yt_dlp
     dest.parent.mkdir(parents=True, exist_ok=True)
+
+    def _section(info, ydl):
+        # Fan videos open with the walk to the seat — cut from 30% in, where
+        # the actual match/stadium footage lives.
+        dur = info.get("duration") or 0
+        start = dur * 0.30 if dur > MAX_SECONDS * 2 else 0
+        return [{"start_time": start, "end_time": start + MAX_SECONDS}]
+
     opts = {
         "format": "bv*[height<=720][ext=mp4]+ba[ext=m4a]/b[height<=720][ext=mp4]/b",
         "outtmpl": str(dest),
         "quiet": True, "no_warnings": True,
-        "download_ranges": lambda info, ydl: [{"start_time": 0,
-                                               "end_time": MAX_SECONDS}],
+        "download_ranges": _section,
         "force_keyframes_at_cuts": True,
     }
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
-        return str(dest) if dest.exists() else None
+        if dest.exists():
+            return str(dest)
     except Exception as e:
-        print(f"[CCClips] download failed for {video_id}: {e}")
+        print(f"[CCClips] section download failed for {video_id}: {e}")
+    # fallback: full download, trim locally — the section cutter's ffmpeg
+    # invocation fails on some streams
+    try:
+        import subprocess
+        full = dest.with_suffix(".full.mp4")
+        opts2 = {"format": opts["format"], "outtmpl": str(full),
+                 "quiet": True, "no_warnings": True}
+        with yt_dlp.YoutubeDL(opts2) as ydl:
+            ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
+        if not full.exists():
+            return None
+        probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
+                                "format=duration", "-of", "csv=p=0", str(full)],
+                               capture_output=True, text=True)
+        dur = float(probe.stdout.strip() or 0)
+        start = dur * 0.30 if dur > MAX_SECONDS * 2 else 0
+        r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error",
+                            "-ss", f"{start:.1f}", "-i", str(full),
+                            "-t", str(MAX_SECONDS), "-c:v", "libx264",
+                            "-c:a", "aac", str(dest)], capture_output=True)
+        full.unlink(missing_ok=True)
+        return str(dest) if r.returncode == 0 and dest.exists() else None
+    except Exception as e:
+        print(f"[CCClips] fallback download failed for {video_id}: {e}")
         return None
 
 
