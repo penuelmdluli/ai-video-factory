@@ -905,6 +905,12 @@ async def post_engagement_to_facebook(niche: str, content: dict, image_path: str
     - Text-only: POST /{page_id}/feed with message
     """
     import requests
+    from config import page_locked
+
+    # Locked page (e.g. blissful_moments = SAGA OF THE NORTH) — never post here.
+    if page_locked(niche):
+        print(f"[Engagement] {niche} page is locked to its own poster — skipping")
+        return {"success": False, "error": "page_locked"}
 
     page_id = os.getenv(f"FB_PAGE_ID_{niche}", "")
     page_token = os.getenv(f"FB_PAGE_TOKEN_{niche}", "")

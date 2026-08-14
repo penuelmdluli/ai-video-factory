@@ -151,6 +151,68 @@ def _alignment_to_word_segments(alignment) -> list[dict]:
     return words
 
 
+import re as _re
+
+# Phonetic respellings for TTS only — never shown on screen.
+_SA_PHONETICS = [
+    (r"\bKaizer\b", "Kye-zer"),
+    (r"\bMamelodi\b", "Mah-meh-loh-dee"),
+    (r"\bAmakhosi\b", "Ah-mah-KOH-see"),
+    (r"\bMasandawana\b", "Mah-sahn-dah-wah-nah"),
+    (r"\bBafana\b", "Bah-fah-nah"),
+    (r"\bSekhukhune\b", "Se-koo-koo-neh"),
+    (r"\bMkhulise\b", "Mm-koo-lee-seh"),
+    (r"\bMonyane\b", "Moh-nyah-neh"),
+    (r"\bNaturena\b", "Nah-too-ray-nah"),
+    (r"\bMzansi\b", "Mm-zahn-see"),
+    (r"\beS'Godini\b", "eh-Skoh-dee-nee"),
+    (r"\bPitso\b", "Peet-soh"),
+    (r"\bMosimane\b", "Moh-see-mah-neh"),
+]
+
+
+def _sa_football_phonetics(text: str) -> str:
+    for pat, repl in _SA_PHONETICS:
+        text = _re.sub(pat, repl, text, flags=_re.IGNORECASE)
+    # League-wide player lexicon (data/player_phonetics.json, 700+ names from
+    # the live ESPN squads — rebuild with `python modules/sa_phonetics.py --build`).
+    # Longest name first so "Mduduzi Shabalala" wins over bare "Shabalala".
+    try:
+        from modules.sa_phonetics import load_lexicon
+        for name, spoken in sorted(load_lexicon().items(), key=lambda kv: -len(kv[0])):
+            text = _re.sub(rf"\b{_re.escape(name)}\b", spoken, text)
+    except Exception as e:
+        print(f"[Voice] player lexicon skipped: {e}")
+    return text
+
+
+def looped_badly(srt_path, threshold: int = 3) -> bool:
+    """
+    True if the synthesised audio repeats a phrase — Kokoro's known long-text
+    failure. One build shipped "That's not hype, that's homework" six times in
+    54 seconds. Detected from the word-level SRT (which is transcribed from the
+    ACTUAL audio), so it catches what the script cannot show.
+    """
+    try:
+        from pathlib import Path as _P
+        raw = _P(srt_path).read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return False
+    words = [w for w in _re.sub(r"\d+\n|[\d:,]+ --> [\d:,]+", " ", raw).split() if w]
+    if len(words) < 30:
+        return False
+    # Count repeats of every 5-word window; a clean read repeats almost none.
+    grams = {}
+    for i in range(len(words) - 5):
+        g = " ".join(words[i:i + 5]).lower()
+        grams[g] = grams.get(g, 0) + 1
+    worst = max(grams.values()) if grams else 0
+    if worst >= threshold:
+        print(f"[Voice] LOOP DETECTED: a 5-word phrase repeats {worst}x")
+        return True
+    return False
+
+
 async def generate_voice_edge_tts(
     text: str,
     output_audio: Path,
@@ -519,6 +581,45 @@ async def generate_voice(
             return result
         print(f"[Voice] runpod unavailable for {filename_base} — falling through to Kokoro")
 
+    # ── 0a. SA FOOTBALL PRONUNCIATION (Kokoro path only) ───────────────────
+    # Kokoro is a US-English model and mangles Mzansi names: "Kaizer" -> "Kiser",
+    # "Mamelodi" -> "Maim Lodi", "Amakhosi" -> "Emakosi". Feed it a phonetic
+    # respelling (curated entries + data/player_phonetics.json for all current
+    # PSL players). SAFE for captions since 2026-08-14: caption_align renders
+    # captions from the ORIGINAL script text, never the audio transcription.
+    # SKIPPED when the niche is accent-locked to a ZA voice — en-ZA-Leah/Luke
+    # pronounce these names natively, and respelt input would break them.
+    _za_locked = os.getenv("SA_PULSE_LOCAL_VOICE", "").lower() in ("true", "1", "yes")
+    if (niche == "sa_pulse" and not _za_locked
+            and os.getenv("SA_PHONETICS", "").lower() in ("true", "1", "yes")):
+        text = _sa_football_phonetics(text)
+
+    # ── 0b. ACCENT-LOCKED NICHES — skip Kokoro entirely ────────────────────
+    # Kokoro has NO South African voice (its closest default is am_onyx, an
+    # American male). For pages whose whole credibility rests on sounding
+    # local — the PSL football page speaking to Mzansi fans — a US accent kills
+    # it. These niches go straight to edge-tts, which DOES have en-ZA voices
+    # (en-ZA-LeahNeural female / en-ZA-LukeNeural male) set via `edge_voice`.
+    # sa_pulse was accent-locked to en-ZA-LeahNeural, but the brief is now to use the
+    # SAME female voice as Tech Pulse (Kokoro af_heart), which is a much cleaner read.
+    # Set SA_PULSE_LOCAL_VOICE=true in .env to go back to the South African accent.
+    ACCENT_LOCKED_NICHES = set()
+    if os.getenv("SA_PULSE_LOCAL_VOICE", "").lower() in ("true", "1", "yes"):
+        ACCENT_LOCKED_NICHES = {"sa_pulse"}
+    if niche in ACCENT_LOCKED_NICHES:
+        edge_voice = NICHES[niche].get("edge_voice", DEFAULT_EDGE_VOICE)
+        emotion = detect_voice_emotion(text)
+        rate, pitch = emotion["rate"], emotion["pitch"]
+        if scenes and format_type == "short":
+            hook_text = scenes[0].get("narration", "")
+            if hook_text:
+                hook_emotion = detect_voice_emotion(hook_text)
+                rate, pitch = hook_emotion["rate"], hook_emotion["pitch"]
+        print(f"[Voice] {niche} is accent-locked — using edge-tts {edge_voice}")
+        return await generate_voice_edge_tts(
+            text, audio_path, subs_path, voice=edge_voice, rate=rate, pitch=pitch
+        )
+
     # ── 1. Kokoro (PRIMARY — best free voice, GPU-accelerated, 82M params) ──
     # ElevenLabs disabled — quota always exhausted, wastes time on failed attempts
     # af_bella is the cleanest, most professional voice — use it or similar across all channels
@@ -528,6 +629,7 @@ async def generate_voice(
         "blissful_moments": ("af_heart", 1.0),    # Kokoro flagship — warm, calm (best voice)
         "health_wellness":  ("af_heart", 1.0),    # Kokoro flagship — warm, trustworthy (best voice)
         "tech_news":        ("af_heart", 1.0),    # Kokoro flagship — warmest, most natural (best voice)
+        "sa_pulse":         ("af_heart", 1.0),    # Genesis News PSL — same female voice as Tech Pulse
         "ai_money":         ("af_heart", 1.0),    # Kokoro flagship — warm, trustworthy for money
         "motivation":       ("af_heart", 1.0),    # Kokoro flagship — warm, natural for motivation
         "limitless_you":    ("bm_george", 1.0),   # British male — authoritative for Africa 2050

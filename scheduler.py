@@ -293,7 +293,10 @@ def _run_blog_promo(slot_hour: int):
         slot_idx = 0
     yday = datetime.now().timetuple().tm_yday
     results = []
+    from config import page_locked
     for key, arts in by_page.items():
+        if page_locked(key):
+            print(f"[BlogPromo] {key}: page locked to its own poster — skip"); continue
         pid = os.getenv(f"FB_PAGE_ID_{key}", ""); tok = os.getenv(f"FB_PAGE_TOKEN_{key}", "")
         if not pid or not tok:
             continue
@@ -376,8 +379,10 @@ async def run_engagement_phase(slot_hour: int | None = None):
 
     # Post engagement to ALL pages that didn't get a blog link AND haven't been posted yet
     import os
+    from config import page_locked
     niches = [n for n in NICHES.keys()
               if os.getenv(f"FB_PAGE_ID_{n}", "")
+              and not page_locked(n)          # locked pages (SAGA OF THE NORTH) get nothing
               and n not in blog_covered_pages
               and not already_posted_engagement(n, slot_hour)]
 

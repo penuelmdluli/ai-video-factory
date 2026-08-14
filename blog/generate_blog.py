@@ -34,7 +34,7 @@ CHANNELS = [
 ]
 CATEGORIES = {"study": "Music & Focus", "sleep": "Music & Focus", "coding": "Music & Focus",
               "kids": "Kids", "wellness": "Health & Organic", "news": "World News",
-              "sa": "South Africa", "viking": "Viking Saga"}
+              "sa": "South Africa", "viking": "Viking Saga", "psl": "PSL Football"}
 # Niches that need a "general info, not medical advice" note on their articles.
 WELLNESS_NICHES = {"wellness"}
 # Sensitive current-affairs niches: articles must stay neutral, balanced, solutions-focused;
@@ -125,27 +125,64 @@ if HERB:
          "keywords": "healthy breakfast, whole foods, breakfast ideas, healthy habits, organic"},
     ]
 
-# ── South Africa (Genesis News) — neutral, balanced current-affairs explainers.
-# Added once the channel + first video exist (MZANSI set), so no broken embeds/links.
-if MZANSI:
-    CHANNELS.append({"name": "Genesis News", "url": MZANSI_URL, "cat": "South Africa"})
-    TOPICS += [
-        {"niche": "sa", "topic": "Where the jobs actually are in South Africa right now",
-         "video": MZANSI, "channel": "Genesis News",
-         "keywords": "South Africa jobs, employment, hiring sectors, youth jobs, careers SA"},
-        {"niche": "sa", "topic": "How to spot and avoid job scams while job hunting in SA",
-         "video": MZANSI, "channel": "Genesis News",
-         "keywords": "job scams South Africa, job hunting, avoid scams, employment safety, careers"},
-        {"niche": "sa", "topic": "Xenophobia in South Africa: the honest root causes and real solutions",
-         "video": MZANSI, "channel": "Genesis News",
-         "keywords": "South Africa, social cohesion, unemployment, community, solutions, unity"},
-        {"niche": "sa", "topic": "Understanding new laws in South Africa and how they affect you",
-         "video": MZANSI, "channel": "Genesis News",
-         "keywords": "South Africa laws, your rights, regulations explained, citizens, government"},
-        {"niche": "sa", "topic": "Practical ways South African families are beating the cost of living",
-         "video": MZANSI, "channel": "Genesis News",
-         "keywords": "cost of living South Africa, saving money, budgeting, families, tips"},
-    ]
+# ── PSL Football (Genesis News) ───────────────────────────────────────────────
+# RETIRED 2026-08-14: the old "sa" current-affairs track. The Genesis News page is
+# now football only, so those topics are gone and "sa" no longer maps to any FB page
+# (see blog/cross_post_fb.py). Genesis News articles are now written LIVE from real,
+# sourced PSL headlines — see psl_topics() below.
+CHANNELS.append({"name": "Genesis News — PSL", "url": MZANSI_URL, "cat": "PSL Football"})
+
+# Kaizer Chiefs lead the rotation: Amakhosi drive the most SA football engagement.
+# Keywords stay NEUTRAL on purpose. An angle word like "transfers" makes the writer
+# frame whatever headline it gets as a signing — which invents a fact the source
+# never reported. Keywords are SEO hints only; the story comes from the headlines.
+PSL_ANGLES = [
+    ("chiefs", "Kaizer Chiefs", "Kaizer Chiefs, Amakhosi, PSL, Betway Premiership, Chiefs news"),
+    ("chiefs", "Kaizer Chiefs", "Kaizer Chiefs news, Amakhosi, Naturena, PSL, Chiefs fixtures"),
+    ("pirates", "Orlando Pirates", "Orlando Pirates, Buccaneers, PSL, Betway Premiership, Bucs news"),
+    ("chiefs", "Kaizer Chiefs", "Kaizer Chiefs, Amakhosi, Soweto Derby, PSL, Chiefs match reaction"),
+    ("sundowns", "Mamelodi Sundowns", "Mamelodi Sundowns, Masandawana, PSL, CAF Champions League"),
+]
+
+
+def psl_topics(limit=5):
+    """
+    Build blog topics from REAL, sourced PSL headlines.
+
+    Football articles must never be invented, so each topic carries the actual
+    headlines (with publisher names) that the article is allowed to use. If the
+    feed is unreachable we return [] — the blog simply skips PSL that run rather
+    than publishing something made up.
+    """
+    try:
+        import asyncio
+        sys.path.insert(0, str(ROOT.parent))
+        from modules.psl_news import get_psl_briefing
+        b = asyncio.run(get_psl_briefing())
+    except Exception as e:
+        print(f"[blog] PSL feed unavailable ({e}); skipping football posts")
+        return []
+
+    out, used = [], set()
+    for key, club, keywords in PSL_ANGLES:
+        items = [i for i in (b.get(key) or []) if i["title"] not in used]
+        if not items:
+            continue
+        lead = items[0]
+        used.add(lead["title"])
+        out.append({
+            "niche": "psl",
+            # Stable-ish slug per club per day, so re-runs refresh rather than pile up.
+            "topic": f"{club}: {lead['title']}",
+            "video": MZANSI,
+            "self_hosted": False,
+            "channel": "Genesis News — PSL",
+            "keywords": keywords,
+            "facts": items[:4],
+        })
+        if len(out) >= limit:
+            break
+    return out
 
 GSC_META = f'<meta name="google-site-verification" content="{GSC_VERIFY}">\n' if GSC_VERIFY else ""
 FOOTER = (f'<footer>© {SITE_NAME} · <a href="/">Home</a> · <a href="/about">About</a> · '
@@ -196,11 +233,45 @@ def _today():
 def _slug(t):
     return re.sub(r"[^a-z0-9]+", "-", t.lower()).strip("-")[:70]
 
-def _claude_article(topic, keywords, niche=""):
+def _facts_prompt(facts):
+    """Real headlines + publishers the article is allowed to build on."""
+    if not facts:
+        return ""
+    lines = "\n".join(
+        f"- {f['title']} (published by {f['source']})"
+        + (" [REPORT/RUMOUR — must be written as an unconfirmed report]" if f.get("is_rumour") else "")
+        for f in facts
+    )
+    return (
+        "\n\nTHESE REAL, PUBLISHED HEADLINES ARE THE ONLY FACTS YOU MAY STATE:\n" + lines +
+        "\n\nHARD RULES: never invent a scoreline, transfer, signing, injury, quote, fixture or "
+        "log position that is not above. Name the publisher in the text when you use a specific "
+        "claim ('according to Soccer Laduma'). Anything flagged REPORT/RUMOUR stays unconfirmed. "
+        "If the facts are thin, write a shorter preview/opinion piece rather than padding with "
+        "invented detail.\n"
+        "DO NOT INFER: if a headline does not say a player was signed, transferred, injured, "
+        "dropped or made his debut, do not write that he was. The target keywords are SEO hints "
+        "only — never treat a keyword as a fact about the story. Where the headlines only give "
+        "you an opinion or a preview, write it as opinion and preview. NAME ONLY, NO LABELS: "
+        "do not attach a position (striker/midfielder/defender/keeper), age, nationality or club "
+        "history to any player unless those exact words appear in the headlines above.\n"
+    )
+
+
+def _claude_article(topic, keywords, niche="", facts=None):
     """Return dict: {title, meta, intro, sections:[{h,p}], conclusion}. Falls back
     to a template if Claude is unavailable so the pipeline never hard-fails."""
     safety = ""
-    if niche in NEUTRAL_NICHES:
+    if niche == "psl":
+        safety = (
+            "This is South African PSL football journalism for fans of Kaizer Chiefs, Orlando "
+            "Pirates and Mamelodi Sundowns. Be energetic and knowledgeable, use authentic Mzansi "
+            "football language (Amakhosi, Buccaneers, Masandawana, Soweto Derby, the Calabash), "
+            "and ALWAYS credit the outlet that reported a claim. Criticise performance and "
+            "tactics, never a person; no betting tips or odds; no claims about anyone's private "
+            "life. " + _facts_prompt(facts)
+        )
+    elif niche in NEUTRAL_NICHES:
         safety = ("This is sensitive current-affairs content. Stay STRICTLY NEUTRAL and "
                   "non-partisan — never endorse or attack any political party, leader or group; "
                   "be factual, balanced and calm; never inflammatory, fear-mongering or inciting. "
@@ -243,10 +314,30 @@ def _post_html(a, t):
         disc = ('<p class="disclaimer"><em>This is general, balanced information to help you '
                 'understand current events — not legal or professional advice. We aim to stay '
                 'neutral and factual.</em></p>')
+    elif t.get("niche") == "psl":
+        disc = ('<p class="disclaimer"><em>Football news compiled from published South African '
+                'reporting, credited below. Transfer talk is reported as rumour unless a club has '
+                'confirmed it. Not affiliated with any club or the PSL.</em></p>')
     else:
         disc = ""
+    # Sources block — football claims must be traceable to who published them.
+    srcs = ""
+    if t.get("facts"):
+        items = "".join(
+            f'<li>{html.escape(f["title"])} — <strong>{html.escape(f["source"])}</strong>'
+            + (f' · <a href="{html.escape(f["url"])}" rel="noopener nofollow">read it</a>' if f.get("url") else "")
+            + "</li>"
+            for f in t["facts"]
+        )
+        srcs = f"<h2>Sources</h2><ul class='sources'>{items}</ul>"
     # Video block + share image differ for self-hosted (Viking mp4) vs embedded YouTube.
-    if t.get("self_hosted"):
+    if not t.get("video"):
+        # No video yet (e.g. the PSL channel before its first upload) — link the page
+        # instead of embedding a broken player.
+        og_image = f"{SITE_URL}/style.css"  # no video thumb; social falls back to site card
+        video_block = (f'<p class="cta">⚽ Follow <a href="{t.get("channel_url", MZANSI_URL)}" '
+                       f'rel="noopener">{html.escape(t["channel"])}</a> for daily PSL updates</p>')
+    elif t.get("self_hosted"):
         # Facebook/link previews want a landscape image — use the 16:9 card, not the vertical poster.
         og_image = f"{SITE_URL}{t.get('thumb') or t.get('poster', '')}"
         watch_url = t.get("channel_url", SITE_URL)
@@ -287,6 +378,7 @@ def _post_html(a, t):
 {secs}
 {video_block}
 <p>{html.escape(a['conclusion'])}</p>
+{srcs}
 {disc}
 {ad}
 </main>{FOOTER}</body></html>"""
@@ -294,7 +386,9 @@ def _post_html(a, t):
 def _card(p):
     # Self-hosted posts (e.g. Viking) carry their own 16:9 card thumb (falls back to poster);
     # YouTube posts use the YT thumbnail.
-    thumb = p.get("thumb") or p.get("poster") or f'https://i.ytimg.com/vi/{p["video"]}/mqdefault.jpg'
+    thumb = (p.get("thumb") or p.get("poster")
+             or (f'https://i.ytimg.com/vi/{p["video"]}/mqdefault.jpg' if p.get("video")
+                 else "/psl-card.png"))
     return (f'<a class="card" href="/posts/{p["slug"]}">'
             f'<img loading="lazy" src="{thumb}" alt="">'
             f'<div><h3>{html.escape(p["title"])}</h3><span>{p["date"]} · {p["channel"]}</span></div></a>')
@@ -341,7 +435,9 @@ main{max-width:1040px;margin:0 auto;padding:24px}h1{font-size:2rem;line-height:1
 .card{display:flex;flex-direction:column;background:#fff;border-radius:12px;overflow:hidden;text-decoration:none;color:inherit;box-shadow:0 2px 10px rgba(0,0,0,.06)}
 .card img{width:100%;aspect-ratio:16/9;object-fit:cover}.card div{padding:12px}.card h3{margin:0 0 6px;font-size:1.05rem}
 .card span{color:#888;font-size:.85rem}footer{text-align:center;padding:24px;color:#888}ins{margin:20px 0}
-.disclaimer{background:#eef6ef;border-left:4px solid #5aa469;padding:10px 14px;border-radius:8px;color:#3a5a3a;font-size:.92rem;margin:20px 0}"""
+.disclaimer{background:#eef6ef;border-left:4px solid #5aa469;padding:10px 14px;border-radius:8px;color:#3a5a3a;font-size:.92rem;margin:20px 0}
+.sources{background:#fffdf2;border-left:4px solid #ffc107;padding:12px 14px 12px 32px;border-radius:8px;font-size:.93rem;color:#4a4433}
+.sources li{margin:6px 0}.sources a{color:#8a6d00}"""
 
 def load_state():
     if STATE.exists():
@@ -350,7 +446,7 @@ def load_state():
     return {"next": 0, "posts": []}
 
 def build_post(t):
-    a = _claude_article(t["topic"], t["keywords"], t.get("niche", ""))
+    a = _claude_article(t["topic"], t["keywords"], t.get("niche", ""), t.get("facts"))
     # stable slug from the TOPIC (not the AI title) so re-runs refresh the same URL
     t = dict(t); t["slug"] = _slug(t["topic"]); t["title"] = a["title"]
     t["date"] = datetime.date.today().isoformat()
@@ -362,6 +458,14 @@ def build_post(t):
 def rebuild_site(posts):
     BUILD.mkdir(parents=True, exist_ok=True)
     (BUILD / "style.css").write_text(STYLE, encoding="utf-8")
+    # PSL card art for football posts that have no video thumbnail yet.
+    try:
+        import shutil
+        brand = ROOT.parent / "assets" / "youtube_branding" / "cover_sa_pulse.png"
+        if brand.exists():
+            shutil.copy(brand, BUILD / "psl-card.png")
+    except Exception as e:
+        print(f"[blog] PSL card art skipped: {e}")
     (BUILD / "index.html").write_text(_index_html(posts), encoding="utf-8")
     # AdSense-required trust pages
     (BUILD / "about.html").write_text(
@@ -382,14 +486,29 @@ def rebuild_site(posts):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", action="store_true", help="one starter post per niche")
+    ap.add_argument("--psl-only", action="store_true",
+                    help="write today's PSL football posts only (Genesis News)")
     a = ap.parse_args()
     st = load_state()
-    if a.seed:
-        st["posts"] = [build_post(t) for t in TOPICS]
+    if a.psl_only:
+        fresh = psl_topics()
+        if not fresh:
+            print("[blog] no PSL headlines available — nothing published")
+            return
+        new = [build_post(t) for t in fresh]
+        new_slugs = {p["slug"] for p in new}
+        st["posts"] = new + [p for p in st.get("posts", []) if p["slug"] not in new_slugs]
+    elif a.seed:
+        st["posts"] = [build_post(t) for t in TOPICS + psl_topics()]
     else:
-        t = TOPICS[st["next"] % len(TOPICS)]
+        # Football first: Genesis News is a daily PSL page, so publish today's
+        # top football story every run, then advance the evergreen rotation.
+        todays = psl_topics(limit=1)
+        picked = todays + [TOPICS[st["next"] % len(TOPICS)]]
         st["next"] = (st["next"] + 1) % len(TOPICS)
-        st["posts"] = [build_post(t)] + [p for p in st.get("posts", []) if p["slug"] != _slug(t["topic"])]
+        built = [build_post(t) for t in picked]
+        built_slugs = {p["slug"] for p in built}
+        st["posts"] = built + [p for p in st.get("posts", []) if p["slug"] not in built_slugs]
     rebuild_site(st["posts"])
     STATE.write_text(json.dumps(st, indent=2))
     print("[blog] DONE")

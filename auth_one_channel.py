@@ -31,6 +31,9 @@ NICHE_CHANNELS = {
     "blissful_moments": ("Blissful Moments", "UCPNgMBuOOUQ5-lvdm5miruQ"),
     "deep_chill": ("Deep Chill", "UCEBYlpBOjEOZBJ8EG999yWA"),
     "kids_songs": ("Zuzu & Friends", "UClg-hsIwpJk1yG3CUI3FMMg"),
+    # Genesis News — PSL & Mzansi football. Rebranded from Beast Mode Academy
+    # (ex ai_trading) on 2026-08-14; token copied from youtube_token_ai_trading.json.
+    "sa_pulse": ("Genesis News - PSL & Mzansi Football", "UC4Y4udaLeLc6E4BhoepK5XA"),
 }
 
 niche = sys.argv[1] if len(sys.argv) > 1 else None
@@ -61,7 +64,10 @@ if resp.get("items"):
     actual_name = resp["items"][0]["snippet"]["title"]
     actual_id = resp["items"][0]["id"]
     print(f"\nAuthenticated as: {actual_name} (ID: {actual_id})")
-    if actual_id == channel_id:
+    if not channel_id:
+        print(f"[OK] Token saved for {niche}.")
+        print(f"     Add this ID to NICHE_CHANNELS to lock the channel in: {actual_id}")
+    elif actual_id == channel_id:
         print(f"[OK] Correct! Token saved for {niche}.")
     else:
         print(f"[WARNING] Wrong channel! Expected {channel_name} ({channel_id})")

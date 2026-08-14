@@ -140,6 +140,14 @@ async def create_video(
     # Force short format — shorts only pipeline
     format_type = "short"
 
+    # Locked page (e.g. blissful_moments = SAGA OF THE NORTH): its own poster owns
+    # it, so don't even build here.
+    from config import page_locked, LOCKED_PAGES
+    if page_locked(niche):
+        print(f"[SKIP] {niche}: page locked to {LOCKED_PAGES[niche]} — not building/posting")
+        return {"niche": niche, "format": format_type, "status": "skipped",
+                "error": f"page locked to {LOCKED_PAGES[niche]}"}
+
     from modules.topic_generator import pick_topic
     from modules.script_writer import generate_script, get_full_narration, get_scene_visuals
     from modules.voice_generator import generate_voice
@@ -296,6 +304,11 @@ async def create_video(
         print(f"[4/10] Visuals: {len(visuals)} scenes + {len(chart_paths)} charts + {ai_image_count} AI images")
 
         # ── Step 4.1: Convert AI images to video clips (SVD-XT) ──
+        # Second SVD entry point. visual_fetcher has its own, and gating only that
+        # one still left this running ~47s/step x 15 steps x 6 scenes (~1 hour).
+        if os.getenv("FORCE_STILLS_ONLY", "").lower() in ("true", "1", "yes"):
+            print("[4.1/10] stills-only: skipping SVD-XT — Ken Burns on stills")
+            ai_image_count = 0
         if ai_image_count > 0:
             try:
                 from modules.ai_video_generator import convert_images_to_videos
@@ -751,6 +764,10 @@ async def upload_prebuilt_videos(
         format_type = manifest["format_type"]
         if niche not in NICHES:
             print(f"[SKIP] {niche}/{format_type}: Niche removed from pipeline")
+            continue
+        from config import page_locked
+        if page_locked(niche):
+            print(f"[SKIP] {niche}/{format_type}: page locked to its own poster (see LOCKED_PAGES)")
             continue
         if niche_filter and niche != niche_filter:
             continue

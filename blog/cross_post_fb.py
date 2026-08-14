@@ -26,9 +26,12 @@ SITE_URL = os.getenv("BLOG_URL", "https://blog.genesisstudio.app")
 GRAPH = "https://graph.facebook.com/v19.0"
 DONE_FILE = ROOT / "fb_crossposted.json"
 # blog niche -> Facebook page niche key (FB_PAGE_ID_<key> / FB_PAGE_TOKEN_<key>)
+# NOTE (2026-08-14): the Genesis News page (sa_pulse) is now FOOTBALL ONLY. The old
+# "sa" current-affairs track no longer maps to any page, so nothing but PSL content
+# can reach Genesis News. Do not re-add "sa" here without the page owner asking.
 FB_NICHE = {"kids": "blissful_moments", "news": "tech_news",
             "study": "limitless_you", "sleep": "limitless_you", "coding": "limitless_you",
-            "wellness": "health_wellness", "sa": "sa_pulse", "viking": "blissful_moments"}
+            "wellness": "health_wellness", "psl": "sa_pulse", "viking": "blissful_moments"}
 # Niches allowed to post their OWN blog link to a locked page. A page lock stops foreign VIDEO
 # uploads; a page posting a link to its own article is exactly what we want (step 3 of the loop).
 ALLOW_LOCKED = {"viking"}
@@ -36,7 +39,7 @@ BLURB = {"kids": "New on our blog for parents 👶", "news": "Fresh explainer on
          "study": "New focus & study tips on our blog 🎧", "sleep": "Sleep better — new guide 🌙",
          "coding": "For the coders — new post 💻",
          "wellness": "New organic-living tips on our blog 🌿",
-         "sa": "New on Genesis News — South Africa, explained 🇿🇦",
+         "psl": "⚽ New on Genesis News — PSL & Mzansi football",
          "viking": "⚔️ New on the blog — SAGA OF THE NORTH"}
 
 

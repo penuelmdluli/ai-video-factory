@@ -231,6 +231,11 @@ async def post_cross_promo(promoter: str, content: dict) -> dict:
 
     Uses text post (not image) so the URL auto-generates a preview card.
     """
+    from config import page_locked
+    if page_locked(promoter):
+        print(f"[CrossPromo] {promoter} page is locked to its own poster — skipping")
+        return {"success": False, "error": "page_locked"}
+
     page_id = os.getenv(f"FB_PAGE_ID_{promoter}", "")
     page_token = os.getenv(f"FB_PAGE_TOKEN_{promoter}", "")
 
@@ -270,8 +275,13 @@ def get_promotion_pairs() -> list[tuple[str, str, str]]:
 
     Returns list of (promoter, promoted, connection) tuples.
     """
+    from config import page_locked
     pairs = []
     for promoter, promoted, connection in PROMO_PAIRS:
+        # Never post on (or advertise) a page locked to its own poster
+        if page_locked(promoter) or page_locked(promoted):
+            continue
+
         # Skip if already promoted today
         if _already_promoted_today(promoter):
             continue

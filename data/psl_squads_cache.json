@@ -1,0 +1,3488 @@
+{
+  "chiefs": {
+    "at": 1786734750.0341108,
+    "squad": [
+      {
+        "no": "1",
+        "pos": "GK",
+        "name": "Brandon Peterson"
+      },
+      {
+        "no": "44",
+        "pos": "GK",
+        "name": "Bruce Bvuma"
+      },
+      {
+        "no": "16",
+        "pos": "GK",
+        "name": "Renaldo Leaner"
+      },
+      {
+        "no": "",
+        "pos": "GK",
+        "name": "Karabo Molefe"
+      },
+      {
+        "no": "41",
+        "pos": "GK",
+        "name": "Takalani Mazhamba"
+      },
+      {
+        "no": "84",
+        "pos": "DF",
+        "name": "Inácio Santos"
+      },
+      {
+        "no": "39",
+        "pos": "DF",
+        "name": "Reeve Frosler"
+      },
+      {
+        "no": "29",
+        "pos": "DF",
+        "name": "Paseka Mako"
+      },
+      {
+        "no": "4",
+        "pos": "DF",
+        "name": "Zitha Macheke"
+      },
+      {
+        "no": "24",
+        "pos": "DF",
+        "name": "Thatayaone Ditlhokwe"
+      },
+      {
+        "no": "2",
+        "pos": "DF",
+        "name": "James Monyane"
+      },
+      {
+        "no": "42",
+        "pos": "DF",
+        "name": "Thabo Moloisane"
+      },
+      {
+        "no": "18",
+        "pos": "DF",
+        "name": "Dillon Solomons"
+      },
+      {
+        "no": "48",
+        "pos": "DF",
+        "name": "Bradley Cross"
+      },
+      {
+        "no": "14",
+        "pos": "DF",
+        "name": "Rushwin Dortley"
+      },
+      {
+        "no": "20",
+        "pos": "DF",
+        "name": "Thabo Mokoena"
+      },
+      {
+        "no": "74",
+        "pos": "DF",
+        "name": "Kwenzokuhle Shinga"
+      },
+      {
+        "no": "38",
+        "pos": "DF",
+        "name": "Kabelo Nkgwesa"
+      },
+      {
+        "no": "21",
+        "pos": "MF",
+        "name": "Thabo Cele"
+      },
+      {
+        "no": "6",
+        "pos": "MF",
+        "name": "Lebohang Maboe"
+      },
+      {
+        "no": "8",
+        "pos": "MF",
+        "name": "Siphesihle Ndlovu"
+      },
+      {
+        "no": "12",
+        "pos": "MF",
+        "name": "Nkosingiphile Ngcobo"
+      },
+      {
+        "no": "23",
+        "pos": "MF",
+        "name": "Ethan Chislett"
+      },
+      {
+        "no": "22",
+        "pos": "MF",
+        "name": "Adolf Mtasingwa Bitegeko"
+      },
+      {
+        "no": "13",
+        "pos": "MF",
+        "name": "Pule Sydney Mmodi"
+      },
+      {
+        "no": "5",
+        "pos": "MF",
+        "name": "Sibongiseni Mthethwa"
+      },
+      {
+        "no": "17",
+        "pos": "MF",
+        "name": "Asenele Velebayi"
+      },
+      {
+        "no": "7",
+        "pos": "MF",
+        "name": "Mduduzi Shabalala"
+      },
+      {
+        "no": "37",
+        "pos": "MF",
+        "name": "Mangethe"
+      },
+      {
+        "no": "47",
+        "pos": "MF",
+        "name": "Wandile Duba"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Faiz Abrahams"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Vicky Mkhawana"
+      },
+      {
+        "no": "28",
+        "pos": "MF",
+        "name": "Mfundo Vilakazi"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Donnay Jansen"
+      },
+      {
+        "no": "34",
+        "pos": "MF",
+        "name": "Thulani Mabaso"
+      },
+      {
+        "no": "49",
+        "pos": "MF",
+        "name": "Pheko Phago"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Nkosana Mbuthu"
+      },
+      {
+        "no": "3",
+        "pos": "FW",
+        "name": "Khanyisa Mayo"
+      },
+      {
+        "no": "50",
+        "pos": "FW",
+        "name": "Etiosa Ighodaro"
+      },
+      {
+        "no": "11",
+        "pos": "FW",
+        "name": "Luke Baartman"
+      },
+      {
+        "no": "70",
+        "pos": "FW",
+        "name": "Langelihle Phili"
+      },
+      {
+        "no": "77",
+        "pos": "FW",
+        "name": "Flávio Silva"
+      },
+      {
+        "no": "31",
+        "pos": "FW",
+        "name": "Naledi Hlongwane"
+      }
+    ],
+    "source": "espn"
+  },
+  "sundowns": {
+    "at": 1786732414.2803788,
+    "squad": [
+      {
+        "no": "1",
+        "pos": "GK",
+        "name": "Denis Onyango"
+      },
+      {
+        "no": "26",
+        "pos": "GK",
+        "name": "Reyaad Pieterse"
+      },
+      {
+        "no": "31",
+        "pos": "GK",
+        "name": "Ricardo Goss"
+      },
+      {
+        "no": "30",
+        "pos": "GK",
+        "name": "Ronwen Williams"
+      },
+      {
+        "no": "36",
+        "pos": "GK",
+        "name": "Jody February"
+      },
+      {
+        "no": "",
+        "pos": "GK",
+        "name": "Ismail Watenga"
+      },
+      {
+        "no": "20",
+        "pos": "DF",
+        "name": "Grant Kekana"
+      },
+      {
+        "no": "6",
+        "pos": "DF",
+        "name": "Aubrey Modiba"
+      },
+      {
+        "no": "24",
+        "pos": "DF",
+        "name": "Keanu Cupido"
+      },
+      {
+        "no": "40",
+        "pos": "DF",
+        "name": "Mothobi Mvala"
+      },
+      {
+        "no": "27",
+        "pos": "DF",
+        "name": "Thapelo Morena"
+      },
+      {
+        "no": "23",
+        "pos": "DF",
+        "name": "Fawaaz Basadien"
+      },
+      {
+        "no": "29",
+        "pos": "DF",
+        "name": "Divine Lunga"
+      },
+      {
+        "no": "25",
+        "pos": "DF",
+        "name": "Khuliso Mudau"
+      },
+      {
+        "no": "28",
+        "pos": "DF",
+        "name": "Zuko Mdunyelwa"
+      },
+      {
+        "no": "37",
+        "pos": "DF",
+        "name": "Kegan Johannes"
+      },
+      {
+        "no": "31",
+        "pos": "DF",
+        "name": "Asekho Tiwani"
+      },
+      {
+        "no": "3",
+        "pos": "DF",
+        "name": "Khulumani Ndamane"
+      },
+      {
+        "no": "42",
+        "pos": "DF",
+        "name": "Malibongwe Khoza"
+      },
+      {
+        "no": "45",
+        "pos": "DF",
+        "name": "Thato Sibiya"
+      },
+      {
+        "no": "18",
+        "pos": "MF",
+        "name": "Themba Zwane"
+      },
+      {
+        "no": "11",
+        "pos": "MF",
+        "name": "Marcelo Allende"
+      },
+      {
+        "no": "4",
+        "pos": "MF",
+        "name": "Teboho Mokoena"
+      },
+      {
+        "no": "15",
+        "pos": "MF",
+        "name": "Bathusi Jurry Aubaas"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Neo Maema"
+      },
+      {
+        "no": "10",
+        "pos": "MF",
+        "name": "Nuno Santos"
+      },
+      {
+        "no": "21",
+        "pos": "MF",
+        "name": "Sphelele Mkhulise"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Luvuyo Phewa"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Siyanda Msane"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Siyanda Mthanti"
+      },
+      {
+        "no": "44",
+        "pos": "MF",
+        "name": "Gomolemo Kekana"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Kobamelo Kodisang"
+      },
+      {
+        "no": "35",
+        "pos": "FW",
+        "name": "Lebo Mothiba"
+      },
+      {
+        "no": "17",
+        "pos": "FW",
+        "name": "Tashreeq Matthews"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Matías Esquivel"
+      },
+      {
+        "no": "13",
+        "pos": "FW",
+        "name": "Iqraam Rayners"
+      },
+      {
+        "no": "14",
+        "pos": "FW",
+        "name": "Monnapule Saleng"
+      },
+      {
+        "no": "12",
+        "pos": "FW",
+        "name": "Brayan Léon Muñiz"
+      },
+      {
+        "no": "9",
+        "pos": "FW",
+        "name": "Arthur"
+      },
+      {
+        "no": "29",
+        "pos": "FW",
+        "name": "Antonio Van Wyk"
+      },
+      {
+        "no": "33",
+        "pos": "FW",
+        "name": "Thapelo Maseko"
+      },
+      {
+        "no": "33",
+        "pos": "FW",
+        "name": "Cassius Mailula"
+      },
+      {
+        "no": "22",
+        "pos": "FW",
+        "name": "Siyabonga Mabena"
+      },
+      {
+        "no": "43",
+        "pos": "FW",
+        "name": "Kutlwano Letlhaku"
+      },
+      {
+        "no": "46",
+        "pos": "FW",
+        "name": "Bennet Mokoena"
+      }
+    ],
+    "source": "espn"
+  },
+  "pirates": {
+    "at": 1786725946.4134424,
+    "squad": [
+      {
+        "no": "24",
+        "pos": "GK",
+        "name": "Sipho Chaine"
+      },
+      {
+        "no": "32",
+        "pos": "GK",
+        "name": "Siyabonga Dladla"
+      },
+      {
+        "no": "40",
+        "pos": "GK",
+        "name": "Zoey Monyepao"
+      },
+      {
+        "no": "27",
+        "pos": "DF",
+        "name": "Tapelo Xoki"
+      },
+      {
+        "no": "5",
+        "pos": "DF",
+        "name": "Nkosinathi Sibisi"
+      },
+      {
+        "no": "21",
+        "pos": "DF",
+        "name": "Dean David Van Rooyen"
+      },
+      {
+        "no": "6",
+        "pos": "DF",
+        "name": "Lebone Seema"
+      },
+      {
+        "no": "19",
+        "pos": "DF",
+        "name": "Neo Rapoo"
+      },
+      {
+        "no": "3",
+        "pos": "DF",
+        "name": "Nkosikhona Ndaba"
+      },
+      {
+        "no": "",
+        "pos": "DF",
+        "name": "Siyabulela Mabele"
+      },
+      {
+        "no": "43",
+        "pos": "DF",
+        "name": "Mpho Chabatsane"
+      },
+      {
+        "no": "37",
+        "pos": "DF",
+        "name": "Sbangani Zulu"
+      },
+      {
+        "no": "44",
+        "pos": "DF",
+        "name": "Christian Derbyshire"
+      },
+      {
+        "no": "14",
+        "pos": "MF",
+        "name": "Andre De Jong"
+      },
+      {
+        "no": "8",
+        "pos": "MF",
+        "name": "Makhehlene Makhaula"
+      },
+      {
+        "no": "7",
+        "pos": "MF",
+        "name": "Deon Hotto"
+      },
+      {
+        "no": "18",
+        "pos": "MF",
+        "name": "Kabelo Dlamini"
+      },
+      {
+        "no": "16",
+        "pos": "MF",
+        "name": "Thalente Mbatha"
+      },
+      {
+        "no": "30",
+        "pos": "MF",
+        "name": "Sihle Nduli"
+      },
+      {
+        "no": "49",
+        "pos": "MF",
+        "name": "Kabelo Kgositlile"
+      },
+      {
+        "no": "36",
+        "pos": "MF",
+        "name": "Kamogelo Sebelebele"
+      },
+      {
+        "no": "28",
+        "pos": "MF",
+        "name": "Patrick Maswanganyi"
+      },
+      {
+        "no": "41",
+        "pos": "MF",
+        "name": "Reece Braithwaite"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Thuso Moleleki"
+      },
+      {
+        "no": "15",
+        "pos": "MF",
+        "name": "Masindi Nemtajela"
+      },
+      {
+        "no": "33",
+        "pos": "MF",
+        "name": "Thapelo Mokobodi"
+      },
+      {
+        "no": "4",
+        "pos": "MF",
+        "name": "Abdoulaye Fousseyni Mariko"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Yanga Madiba"
+      },
+      {
+        "no": "20",
+        "pos": "MF",
+        "name": "Simphiwe Selepe"
+      },
+      {
+        "no": "29",
+        "pos": "MF",
+        "name": "Mthetheleli Mthiyane"
+      },
+      {
+        "no": "26",
+        "pos": "MF",
+        "name": "Matome Mmolai"
+      },
+      {
+        "no": "48",
+        "pos": "MF",
+        "name": "Simphiwe Masilela"
+      },
+      {
+        "no": "47",
+        "pos": "MF",
+        "name": "Bohlale Ngwato"
+      },
+      {
+        "no": "31",
+        "pos": "FW",
+        "name": "Sebastian Pedersen"
+      },
+      {
+        "no": "23",
+        "pos": "FW",
+        "name": "Ghamphani Lungu"
+      },
+      {
+        "no": "12",
+        "pos": "FW",
+        "name": "Oswin Appollis"
+      },
+      {
+        "no": "17",
+        "pos": "FW",
+        "name": "Evidence Makgopa"
+      },
+      {
+        "no": "11",
+        "pos": "FW",
+        "name": "Tshepang Moremi"
+      },
+      {
+        "no": "25",
+        "pos": "FW",
+        "name": "Boitumelo Radiopane"
+      },
+      {
+        "no": "9",
+        "pos": "FW",
+        "name": "Yamela Mbuthuma"
+      },
+      {
+        "no": "45",
+        "pos": "FW",
+        "name": "Daniel Msendami"
+      },
+      {
+        "no": "46",
+        "pos": "FW",
+        "name": "Cemran Dansin"
+      },
+      {
+        "no": "39",
+        "pos": "FW",
+        "name": "Sifiso Luthuli"
+      },
+      {
+        "no": "38",
+        "pos": "FW",
+        "name": "Mpho Padime"
+      }
+    ],
+    "source": "espn"
+  },
+  "amazulu": {
+    "at": 1786727603.5176227,
+    "squad": [
+      {
+        "no": "16",
+        "pos": "GK",
+        "name": "Darren Johnson"
+      },
+      {
+        "no": "1",
+        "pos": "GK",
+        "name": "Olwethu Mzimela"
+      },
+      {
+        "no": "24",
+        "pos": "GK",
+        "name": "Wilfried Kouassi"
+      },
+      {
+        "no": "40",
+        "pos": "GK",
+        "name": "Lindani Nene"
+      },
+      {
+        "no": "42",
+        "pos": "DF",
+        "name": "Sandile Mthethwa"
+      },
+      {
+        "no": "12",
+        "pos": "DF",
+        "name": "Taariq Fielies"
+      },
+      {
+        "no": "4",
+        "pos": "DF",
+        "name": "Riaan Hanamub"
+      },
+      {
+        "no": "33",
+        "pos": "DF",
+        "name": "Keenan Phillips"
+      },
+      {
+        "no": "15",
+        "pos": "DF",
+        "name": "Mondli Mbanjwa"
+      },
+      {
+        "no": "28",
+        "pos": "DF",
+        "name": "Gustavo Vieira Lopes"
+      },
+      {
+        "no": "14",
+        "pos": "DF",
+        "name": "Nkosikhona Radebe"
+      },
+      {
+        "no": "5",
+        "pos": "DF",
+        "name": "Keegan Allan"
+      },
+      {
+        "no": "17",
+        "pos": "DF",
+        "name": "Liam Bern"
+      },
+      {
+        "no": "3",
+        "pos": "DF",
+        "name": "Omega Mdaka"
+      },
+      {
+        "no": "25",
+        "pos": "DF",
+        "name": "Wandile Dube"
+      },
+      {
+        "no": "36",
+        "pos": "DF",
+        "name": "Minenhle Ngcobo"
+      },
+      {
+        "no": "30",
+        "pos": "DF",
+        "name": "Onke Ncama"
+      },
+      {
+        "no": "27",
+        "pos": "MF",
+        "name": "Hendrick Ekstein"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Sphesihle Maduna"
+      },
+      {
+        "no": "38",
+        "pos": "MF",
+        "name": "Gape Moralo"
+      },
+      {
+        "no": "8",
+        "pos": "MF",
+        "name": "Khomotjo Lekoloane"
+      },
+      {
+        "no": "20",
+        "pos": "MF",
+        "name": "Tebogo Masuku"
+      },
+      {
+        "no": "50",
+        "pos": "MF",
+        "name": "Langelihle Mhlongo"
+      },
+      {
+        "no": "44",
+        "pos": "MF",
+        "name": "Luyolo Slatsha"
+      },
+      {
+        "no": "6",
+        "pos": "MF",
+        "name": "Siyanda Hlangabeza"
+      },
+      {
+        "no": "11",
+        "pos": "MF",
+        "name": "Andiswa Sithole"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Siphosenkosi Ngubane"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Yanga Mjoli"
+      },
+      {
+        "no": "35",
+        "pos": "MF",
+        "name": "Asanda Mzobe"
+      },
+      {
+        "no": "23",
+        "pos": "MF",
+        "name": "Thandolwenkosi Ngwenya"
+      },
+      {
+        "no": "21",
+        "pos": "MF",
+        "name": "Thapelo Matlhoko"
+      },
+      {
+        "no": "18",
+        "pos": "MF",
+        "name": "Neo Mokoena"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Leonardo Rooi"
+      },
+      {
+        "no": "19",
+        "pos": "MF",
+        "name": "Sphamandla Zikhali"
+      },
+      {
+        "no": "18",
+        "pos": "MF",
+        "name": "Rocco Rocha"
+      },
+      {
+        "no": "2",
+        "pos": "MF",
+        "name": "Athini Maqokola"
+      },
+      {
+        "no": "9",
+        "pos": "FW",
+        "name": "Ryan Moon"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Moses Shummah"
+      },
+      {
+        "no": "22",
+        "pos": "FW",
+        "name": "Bayanda Thabede"
+      },
+      {
+        "no": "37",
+        "pos": "FW",
+        "name": "Thandanani Mhlongo"
+      }
+    ],
+    "source": "espn"
+  },
+  "chippa": {
+    "at": 1786727604.2636518,
+    "squad": [
+      {
+        "no": "32",
+        "pos": "GK",
+        "name": "Dumisani Msibi"
+      },
+      {
+        "no": "23",
+        "pos": "GK",
+        "name": "Stanley Nwabali"
+      },
+      {
+        "no": "1",
+        "pos": "GK",
+        "name": "Elson Sithole"
+      },
+      {
+        "no": "",
+        "pos": "GK",
+        "name": "Kewen Prince"
+      },
+      {
+        "no": "31",
+        "pos": "GK",
+        "name": "Lukhanyo July"
+      },
+      {
+        "no": "22",
+        "pos": "DF",
+        "name": "Abbubaker Mobara"
+      },
+      {
+        "no": "25",
+        "pos": "DF",
+        "name": "Sirgio Kammies"
+      },
+      {
+        "no": "24",
+        "pos": "DF",
+        "name": "Ayabulela Konqobe"
+      },
+      {
+        "no": "50",
+        "pos": "DF",
+        "name": "Bongani Sam"
+      },
+      {
+        "no": "35",
+        "pos": "DF",
+        "name": "Kaketso Majadibodu"
+      },
+      {
+        "no": "",
+        "pos": "DF",
+        "name": "Azola Ntsabo"
+      },
+      {
+        "no": "8",
+        "pos": "DF",
+        "name": "Khaya Mfecane"
+      },
+      {
+        "no": "19",
+        "pos": "DF",
+        "name": "Kerwin Peters"
+      },
+      {
+        "no": "66",
+        "pos": "DF",
+        "name": "Isheanasu Mauchi"
+      },
+      {
+        "no": "5",
+        "pos": "DF",
+        "name": "Seun Ndlovu"
+      },
+      {
+        "no": "28",
+        "pos": "DF",
+        "name": "Boy Madingwane"
+      },
+      {
+        "no": "6",
+        "pos": "DF",
+        "name": "Lonwabo Magugwana"
+      },
+      {
+        "no": "37",
+        "pos": "DF",
+        "name": "Tshepang Makara"
+      },
+      {
+        "no": "31",
+        "pos": "DF",
+        "name": "Imraan Jones"
+      },
+      {
+        "no": "21",
+        "pos": "MF",
+        "name": "Sammy Maphoko Seabi"
+      },
+      {
+        "no": "20",
+        "pos": "MF",
+        "name": "Goodman Mosele"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Eric Mbangossoum"
+      },
+      {
+        "no": "15",
+        "pos": "MF",
+        "name": "Azola Tshobeni"
+      },
+      {
+        "no": "10",
+        "pos": "MF",
+        "name": "Azola Matrose"
+      },
+      {
+        "no": "26",
+        "pos": "MF",
+        "name": "Bandile Dlamini"
+      },
+      {
+        "no": "30",
+        "pos": "MF",
+        "name": "Thabang Molaoa"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Ridwaan Cerfonteyn"
+      },
+      {
+        "no": "9",
+        "pos": "MF",
+        "name": "Asanele Bonani"
+      },
+      {
+        "no": "3",
+        "pos": "MF",
+        "name": "Xolani Sithole"
+      },
+      {
+        "no": "27",
+        "pos": "MF",
+        "name": "Daba Diakité"
+      },
+      {
+        "no": "11",
+        "pos": "MF",
+        "name": "Banele Hlophe"
+      },
+      {
+        "no": "34",
+        "pos": "MF",
+        "name": "Lebohang Tshabalala"
+      },
+      {
+        "no": "29",
+        "pos": "MF",
+        "name": "Ntuthuko Mlotshwa"
+      },
+      {
+        "no": "45",
+        "pos": "FW",
+        "name": "Somila Ntsundwana"
+      },
+      {
+        "no": "7",
+        "pos": "FW",
+        "name": "Justice Figuareido"
+      },
+      {
+        "no": "40",
+        "pos": "FW",
+        "name": "Muzomuhle Khanyi"
+      },
+      {
+        "no": "7",
+        "pos": "FW",
+        "name": "Bienvenu Eva Nga"
+      },
+      {
+        "no": "13",
+        "pos": "FW",
+        "name": "Thulani Mini"
+      },
+      {
+        "no": "4",
+        "pos": "FW",
+        "name": "Sisanda Mbhele"
+      },
+      {
+        "no": "18",
+        "pos": "FW",
+        "name": "Thamsanqa Magwaza"
+      }
+    ],
+    "source": "espn"
+  },
+  "durban_city": {
+    "at": 1786727605.557525,
+    "squad": [
+      {
+        "no": "1",
+        "pos": "GK",
+        "name": "Darren Keet"
+      },
+      {
+        "no": "16",
+        "pos": "GK",
+        "name": "Ayanda Mtshali"
+      },
+      {
+        "no": "34",
+        "pos": "GK",
+        "name": "Aden Dreyer"
+      },
+      {
+        "no": "33",
+        "pos": "GK",
+        "name": "Fredrick Asare"
+      },
+      {
+        "no": "4",
+        "pos": "DF",
+        "name": "Fezile Gcaba"
+      },
+      {
+        "no": "8",
+        "pos": "DF",
+        "name": "Athini Jodwana"
+      },
+      {
+        "no": "",
+        "pos": "DF",
+        "name": "Siyavuya Nelson Ndlovu"
+      },
+      {
+        "no": "5",
+        "pos": "DF",
+        "name": "Siphamandla Ncanana"
+      },
+      {
+        "no": "22",
+        "pos": "DF",
+        "name": "Liam De Kock"
+      },
+      {
+        "no": "",
+        "pos": "DF",
+        "name": "Siyabonga Gumede"
+      },
+      {
+        "no": "30",
+        "pos": "DF",
+        "name": "Mfanafuthi Mkhize"
+      },
+      {
+        "no": "24",
+        "pos": "DF",
+        "name": "John Mokone"
+      },
+      {
+        "no": "",
+        "pos": "DF",
+        "name": "Katlego Monageng"
+      },
+      {
+        "no": "36",
+        "pos": "DF",
+        "name": "Collins Nwoburuoke"
+      },
+      {
+        "no": "12",
+        "pos": "DF",
+        "name": "Kabelo Mofokeng"
+      },
+      {
+        "no": "23",
+        "pos": "DF",
+        "name": "Tylo Jordan Sanger"
+      },
+      {
+        "no": "28",
+        "pos": "MF",
+        "name": "Siphelele Mthembu"
+      },
+      {
+        "no": "2",
+        "pos": "MF",
+        "name": "Bandile Shandu"
+      },
+      {
+        "no": "8",
+        "pos": "MF",
+        "name": "Leandro Sirino"
+      },
+      {
+        "no": "26",
+        "pos": "MF",
+        "name": "Thabo Nodada"
+      },
+      {
+        "no": "7",
+        "pos": "MF",
+        "name": "Haashim Domingo"
+      },
+      {
+        "no": "11",
+        "pos": "MF",
+        "name": "Saziso Magawana"
+      },
+      {
+        "no": "18",
+        "pos": "MF",
+        "name": "Brooklyn Poggenpoel"
+      },
+      {
+        "no": "91",
+        "pos": "MF",
+        "name": "Victor Bakah"
+      },
+      {
+        "no": "6",
+        "pos": "MF",
+        "name": "Patrick Ben Musaka"
+      },
+      {
+        "no": "35",
+        "pos": "MF",
+        "name": "Luphumlo Sifumba"
+      },
+      {
+        "no": "17",
+        "pos": "MF",
+        "name": "Kyle Jurgens"
+      },
+      {
+        "no": "13",
+        "pos": "MF",
+        "name": "Seth Green"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Nkosithandile Zondi"
+      },
+      {
+        "no": "10",
+        "pos": "MF",
+        "name": "Samkelo Maseko"
+      },
+      {
+        "no": "15",
+        "pos": "MF",
+        "name": "Bokang Mokwena"
+      },
+      {
+        "no": "24",
+        "pos": "MF",
+        "name": "Mthobisi Zondo"
+      },
+      {
+        "no": "3",
+        "pos": "MF",
+        "name": "Bongani-Junior Mthembu"
+      },
+      {
+        "no": "25",
+        "pos": "MF",
+        "name": "Mxolisi Bhengu"
+      },
+      {
+        "no": "29",
+        "pos": "MF",
+        "name": "Ayanda Magubane"
+      },
+      {
+        "no": "16",
+        "pos": "MF",
+        "name": "Lifa Sylvester Makua"
+      },
+      {
+        "no": "50",
+        "pos": "FW",
+        "name": "Nkanyiso Madonsela"
+      },
+      {
+        "no": "9",
+        "pos": "FW",
+        "name": "Tashreeq Morris"
+      },
+      {
+        "no": "19",
+        "pos": "FW",
+        "name": "Letsie Koapeng"
+      },
+      {
+        "no": "20",
+        "pos": "FW",
+        "name": "Jean Lwamba"
+      },
+      {
+        "no": "27",
+        "pos": "FW",
+        "name": "Siyabonga Vukile Msomi"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Junior Papier"
+      }
+    ],
+    "source": "espn"
+  },
+  "arrows": {
+    "at": 1786727606.2727728,
+    "squad": [
+      {
+        "no": "27",
+        "pos": "GK",
+        "name": "Thakasani Mbanjwa"
+      },
+      {
+        "no": "32",
+        "pos": "GK",
+        "name": "Nkosingiphile Gumede"
+      },
+      {
+        "no": "34",
+        "pos": "GK",
+        "name": "Edward Maova"
+      },
+      {
+        "no": "31",
+        "pos": "GK",
+        "name": "Xolani Ngcobo"
+      },
+      {
+        "no": "5",
+        "pos": "DF",
+        "name": "Gladwin Shitolo"
+      },
+      {
+        "no": "28",
+        "pos": "DF",
+        "name": "Thabo Matlaba"
+      },
+      {
+        "no": "13",
+        "pos": "DF",
+        "name": "John Mwengani"
+      },
+      {
+        "no": "42",
+        "pos": "DF",
+        "name": "Brandon Junior Theron"
+      },
+      {
+        "no": "35",
+        "pos": "DF",
+        "name": "Themba Mantshiyane"
+      },
+      {
+        "no": "30",
+        "pos": "DF",
+        "name": "Sbonelo Cele"
+      },
+      {
+        "no": "45",
+        "pos": "DF",
+        "name": "Sanele Radebe"
+      },
+      {
+        "no": "17",
+        "pos": "DF",
+        "name": "Nduduzo Mhlongo"
+      },
+      {
+        "no": "4",
+        "pos": "DF",
+        "name": "Ayanda Jiyane"
+      },
+      {
+        "no": "47",
+        "pos": "DF",
+        "name": "Sboniso Madonsela"
+      },
+      {
+        "no": "38",
+        "pos": "DF",
+        "name": "Ntandoyenkosi Mabaso"
+      },
+      {
+        "no": "17",
+        "pos": "DF",
+        "name": "Thokozani Praisegod Khumalo"
+      },
+      {
+        "no": "15",
+        "pos": "DF",
+        "name": "Oumar Comara"
+      },
+      {
+        "no": "44",
+        "pos": "DF",
+        "name": "Phebonke Mbatha"
+      },
+      {
+        "no": "41",
+        "pos": "MF",
+        "name": "Nhlanhla Zwane"
+      },
+      {
+        "no": "11",
+        "pos": "MF",
+        "name": "Nduduzo Sibiya"
+      },
+      {
+        "no": "23",
+        "pos": "MF",
+        "name": "Lungelo Dube"
+      },
+      {
+        "no": "12",
+        "pos": "MF",
+        "name": "Velemseni Ndwandwe"
+      },
+      {
+        "no": "24",
+        "pos": "MF",
+        "name": "Nqobeko Siphelele Dlamini"
+      },
+      {
+        "no": "2",
+        "pos": "MF",
+        "name": "Sazi Gumbi"
+      },
+      {
+        "no": "52",
+        "pos": "MF",
+        "name": "Khulekani Shezi"
+      },
+      {
+        "no": "46",
+        "pos": "MF",
+        "name": "Siphesihle Msomi"
+      },
+      {
+        "no": "25",
+        "pos": "MF",
+        "name": "Ayabulela Maxwele"
+      },
+      {
+        "no": "29",
+        "pos": "MF",
+        "name": "Sabelo Sithole"
+      },
+      {
+        "no": "44",
+        "pos": "MF",
+        "name": "Bongani Cele"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Yankho Singo"
+      },
+      {
+        "no": "20",
+        "pos": "MF",
+        "name": "Osborn Maluleke"
+      },
+      {
+        "no": "51",
+        "pos": "MF",
+        "name": "Mfanuvela Mafuleka"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Siyabonga Mtombeni"
+      },
+      {
+        "no": "45",
+        "pos": "MF",
+        "name": "Keabetswe Rakosa"
+      },
+      {
+        "no": "28",
+        "pos": "MF",
+        "name": "Ronaldo Van Neel"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Menzi Masuku"
+      },
+      {
+        "no": "40",
+        "pos": "FW",
+        "name": "Lungelo Nguse"
+      },
+      {
+        "no": "36",
+        "pos": "FW",
+        "name": "Philani Kumalo"
+      },
+      {
+        "no": "18",
+        "pos": "FW",
+        "name": "Sede Junior Dion"
+      },
+      {
+        "no": "22",
+        "pos": "FW",
+        "name": "Jerome Karlese"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Moyela Libamba"
+      },
+      {
+        "no": "14",
+        "pos": "FW",
+        "name": "Angelo Van Rooi"
+      },
+      {
+        "no": "39",
+        "pos": "FW",
+        "name": "Alwande Booysen"
+      },
+      {
+        "no": "49",
+        "pos": "FW",
+        "name": "Nhlanhla Gasa"
+      }
+    ],
+    "source": "espn"
+  },
+  "kruger": {
+    "at": 1786727606.9415548,
+    "squad": [
+      {
+        "no": "17",
+        "pos": "GK",
+        "name": "Sanele Tshabalala"
+      },
+      {
+        "no": "16",
+        "pos": "GK",
+        "name": "Marcel Dandjinou"
+      },
+      {
+        "no": "",
+        "pos": "GK",
+        "name": "Andile Mbanjwa"
+      },
+      {
+        "no": "1",
+        "pos": "GK",
+        "name": "Fiacre Ntwari"
+      },
+      {
+        "no": "18",
+        "pos": "GK",
+        "name": "Philasande Manqele"
+      },
+      {
+        "no": "",
+        "pos": "GK",
+        "name": "Blessing Mabunda"
+      },
+      {
+        "no": "38",
+        "pos": "DF",
+        "name": "Wandisile Letlabika"
+      },
+      {
+        "no": "66",
+        "pos": "DF",
+        "name": "Ebrahim Seedat"
+      },
+      {
+        "no": "26",
+        "pos": "DF",
+        "name": "Katlego Mohamme"
+      },
+      {
+        "no": "18",
+        "pos": "DF",
+        "name": "Thendo Mukumela"
+      },
+      {
+        "no": "88",
+        "pos": "DF",
+        "name": "Repo Malepe"
+      },
+      {
+        "no": "45",
+        "pos": "DF",
+        "name": "Kwandakwensizwa Mngonyama"
+      },
+      {
+        "no": "3",
+        "pos": "DF",
+        "name": "Shane Saralina"
+      },
+      {
+        "no": "55",
+        "pos": "DF",
+        "name": "Sipho Sibiya"
+      },
+      {
+        "no": "27",
+        "pos": "DF",
+        "name": "Ntsikelelo Nxadi"
+      },
+      {
+        "no": "5",
+        "pos": "DF",
+        "name": "Thulane Matthews Ndlela"
+      },
+      {
+        "no": "",
+        "pos": "DF",
+        "name": "Sikhosonke Langa"
+      },
+      {
+        "no": "12",
+        "pos": "DF",
+        "name": "Boitumelo Malatjie"
+      },
+      {
+        "no": "29",
+        "pos": "DF",
+        "name": "Sidney Fakude"
+      },
+      {
+        "no": "4",
+        "pos": "DF",
+        "name": "Kabelo Seriba"
+      },
+      {
+        "no": "14",
+        "pos": "DF",
+        "name": "Matsangwa Matjie"
+      },
+      {
+        "no": "",
+        "pos": "DF",
+        "name": "Quinson Sinosi"
+      },
+      {
+        "no": "24",
+        "pos": "DF",
+        "name": "But Momoti"
+      },
+      {
+        "no": "8",
+        "pos": "MF",
+        "name": "Morne Nel"
+      },
+      {
+        "no": "35",
+        "pos": "MF",
+        "name": "Motsie Matima"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Lindokuhle Praise Mtshali"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Zama Ashley Rambuwane"
+      },
+      {
+        "no": "38",
+        "pos": "MF",
+        "name": "Sphiwe Prince Mahlangu"
+      },
+      {
+        "no": "85",
+        "pos": "MF",
+        "name": "Celimpilo Ngema"
+      },
+      {
+        "no": "44",
+        "pos": "MF",
+        "name": "Tatenda Tavengwa"
+      },
+      {
+        "no": "22",
+        "pos": "MF",
+        "name": "Khetukuthula Ndlovu"
+      },
+      {
+        "no": "47",
+        "pos": "MF",
+        "name": "Heaven Sereets"
+      },
+      {
+        "no": "7",
+        "pos": "MF",
+        "name": "Mlungisi Zwane"
+      },
+      {
+        "no": "13",
+        "pos": "MF",
+        "name": "Moise Gbai"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Sifundo Xoliswa Sibanyoni"
+      },
+      {
+        "no": "50",
+        "pos": "MF",
+        "name": "Aphiwe Mpothwe"
+      },
+      {
+        "no": "9",
+        "pos": "MF",
+        "name": "Neo Legalamitlwa"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Skhulile Manyoni"
+      },
+      {
+        "no": "6",
+        "pos": "MF",
+        "name": "Kgopotso Zitha"
+      },
+      {
+        "no": "28",
+        "pos": "MF",
+        "name": "Nkosinathi Thwala"
+      },
+      {
+        "no": "15",
+        "pos": "MF",
+        "name": "Bongokuhle Maphumulo"
+      },
+      {
+        "no": "33",
+        "pos": "MF",
+        "name": "Mbere Winner Ngalema"
+      },
+      {
+        "no": "31",
+        "pos": "MF",
+        "name": "Kgopotso Luffy Mkhonza"
+      },
+      {
+        "no": "77",
+        "pos": "MF",
+        "name": "Mancoba Zwane"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Phathutshedzo Junior Musekwa"
+      },
+      {
+        "no": "26",
+        "pos": "FW",
+        "name": "Kagiso Joseph Malinga"
+      },
+      {
+        "no": "42",
+        "pos": "FW",
+        "name": "Ntsako Neverdie Makhubela"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Thabang Sibanyoni"
+      },
+      {
+        "no": "49",
+        "pos": "FW",
+        "name": "Douglas Mapfumo"
+      },
+      {
+        "no": "10",
+        "pos": "FW",
+        "name": "Siboniso Mtshali"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Lwanda Mbanjwa"
+      },
+      {
+        "no": "25",
+        "pos": "FW",
+        "name": "Thokozani Sibanyoni"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Tumelo Mmakgolane"
+      },
+      {
+        "no": "21",
+        "pos": "FW",
+        "name": "Thobela Sikhakhane"
+      }
+    ],
+    "source": "espn"
+  },
+  "gallants": {
+    "at": 1786727607.7387774,
+    "squad": [
+      {
+        "no": "16",
+        "pos": "GK",
+        "name": "Kagiso Mlambo"
+      },
+      {
+        "no": "30",
+        "pos": "GK",
+        "name": "Emile Merlin Lako Wendeu Wendeu Tcheuko"
+      },
+      {
+        "no": "37",
+        "pos": "DF",
+        "name": "Mbhazima Rikhotso"
+      },
+      {
+        "no": "3",
+        "pos": "DF",
+        "name": "Siphosakhe Ntiyantiya"
+      },
+      {
+        "no": "55",
+        "pos": "DF",
+        "name": "Eroine Agnikoi"
+      },
+      {
+        "no": "39",
+        "pos": "DF",
+        "name": "Bheki Mabuza"
+      },
+      {
+        "no": "",
+        "pos": "DF",
+        "name": "Patrick Motsoeneng"
+      },
+      {
+        "no": "50",
+        "pos": "MF",
+        "name": "Siyabonga Nhlapo"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Xola Mlambo"
+      },
+      {
+        "no": "2",
+        "pos": "MF",
+        "name": "Joseph Malongoane"
+      },
+      {
+        "no": "12",
+        "pos": "MF",
+        "name": "Katlego Otladisa"
+      },
+      {
+        "no": "35",
+        "pos": "MF",
+        "name": "Marvin Sibusiso Sikhosana"
+      },
+      {
+        "no": "10",
+        "pos": "MF",
+        "name": "Monde Mpambaniso"
+      },
+      {
+        "no": "44",
+        "pos": "MF",
+        "name": "Ibrahim Bance"
+      },
+      {
+        "no": "42",
+        "pos": "MF",
+        "name": "Mohamed Doumbia"
+      },
+      {
+        "no": "15",
+        "pos": "MF",
+        "name": "Ndabayithethwa Ndlondlo"
+      },
+      {
+        "no": "44",
+        "pos": "MF",
+        "name": "Mlungisi Sikakane"
+      },
+      {
+        "no": "7",
+        "pos": "MF",
+        "name": "Kamohelo Sithole"
+      },
+      {
+        "no": "8",
+        "pos": "MF",
+        "name": "Simo Bright Mbhele"
+      },
+      {
+        "no": "18",
+        "pos": "MF",
+        "name": "Msindisi Ndlovu"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Mkhuseli Rampa"
+      },
+      {
+        "no": "43",
+        "pos": "MF",
+        "name": "Thato Mohlamme"
+      },
+      {
+        "no": "27",
+        "pos": "MF",
+        "name": "Teboho Motloung"
+      },
+      {
+        "no": "40",
+        "pos": "MF",
+        "name": "David Lukhele"
+      },
+      {
+        "no": "23",
+        "pos": "MF",
+        "name": "Dimakatso Mashao"
+      },
+      {
+        "no": "13",
+        "pos": "MF",
+        "name": "Sibusiso Ncube"
+      },
+      {
+        "no": "19",
+        "pos": "MF",
+        "name": "Thatho Pheeha"
+      },
+      {
+        "no": "21",
+        "pos": "MF",
+        "name": "Doudy James"
+      },
+      {
+        "no": "56",
+        "pos": "MF",
+        "name": "Matthew Marou"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Thabiso Mkhwanazi"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Prince Makgatole Manku"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Onalenna Lepelesana"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Thulani Zandamela"
+      },
+      {
+        "no": "29",
+        "pos": "MF",
+        "name": "Lebogang Button"
+      },
+      {
+        "no": "5",
+        "pos": "FW",
+        "name": "Diala Manaka"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Thabang Sesinyi"
+      },
+      {
+        "no": "81",
+        "pos": "FW",
+        "name": "Mofosse Karidioula"
+      },
+      {
+        "no": "23",
+        "pos": "FW",
+        "name": "Khomotso Marebane"
+      },
+      {
+        "no": "28",
+        "pos": "FW",
+        "name": "Emmanuel Lyonze Mwiinde"
+      },
+      {
+        "no": "26",
+        "pos": "FW",
+        "name": "Christopher Sekela"
+      },
+      {
+        "no": "17",
+        "pos": "FW",
+        "name": "Rewaldo Prins"
+      },
+      {
+        "no": "11",
+        "pos": "FW",
+        "name": "Thapelo Dhludhlu"
+      },
+      {
+        "no": "22",
+        "pos": "FW",
+        "name": "Romaric Ouattara"
+      },
+      {
+        "no": "38",
+        "pos": "FW",
+        "name": "Samkele Sihlali"
+      },
+      {
+        "no": "30",
+        "pos": "FW",
+        "name": "Obarate Shaun Morgan"
+      }
+    ],
+    "source": "espn"
+  },
+  "milford": {
+    "at": 1786727608.373494,
+    "squad": [
+      {
+        "no": "32",
+        "pos": "GK",
+        "name": "Siphamandla Hleza"
+      },
+      {
+        "no": "30",
+        "pos": "GK",
+        "name": "Mfanufikile Madondo"
+      },
+      {
+        "no": "16",
+        "pos": "GK",
+        "name": "Lungile Amukelani Nkosi"
+      },
+      {
+        "no": "",
+        "pos": "GK",
+        "name": "Sanele Mthembu"
+      },
+      {
+        "no": "3",
+        "pos": "DF",
+        "name": "Christopher Mbhele"
+      },
+      {
+        "no": "13",
+        "pos": "DF",
+        "name": "Phakamani Ngxongo"
+      },
+      {
+        "no": "18",
+        "pos": "DF",
+        "name": "Konke Khwanya"
+      },
+      {
+        "no": "2",
+        "pos": "DF",
+        "name": "Bulelani Sigomoshe"
+      },
+      {
+        "no": "22",
+        "pos": "DF",
+        "name": "Olwethu Cele"
+      },
+      {
+        "no": "60",
+        "pos": "MF",
+        "name": "Sibulele Mekuto"
+      },
+      {
+        "no": "55",
+        "pos": "MF",
+        "name": "Cebolenkosi Mthethwa"
+      },
+      {
+        "no": "26",
+        "pos": "MF",
+        "name": "Lilitha Dyonasi"
+      },
+      {
+        "no": "28",
+        "pos": "MF",
+        "name": "Comfort Sibiya"
+      },
+      {
+        "no": "21",
+        "pos": "MF",
+        "name": "Siphosethu Ndlabi"
+      },
+      {
+        "no": "19",
+        "pos": "MF",
+        "name": "Nande Jojwana"
+      },
+      {
+        "no": "20",
+        "pos": "MF",
+        "name": "Skhumbuzo Cyril Siyaya"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Sfanelo Zwelihle Magubane"
+      },
+      {
+        "no": "12",
+        "pos": "MF",
+        "name": "Phakamani Jwara"
+      },
+      {
+        "no": "10",
+        "pos": "MF",
+        "name": "Menzi Chili"
+      },
+      {
+        "no": "5",
+        "pos": "MF",
+        "name": "Vusumuzi Mthabela"
+      },
+      {
+        "no": "75",
+        "pos": "MF",
+        "name": "Tonny Likhona Mbunga"
+      },
+      {
+        "no": "23",
+        "pos": "MF",
+        "name": "Thobani Nkululeko Bhengu"
+      },
+      {
+        "no": "50",
+        "pos": "MF",
+        "name": "Khanyisani Radebe"
+      },
+      {
+        "no": "4",
+        "pos": "MF",
+        "name": "Bhekani Mthiyane"
+      },
+      {
+        "no": "46",
+        "pos": "MF",
+        "name": "Siphamandla Mhlongo"
+      },
+      {
+        "no": "6",
+        "pos": "MF",
+        "name": "Sikhusele Joyi"
+      },
+      {
+        "no": "11",
+        "pos": "MF",
+        "name": "Mvelo Zikakayo"
+      },
+      {
+        "no": "17",
+        "pos": "MF",
+        "name": "Jabulile Gxakoshe"
+      },
+      {
+        "no": "35",
+        "pos": "MF",
+        "name": "Thabana Mabena"
+      },
+      {
+        "no": "38",
+        "pos": "MF",
+        "name": "Yanelisa Nomandela"
+      },
+      {
+        "no": "14",
+        "pos": "FW",
+        "name": "Sifiso Mdluli"
+      },
+      {
+        "no": "8",
+        "pos": "FW",
+        "name": "Mjabulise Mkhize"
+      },
+      {
+        "no": "90",
+        "pos": "FW",
+        "name": "Sicelo Masilela"
+      }
+    ],
+    "source": "espn"
+  },
+  "polokwane": {
+    "at": 1786727609.5670369,
+    "squad": [
+      {
+        "no": "39",
+        "pos": "FW",
+        "name": "Vuyo Kopamotse"
+      },
+      {
+        "no": "50",
+        "pos": "GK",
+        "name": "Brian Bwire"
+      },
+      {
+        "no": "60",
+        "pos": "GK",
+        "name": "Ayanda Ngwenya"
+      },
+      {
+        "no": "40",
+        "pos": "GK",
+        "name": "Lindokuhle Mathebula"
+      },
+      {
+        "no": "30",
+        "pos": "GK",
+        "name": "Mashudu Makhavhu"
+      },
+      {
+        "no": "27",
+        "pos": "DF",
+        "name": "Malebogo Modise"
+      },
+      {
+        "no": "25",
+        "pos": "DF",
+        "name": "Keorapetse Sebone"
+      },
+      {
+        "no": "3",
+        "pos": "DF",
+        "name": "Tlou Nkwe"
+      },
+      {
+        "no": "4",
+        "pos": "DF",
+        "name": "Bulelani Nikani"
+      },
+      {
+        "no": "2",
+        "pos": "DF",
+        "name": "Thabang Matuludi"
+      },
+      {
+        "no": "48",
+        "pos": "DF",
+        "name": "Abram Mashele"
+      },
+      {
+        "no": "23",
+        "pos": "DF",
+        "name": "Lerato Ntamane"
+      },
+      {
+        "no": "43",
+        "pos": "DF",
+        "name": "Ayabonga Gwangqa"
+      },
+      {
+        "no": "42",
+        "pos": "DF",
+        "name": "Surprise Manthosi"
+      },
+      {
+        "no": "6",
+        "pos": "DF",
+        "name": "Sapholwethu Kelepu"
+      },
+      {
+        "no": "21",
+        "pos": "MF",
+        "name": "Manuel Kambala"
+      },
+      {
+        "no": "17",
+        "pos": "MF",
+        "name": "Bonginkosi Dlamini"
+      },
+      {
+        "no": "18",
+        "pos": "MF",
+        "name": "Giovanni Philander"
+      },
+      {
+        "no": "14",
+        "pos": "MF",
+        "name": "Ndamulelo Maphangule"
+      },
+      {
+        "no": "34",
+        "pos": "MF",
+        "name": "Lebohang Nkaki"
+      },
+      {
+        "no": "29",
+        "pos": "MF",
+        "name": "Tshabalala Sibusiso"
+      },
+      {
+        "no": "36",
+        "pos": "MF",
+        "name": "Juan Mutudza"
+      },
+      {
+        "no": "20",
+        "pos": "MF",
+        "name": "Raymond Daniels"
+      },
+      {
+        "no": "47",
+        "pos": "MF",
+        "name": "Monty Batlhabane"
+      },
+      {
+        "no": "31",
+        "pos": "MF",
+        "name": "Sabelo Motsa"
+      },
+      {
+        "no": "46",
+        "pos": "MF",
+        "name": "Sthabiso Ngwenya"
+      },
+      {
+        "no": "12",
+        "pos": "MF",
+        "name": "Saketso Moremi"
+      },
+      {
+        "no": "5",
+        "pos": "MF",
+        "name": "Mpho Mvundlela"
+      },
+      {
+        "no": "28",
+        "pos": "MF",
+        "name": "Lucky Malatsi"
+      },
+      {
+        "no": "16",
+        "pos": "MF",
+        "name": "Siyabonga Mashini"
+      },
+      {
+        "no": "13",
+        "pos": "MF",
+        "name": "Rudzani Thobo"
+      },
+      {
+        "no": "22",
+        "pos": "MF",
+        "name": "Edwin Ramaja"
+      },
+      {
+        "no": "35",
+        "pos": "MF",
+        "name": "Banele Mnguni"
+      },
+      {
+        "no": "44",
+        "pos": "MF",
+        "name": "Tidimalo Molokwane"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Tshepang Matube"
+      },
+      {
+        "no": "10",
+        "pos": "FW",
+        "name": "Puleng Dennis Tlolane"
+      },
+      {
+        "no": "19",
+        "pos": "FW",
+        "name": "Keagile Malepe"
+      },
+      {
+        "no": "29",
+        "pos": "FW",
+        "name": "Msindisi Khosa"
+      }
+    ],
+    "source": "espn"
+  },
+  "richards_bay": {
+    "at": 1786727610.2418344,
+    "squad": [
+      {
+        "no": "16",
+        "pos": "GK",
+        "name": "Jamal Salim"
+      },
+      {
+        "no": "1",
+        "pos": "MF",
+        "name": "Ian Otieno"
+      },
+      {
+        "no": "32",
+        "pos": "GK",
+        "name": "Siphesihle Mtshali"
+      },
+      {
+        "no": "80",
+        "pos": "GK",
+        "name": "Sinethemba Mdluli"
+      },
+      {
+        "no": "16",
+        "pos": "GK",
+        "name": "Nhlakanipho Ngcobo"
+      },
+      {
+        "no": "5",
+        "pos": "DF",
+        "name": "Thembela Sikhakhane"
+      },
+      {
+        "no": "8",
+        "pos": "DF",
+        "name": "Thabani Zuke"
+      },
+      {
+        "no": "12",
+        "pos": "DF",
+        "name": "Kitso Mangolo"
+      },
+      {
+        "no": "99",
+        "pos": "DF",
+        "name": "Austin Dube"
+      },
+      {
+        "no": "72",
+        "pos": "DF",
+        "name": "Tshepo Wilson Mabua"
+      },
+      {
+        "no": "25",
+        "pos": "DF",
+        "name": "Simphiwe Mcineka"
+      },
+      {
+        "no": "45",
+        "pos": "DF",
+        "name": "Baggio Nashixwa"
+      },
+      {
+        "no": "35",
+        "pos": "DF",
+        "name": "Thabisa Ndelu"
+      },
+      {
+        "no": "2",
+        "pos": "DF",
+        "name": "Samkelo Jali"
+      },
+      {
+        "no": "47",
+        "pos": "DF",
+        "name": "Sbani Khumalo"
+      },
+      {
+        "no": "44",
+        "pos": "DF",
+        "name": "Sanele Zulu"
+      },
+      {
+        "no": "43",
+        "pos": "DF",
+        "name": "Banele Nomvete"
+      },
+      {
+        "no": "55",
+        "pos": "DF",
+        "name": "Mnqobi Mzobe"
+      },
+      {
+        "no": "29",
+        "pos": "DF",
+        "name": "Siphesihle Kunene"
+      },
+      {
+        "no": "40",
+        "pos": "DF",
+        "name": "Mehluleli Thamsanqa Ndelu"
+      },
+      {
+        "no": "37",
+        "pos": "DF",
+        "name": "Sphamandla Gwele"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Siyethemba Sithebe Mnguni"
+      },
+      {
+        "no": "30",
+        "pos": "MF",
+        "name": "Sanele Barns"
+      },
+      {
+        "no": "22",
+        "pos": "MF",
+        "name": "Lwandile Mabuya"
+      },
+      {
+        "no": "17",
+        "pos": "MF",
+        "name": "Thulani Gumede"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Philani Sithebe"
+      },
+      {
+        "no": "36",
+        "pos": "MF",
+        "name": "Lindokuhle Zikhali"
+      },
+      {
+        "no": "33",
+        "pos": "MF",
+        "name": "Wandile Ngema"
+      },
+      {
+        "no": "13",
+        "pos": "MF",
+        "name": "Asimbonge Mdunge"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Khayelihle Mncube"
+      },
+      {
+        "no": "46",
+        "pos": "MF",
+        "name": "Olwethu Nzimande"
+      },
+      {
+        "no": "49",
+        "pos": "MF",
+        "name": "Nkosiyethu Mkhabela"
+      },
+      {
+        "no": "19",
+        "pos": "MF",
+        "name": "Siyabonga Nzama"
+      },
+      {
+        "no": "75",
+        "pos": "MF",
+        "name": "Mbulelo Nombengula"
+      },
+      {
+        "no": "15",
+        "pos": "MF",
+        "name": "Ntokozo Nzama"
+      },
+      {
+        "no": "53",
+        "pos": "MF",
+        "name": "Sanele Simelane"
+      },
+      {
+        "no": "42",
+        "pos": "MF",
+        "name": "Sithembiso Makhaye"
+      },
+      {
+        "no": "7",
+        "pos": "FW",
+        "name": "Frank Mhango"
+      },
+      {
+        "no": "18",
+        "pos": "FW",
+        "name": "Knox Mutizwa"
+      },
+      {
+        "no": "20",
+        "pos": "FW",
+        "name": "Moses Mthembu"
+      },
+      {
+        "no": "9",
+        "pos": "FW",
+        "name": "Ntlonelo Bomelo"
+      },
+      {
+        "no": "14",
+        "pos": "FW",
+        "name": "Lundi Mahala"
+      },
+      {
+        "no": "31",
+        "pos": "FW",
+        "name": "Olwethu Mbambo"
+      },
+      {
+        "no": "77",
+        "pos": "FW",
+        "name": "Luyanda Khumalo"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Joel Madondo"
+      },
+      {
+        "no": "67",
+        "pos": "FW",
+        "name": "Khayalethu Ndlangamandla"
+      },
+      {
+        "no": "27",
+        "pos": "FW",
+        "name": "Nqaba Xulu"
+      }
+    ],
+    "source": "espn"
+  },
+  "sekhukhune": {
+    "at": 1786727611.0124826,
+    "squad": [
+      {
+        "no": "16",
+        "pos": "GK",
+        "name": "Toaster Nsabata"
+      },
+      {
+        "no": "30",
+        "pos": "GK",
+        "name": "Melusi Nkazimulo Buthelezi"
+      },
+      {
+        "no": "30",
+        "pos": "GK",
+        "name": "Manuel Sapunga"
+      },
+      {
+        "no": "40",
+        "pos": "GK",
+        "name": "Kgoleng Ratisani"
+      },
+      {
+        "no": "4",
+        "pos": "DF",
+        "name": "Daniel Cardoso"
+      },
+      {
+        "no": "44",
+        "pos": "DF",
+        "name": "Rivaldo Coetzee"
+      },
+      {
+        "no": "2",
+        "pos": "DF",
+        "name": "Nyiko Mobbie"
+      },
+      {
+        "no": "28",
+        "pos": "DF",
+        "name": "Tsepo Matsimbi"
+      },
+      {
+        "no": "12",
+        "pos": "DF",
+        "name": "Thato Khiba"
+      },
+      {
+        "no": "26",
+        "pos": "DF",
+        "name": "Athenkosi Mcaba"
+      },
+      {
+        "no": "11",
+        "pos": "DF",
+        "name": "Ngoanamello Rammala"
+      },
+      {
+        "no": "",
+        "pos": "DF",
+        "name": "Kenneth Langa"
+      },
+      {
+        "no": "25",
+        "pos": "DF",
+        "name": "Vuyo Letlapa"
+      },
+      {
+        "no": "29",
+        "pos": "DF",
+        "name": "D'Angelo Shaheed Kazeem"
+      },
+      {
+        "no": "23",
+        "pos": "MF",
+        "name": "Onassis Mntambo"
+      },
+      {
+        "no": "10",
+        "pos": "MF",
+        "name": "Vusumuzi Mncube"
+      },
+      {
+        "no": "5",
+        "pos": "MF",
+        "name": "Ryan Baartman"
+      },
+      {
+        "no": "15",
+        "pos": "MF",
+        "name": "Siphesihle Mkhize"
+      },
+      {
+        "no": "33",
+        "pos": "MF",
+        "name": "Givemore Khupe"
+      },
+      {
+        "no": "48",
+        "pos": "MF",
+        "name": "Keletso Sifama"
+      },
+      {
+        "no": "47",
+        "pos": "MF",
+        "name": "Cameron Carnell"
+      },
+      {
+        "no": "21",
+        "pos": "MF",
+        "name": "Lehlohonolo Mojela"
+      },
+      {
+        "no": "3",
+        "pos": "MF",
+        "name": "Bright Ndlovu"
+      },
+      {
+        "no": "24",
+        "pos": "MF",
+        "name": "Sydney Malivha"
+      },
+      {
+        "no": "22",
+        "pos": "MF",
+        "name": "Olerato Mandi"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Edmar Kamatuka"
+      },
+      {
+        "no": "31",
+        "pos": "MF",
+        "name": "Tshepo Mokoane"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Kagiso Mayinga"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Joseph Maphaga"
+      },
+      {
+        "no": "45",
+        "pos": "MF",
+        "name": "Karabo Tlaka"
+      },
+      {
+        "no": "17",
+        "pos": "MF",
+        "name": "Tshepho Mashiloane"
+      },
+      {
+        "no": "20",
+        "pos": "MF",
+        "name": "Malekgene Mampuru"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Gomolemo Khoto"
+      },
+      {
+        "no": "19",
+        "pos": "MF",
+        "name": "Medupi Thokolo"
+      },
+      {
+        "no": "39",
+        "pos": "MF",
+        "name": "Theo Ngwenya"
+      },
+      {
+        "no": "43",
+        "pos": "MF",
+        "name": "Sizani Makgalaka"
+      },
+      {
+        "no": "13",
+        "pos": "FW",
+        "name": "Amede Diomande"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Chibuike Ohizu"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Bethuel Muzeu"
+      },
+      {
+        "no": "7",
+        "pos": "FW",
+        "name": "Mokibelo Ramabu"
+      },
+      {
+        "no": "5",
+        "pos": "FW",
+        "name": "Thabo Nkwana"
+      },
+      {
+        "no": "9",
+        "pos": "FW",
+        "name": "Thabang Mahlangu"
+      },
+      {
+        "no": "13",
+        "pos": "FW",
+        "name": "Mcedi Vandala"
+      },
+      {
+        "no": "36",
+        "pos": "FW",
+        "name": "Siyabonga Ndlozi"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Oageng Phiri"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Palelo Mafuyeka"
+      }
+    ],
+    "source": "espn"
+  },
+  "siwelele": {
+    "at": 1786727611.6968465,
+    "squad": [
+      {
+        "no": "31",
+        "pos": "GK",
+        "name": "Goitseone Phoko"
+      },
+      {
+        "no": "30",
+        "pos": "GK",
+        "name": "Samukelo Xulo"
+      },
+      {
+        "no": "32",
+        "pos": "GK",
+        "name": "Mandla Vilakati"
+      },
+      {
+        "no": "50",
+        "pos": "GK",
+        "name": "Tshigwana Gift Mthombeni"
+      },
+      {
+        "no": "5",
+        "pos": "DF",
+        "name": "Thabo Makhele"
+      },
+      {
+        "no": "80",
+        "pos": "DF",
+        "name": "Njabulo Ngcobo"
+      },
+      {
+        "no": "14",
+        "pos": "DF",
+        "name": "Bilal Baloyi"
+      },
+      {
+        "no": "29",
+        "pos": "DF",
+        "name": "Aphiwe Baliti"
+      },
+      {
+        "no": "27",
+        "pos": "DF",
+        "name": "Keabetswe Khonyane"
+      },
+      {
+        "no": "42",
+        "pos": "DF",
+        "name": "Kabelo Lekalakala"
+      },
+      {
+        "no": "22",
+        "pos": "DF",
+        "name": "Kwanda Lupalulele"
+      },
+      {
+        "no": "23",
+        "pos": "MF",
+        "name": "Grant Margeman"
+      },
+      {
+        "no": "15",
+        "pos": "MF",
+        "name": "Relebogile Mokhuoane"
+      },
+      {
+        "no": "16",
+        "pos": "MF",
+        "name": "Tebogo Potsane"
+      },
+      {
+        "no": "18",
+        "pos": "MF",
+        "name": "Siphelele Luthuli"
+      },
+      {
+        "no": "26",
+        "pos": "MF",
+        "name": "Shadrack Kobedi"
+      },
+      {
+        "no": "7",
+        "pos": "MF",
+        "name": "Neo Mokhachane"
+      },
+      {
+        "no": "6",
+        "pos": "MF",
+        "name": "Rasebotja Selaelo"
+      },
+      {
+        "no": "4",
+        "pos": "MF",
+        "name": "Thabiso Sesane"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Tendamudzimu Matodzi"
+      },
+      {
+        "no": "2",
+        "pos": "MF",
+        "name": "Yandisa Mfolozi"
+      },
+      {
+        "no": "39",
+        "pos": "MF",
+        "name": "Sabre Benjamin"
+      },
+      {
+        "no": "36",
+        "pos": "MF",
+        "name": "Thato Letshedi"
+      },
+      {
+        "no": "33",
+        "pos": "MF",
+        "name": "Siyabonga Ndebele"
+      },
+      {
+        "no": "41",
+        "pos": "MF",
+        "name": "Manelis Mazibuko"
+      },
+      {
+        "no": "27",
+        "pos": "MF",
+        "name": "Jordan Marks"
+      },
+      {
+        "no": "20",
+        "pos": "MF",
+        "name": "Blessing Thulo"
+      },
+      {
+        "no": "10",
+        "pos": "FW",
+        "name": "Vincent Pule"
+      },
+      {
+        "no": "70",
+        "pos": "FW",
+        "name": "Jaisen Jaren Clifford"
+      },
+      {
+        "no": "40",
+        "pos": "FW",
+        "name": "Zakhele Lepasa"
+      },
+      {
+        "no": "19",
+        "pos": "FW",
+        "name": "Wayde Lekay"
+      },
+      {
+        "no": "11",
+        "pos": "FW",
+        "name": "Christian Basomboli"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Keenan Bezuidenhout"
+      },
+      {
+        "no": "34",
+        "pos": "FW",
+        "name": "Oratilwe Moloisane"
+      },
+      {
+        "no": "43",
+        "pos": "FW",
+        "name": "Sphesihle Jeza"
+      }
+    ],
+    "source": "espn"
+  },
+  "stellenbosch": {
+    "at": 1786727612.3427207,
+    "squad": [
+      {
+        "no": "17",
+        "pos": "GK",
+        "name": "Sage Stephens"
+      },
+      {
+        "no": "",
+        "pos": "GK",
+        "name": "Dublin Boon"
+      },
+      {
+        "no": "1",
+        "pos": "GK",
+        "name": "Nathan Garrow"
+      },
+      {
+        "no": "5",
+        "pos": "DF",
+        "name": "Mosa Lebusa"
+      },
+      {
+        "no": "30",
+        "pos": "DF",
+        "name": "Spiwe Given Msimango"
+      },
+      {
+        "no": "27",
+        "pos": "DF",
+        "name": "Terrence Mashego"
+      },
+      {
+        "no": "",
+        "pos": "DF",
+        "name": "Qobolwakhe Sibande"
+      },
+      {
+        "no": "14",
+        "pos": "DF",
+        "name": "Sinoxolo Kwayiba"
+      },
+      {
+        "no": "26",
+        "pos": "DF",
+        "name": "Siviwe Nkwali"
+      },
+      {
+        "no": "2",
+        "pos": "DF",
+        "name": "Kgaogelo Ramushu"
+      },
+      {
+        "no": "21",
+        "pos": "DF",
+        "name": "Gopolang Taunyana"
+      },
+      {
+        "no": "3",
+        "pos": "DF",
+        "name": "Surprise Nhlabathi"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Turan Manafov"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Kyle Bailey"
+      },
+      {
+        "no": "6",
+        "pos": "MF",
+        "name": "Tlakusani Mthethwa"
+      },
+      {
+        "no": "33",
+        "pos": "MF",
+        "name": "Chumani Butsaka"
+      },
+      {
+        "no": "28",
+        "pos": "MF",
+        "name": "Lehlogonolo Matlou"
+      },
+      {
+        "no": "19",
+        "pos": "MF",
+        "name": "Genino Palace"
+      },
+      {
+        "no": "43",
+        "pos": "MF",
+        "name": "Ethan Felix"
+      },
+      {
+        "no": "77",
+        "pos": "MF",
+        "name": "Shakeel April"
+      },
+      {
+        "no": "40",
+        "pos": "MF",
+        "name": "Muhammad Shaakir"
+      },
+      {
+        "no": "8",
+        "pos": "MF",
+        "name": "Vuyolwethu Andries"
+      },
+      {
+        "no": "20",
+        "pos": "MF",
+        "name": "Keanan Johannessen"
+      },
+      {
+        "no": "4",
+        "pos": "MF",
+        "name": "Luthando Vena"
+      },
+      {
+        "no": "24",
+        "pos": "MF",
+        "name": "Avuzwa Mbembe"
+      },
+      {
+        "no": "67",
+        "pos": "FW",
+        "name": "Bradley Grobler"
+      },
+      {
+        "no": "10",
+        "pos": "FW",
+        "name": "Ashley Du Preez"
+      },
+      {
+        "no": "37",
+        "pos": "FW",
+        "name": "Thabiso Lebitso"
+      },
+      {
+        "no": "34",
+        "pos": "FW",
+        "name": "Wonderboy Makhubu"
+      },
+      {
+        "no": "7",
+        "pos": "FW",
+        "name": "Devon Titus"
+      },
+      {
+        "no": "11",
+        "pos": "FW",
+        "name": "Quwan Plaatjies"
+      },
+      {
+        "no": "38",
+        "pos": "FW",
+        "name": "Cheswyn Philander"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Tauric Gamildien"
+      },
+      {
+        "no": "32",
+        "pos": "FW",
+        "name": "Raoul Daniels"
+      }
+    ],
+    "source": "espn"
+  },
+  "galaxy": {
+    "at": 1786727613.595622,
+    "squad": [
+      {
+        "no": "16",
+        "pos": "GK",
+        "name": "Ira Tape"
+      },
+      {
+        "no": "",
+        "pos": "GK",
+        "name": "Kayode Bankole"
+      },
+      {
+        "no": "1",
+        "pos": "GK",
+        "name": "Sipho Maseti"
+      },
+      {
+        "no": "38",
+        "pos": "GK",
+        "name": "Nkosingabele Madela"
+      },
+      {
+        "no": "32",
+        "pos": "GK",
+        "name": "Melusi Mathebula"
+      },
+      {
+        "no": "2",
+        "pos": "DF",
+        "name": "Mpho Mvelase"
+      },
+      {
+        "no": "",
+        "pos": "DF",
+        "name": "Sifiso Ngobeni"
+      },
+      {
+        "no": "4",
+        "pos": "DF",
+        "name": "McBeth Mahlangu"
+      },
+      {
+        "no": "45",
+        "pos": "DF",
+        "name": "Veluyeke Zulu"
+      },
+      {
+        "no": "23",
+        "pos": "DF",
+        "name": "Patrick Fisher"
+      },
+      {
+        "no": "22",
+        "pos": "DF",
+        "name": "Lentswe Motaung"
+      },
+      {
+        "no": "33",
+        "pos": "DF",
+        "name": "Sihle Doyiza"
+      },
+      {
+        "no": "",
+        "pos": "DF",
+        "name": "Simthandile Sishi"
+      },
+      {
+        "no": "33",
+        "pos": "DF",
+        "name": "Thiago Walters"
+      },
+      {
+        "no": "29",
+        "pos": "DF",
+        "name": "Siyabonga Nguessan"
+      },
+      {
+        "no": "5",
+        "pos": "DF",
+        "name": "Igor Salatiel Silva"
+      },
+      {
+        "no": "44",
+        "pos": "DF",
+        "name": "Lakham Gqongo"
+      },
+      {
+        "no": "35",
+        "pos": "DF",
+        "name": "Mlondi Mncwango"
+      },
+      {
+        "no": "46",
+        "pos": "DF",
+        "name": "Katlego Maake"
+      },
+      {
+        "no": "",
+        "pos": "DF",
+        "name": "Lennol Mathebula"
+      },
+      {
+        "no": "42",
+        "pos": "MF",
+        "name": "Siyanda Xulu"
+      },
+      {
+        "no": "8",
+        "pos": "MF",
+        "name": "Mlungisi Mbunjana"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Edson Khumalo"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Ntiyiso Bombi"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Owethu Khumalo"
+      },
+      {
+        "no": "24",
+        "pos": "MF",
+        "name": "Tshepo Kakora"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Katekani Mhlongo"
+      },
+      {
+        "no": "11",
+        "pos": "MF",
+        "name": "Onke Moletshe"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Anslin Williams"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Nhlakanipho Ngwenya"
+      },
+      {
+        "no": "39",
+        "pos": "MF",
+        "name": "Mpumelelo Ndaba"
+      },
+      {
+        "no": "30",
+        "pos": "MF",
+        "name": "Siphamandla Ngwenya"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Siphesihle Tati"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Zuko Gxabusa"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Bongani Van Der Heiden"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Mpho Welcome Maoke"
+      },
+      {
+        "no": "",
+        "pos": "MF",
+        "name": "Camagu Mdevulana"
+      },
+      {
+        "no": "19",
+        "pos": "FW",
+        "name": "Sedwyn George"
+      },
+      {
+        "no": "17",
+        "pos": "FW",
+        "name": "Victor Letsoalo"
+      },
+      {
+        "no": "9",
+        "pos": "FW",
+        "name": "Junior Zindoga"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Danyaal Daya"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Abdel Bamba"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Azola Jakalashe"
+      },
+      {
+        "no": "43",
+        "pos": "FW",
+        "name": "Kutlwano Mokoena"
+      },
+      {
+        "no": "27",
+        "pos": "FW",
+        "name": "Seluleko Mahlambi"
+      },
+      {
+        "no": "21",
+        "pos": "FW",
+        "name": "Paulo Gutemberg Martins Filho"
+      },
+      {
+        "no": "",
+        "pos": "FW",
+        "name": "Thabelo Tshikweta"
+      },
+      {
+        "no": "36",
+        "pos": "FW",
+        "name": "Makhama Rantoa"
+      }
+    ],
+    "source": "espn"
+  }
+}

@@ -125,6 +125,17 @@ async def upload_to_facebook(
     Returns:
         dict with platform, status, post_id, etc.
     """
+    # Locked page guard: blissful_moments is SAGA OF THE NORTH and only
+    # post_next_viking.py may post there. Everything else is refused here.
+    from config import page_locked, LOCKED_PAGES
+    if page_locked(niche):
+        print(f"[Facebook] BLOCKED: '{niche}' page is locked to {LOCKED_PAGES[niche]} — not posting")
+        return {
+            "platform": "facebook",
+            "status": "skipped",
+            "error": f"page '{niche}' locked to {LOCKED_PAGES[niche]}",
+        }
+
     config = _get_page_config(niche)
     page_id = config["page_id"]
     page_token = config["page_token"]
@@ -376,6 +387,7 @@ async def _upload_reel(
                 "platform": "facebook",
                 "status": "uploaded",
                 "post_id": post_id,
+                "video_id": video_id,   # comments must target THIS id, not post_id
                 "page_id": page_id,
                 "type": "video",
             }
@@ -412,9 +424,67 @@ async def _upload_reel(
         "platform": "facebook",
         "status": "uploaded",
         "post_id": post_id,
-        "page_id": page_id,
+        "video_id": video_id,   # comments must target THIS id — commenting on a
+        "page_id": page_id,     # reel's post_id 400s ("singular statuses API")
         "type": "reel",
     }
+
+
+async def upload_photo(image_path: str, caption: str, niche: str) -> dict:
+    """
+    Post a single photo to the page feed (lineup cards, result cards).
+    Returns {"status": "uploaded", "photo_id", "post_id"} on success.
+    """
+    try:
+        cfg = _get_page_config(niche)
+    except Exception as e:
+        return {"platform": "facebook", "status": "failed", "error": f"no page config: {e}"}
+    p = Path(image_path)
+    if not p.exists():
+        return {"platform": "facebook", "status": "failed", "error": f"missing {image_path}"}
+    try:
+        with open(p, "rb") as f:
+            resp = requests.post(
+                f"{GRAPH_API_BASE}/{cfg['page_id']}/photos",
+                data={"message": caption, "access_token": cfg["page_token"]},
+                files={"source": (p.name, f, "image/png")},
+                timeout=120,
+            )
+        if resp.status_code == 200:
+            j = resp.json()
+            print(f"[Facebook] Photo posted: {j.get('post_id') or j.get('id')}")
+            return {"platform": "facebook", "status": "uploaded",
+                    "photo_id": j.get("id"), "post_id": j.get("post_id") or j.get("id")}
+        print(f"[Facebook] Photo failed ({resp.status_code}): {resp.text[:200]}")
+        return {"platform": "facebook", "status": "failed", "error": resp.text[:200]}
+    except Exception as e:
+        return {"platform": "facebook", "status": "failed", "error": str(e)}
+
+
+async def post_comment(object_id: str, message: str, niche: str) -> dict:
+    """
+    Comment on a page post/reel AS the page (first-comment engagement, link
+    drops, etc.). object_id is the post_id/video_id returned by the uploaders.
+    """
+    try:
+        cfg = _get_page_config(niche)
+    except Exception as e:
+        return {"status": "failed", "error": f"no page config: {e}"}
+    try:
+        resp = requests.post(
+            f"{GRAPH_API_BASE}/{object_id}/comments",
+            data={"message": message, "access_token": cfg["page_token"]},
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            cid = resp.json().get("id", "")
+            print(f"[Facebook] Comment posted: {cid}")
+            return {"status": "posted", "comment_id": cid}
+        print(f"[Facebook] Comment failed ({resp.status_code}): {resp.text[:200]}")
+        return {"status": "failed", "error": resp.text[:200]}
+    except Exception as e:
+        print(f"[Facebook] Comment error: {e}")
+        return {"status": "failed", "error": str(e)}
 
 
 async def upload_to_all_facebook_pages(

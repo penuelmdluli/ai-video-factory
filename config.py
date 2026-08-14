@@ -437,59 +437,89 @@ NICHES = {
         "edge_voice": "en-GB-RyanNeural",
     },
     "sa_pulse": {
-        "name": "Genesis News - SA Current Affairs",
-        # Dedicated South African current-affairs page. topic_focus keeps topic
-        # generation + trends + the news chyron locked to SA daily life — reported
-        # factually, neutrally and with a solutions bent. See the STRICT safety
-        # block in modules/script_writer.py (NICHE_STYLE_GUIDES["sa_pulse"]).
+        "name": "Genesis News - PSL & Mzansi Football",
+        # REFOCUSED (2026-08-14): this page is now a dedicated South African
+        # football (PSL) news channel built around the BIG THREE — Kaizer Chiefs,
+        # Orlando Pirates and Mamelodi Sundowns. Everything below keeps topic
+        # generation, trends and the news chyron locked to PSL football.
+        #
+        # FACTUALITY: football news is check-able — fans will call out a fake
+        # score or invented transfer instantly. `use_live_headlines` forces the
+        # topic generator to pull REAL headlines from modules/psl_news.py
+        # (Google News RSS over Soccer Laduma / KickOff / iDiski Times / SABC /
+        # official club sites) instead of letting the model invent a story.
+        "use_live_headlines": True,
+        # TOPIC PIN (2026-08-14): the generator kept wandering to real-but-wrong
+        # stories — Sekhukhune (already played), Pitso Mosimane, Steve Barker —
+        # instead of the fixture Mzansi is actually arguing about. This forces
+        # every topic onto the pinned fixture until it is cleared.
+        # Set SA_PULSE_TOPIC_PIN="" in .env to unpin and follow the feed freely.
+        "topic_pin": os.getenv("SA_PULSE_TOPIC_PIN",
+                               "Kaizer Chiefs vs Mamelodi Sundowns"),
+        # A generated topic must mention at least one of these or it is rejected.
+        "topic_pin_terms": ["chiefs", "amakhosi", "sundowns", "masandawana"],
         "topic_focus": (
-            "South African current affairs explained for everyday citizens: what is "
-            "happening in the country right now and why it matters. Cover national news "
-            "and civic events (protests, marches, service delivery) reported factually and "
-            "neutrally; new laws, regulations and government decisions and how they affect "
-            "ordinary people; the job market, youth employment and real opportunities; "
-            "tourism and travel; border management and migration as POLICY and ECONOMICS; "
-            "cost of living; and social cohesion — including the ROOT CAUSES of tensions "
-            "like xenophobia (unemployment, inequality, scarce resources, service-delivery "
-            "and migration-management failures) and CONSTRUCTIVE SOLUTIONS (jobs, regional "
-            "integration/AfCFTA, community dialogue, fair efficient policy). ALWAYS factual, "
-            "neutral, non-partisan, unifying and solutions-oriented. NEVER incite, take a "
-            "political side, target any nationality/group, or claim unverified things about "
-            "real named people. South Africa only."
+            "South African PSL football news centred on the BIG THREE: Kaizer Chiefs "
+            "(Amakhosi), Orlando Pirates (the Buccaneers) and Mamelodi Sundowns (Masandawana). "
+            "Cover the Betway Premiership, MTN8, Nedbank Cup, Carling Knockout, the Toyota Cup "
+            "and CAF Champions League: match previews and reactions, the Soweto Derby, "
+            "confirmed transfers and signings, injury and squad news, coach press-conference "
+            "quotes, standings and title races, and key player battles. ALWAYS report only "
+            "what real, named South African football media have actually reported — never "
+            "invent a score, a transfer, a signing, an injury or a quote. Use authentic Mzansi "
+            "football language (Amakhosi, Buccaneers, Masandawana, the Calabash/FNB Stadium, "
+            "Soweto Derby, eS'Godini). South African football only. "
+            "PRIORITY: Kaizer Chiefs drive the most engagement in SA football — roughly HALF "
+            "of all topics must be Chiefs-led (Chiefs news, or a rival story told through what "
+            "it means for Amakhosi). Pirates and Sundowns share the rest."
         ),
         "topics_bank": [
-            "what South Africans are talking about today and why it matters",
-            "the real reasons youth unemployment is so high and what could fix it",
-            "where the jobs actually are in South Africa right now",
-            "how to spot and avoid job scams while job hunting in Mzansi",
-            "new laws coming to South Africa and how they affect everyday people",
-            "your basic rights as a South African everyone should know",
-            "why the cost of living keeps rising and how families are coping",
-            "xenophobia in South Africa the honest root causes and real solutions",
-            "South Africa's borders and migration explained calmly and factually",
-            "what actually drives service-delivery protests and what helps",
-            "South Africa's tourism boom and what it means for jobs",
-            "government grants and support South Africans may qualify for",
-            "how small businesses are surviving tough times in Mzansi",
-            "load shedding and the grid what is really going on explained simply",
-            "why regional trade and a united Africa could lift South Africa",
-            "practical ways communities are building safety and cohesion together",
+            "Kaizer Chiefs latest team news and what it means for Amakhosi fans",
+            "Orlando Pirates squad news and the Buccaneers' next challenge",
+            "Mamelodi Sundowns form and why Masandawana keep setting the standard",
+            "the Soweto Derby build-up everything at stake for Chiefs and Pirates",
+            "Betway Premiership title race where the big three actually stand",
+            "the key battle that will decide this weekend's biggest PSL clash",
+            "Kaizer Chiefs transfer talk what has actually been confirmed",
+            "Orlando Pirates transfer talk separating fact from rumour",
+            "Mamelodi Sundowns in the CAF Champions League what to expect",
+            "MTN8 fixtures and what the big three need to do to progress",
+            "the young PSL players Mzansi should be watching this season",
+            "goalkeeper watch who is holding it down for the big three",
+            "PSL injury report how the big three squads are shaping up",
+            "coach under pressure what the press conference really revealed",
+            "Nedbank Cup draw the ties Chiefs Pirates and Sundowns fans want",
+            "PSL matchday review the results that shifted the table",
         ],
-        "search_keywords": ["South Africa news", "South Africa jobs", "SA unemployment",
-                            "South Africa economy", "new law South Africa", "load shedding",
-                            "South Africa tourism", "cost of living South Africa",
-                            "South Africa migration policy", "youth employment South Africa"],
-        "pexels_queries": ["South African flag", "Table Mountain Cape Town",
-                           "Johannesburg Sandton skyline", "Union Buildings Pretoria",
-                           "Durban beachfront", "South African people", "job interview",
-                           "construction workers", "township community", "market vendors",
-                           "South Africa parliament", "border post", "minibus taxi rank",
-                           "South African rand money", "students studying", "spaza shop"],
-        "hashtags": ["#SouthAfrica", "#Mzansi", "#SANews", "#SouthAfricaNews",
-                     "#CurrentAffairs", "#Jobs", "#SAeconomy", "#ProudlySouthAfrican",
-                     "#Mzansi", "#SA"],
+        "search_keywords": ["Kaizer Chiefs news", "Orlando Pirates news",
+                            "Mamelodi Sundowns news", "Betway Premiership",
+                            "PSL news South Africa", "Soweto Derby", "MTN8",
+                            "Nedbank Cup", "PSL transfers", "PSL log standings"],
+        # NOTE: Pexels has no licensed PSL club footage — these are GENERIC football
+        # visuals used as b-roll. Real club/player imagery must come from properly
+        # credited press photos, never from AI generation of real players.
+        "pexels_queries": ["football stadium crowd", "soccer players match action",
+                           "soccer stadium floodlights night", "football fans cheering",
+                           "soccer ball close up grass", "goalkeeper diving save",
+                           "football tackle midfield", "soccer celebration goal",
+                           "football coach touchline", "soccer training session",
+                           "African football supporters", "vuvuzela stadium crowd",
+                           "South African flag", "Johannesburg Soweto streets",
+                           "football boots pitch", "packed stadium aerial"],
+        "hashtags": ["#PSL", "#BetwayPremiership", "#KaizerChiefs", "#Amakhosi",
+                     "#OrlandoPirates", "#Buccaneers", "#MamelodiSundowns",
+                     "#Masandawana", "#SowetoDerby", "#Mzansi"],
         "cpm_estimate": 14,
         "generate_charts": False,
+        # VOICE: this page uses the SAME female voice as Tech Pulse — Kokoro af_heart
+        # (see kokoro_voices in modules/voice_generator.py). The en-ZA voice below is
+        # only reached if Kokoro is unavailable, or if SA_PULSE_LOCAL_VOICE=true in
+        # .env, which re-locks the page to the South African accent.
+        # OWNER PICK (2026-08-14, final): Luke — male SOUTH AFRICAN ENGLISH.
+        # zu-ZA-Themba was tried and REJECTED for full scripts: an isiZulu voice
+        # applies Zulu phonology to English narration and the result is not
+        # intelligible English ("that is not english" — owner). isiZulu voices
+        # may only ever be used for single names/phrases, never narration.
         "edge_voice": "en-ZA-LukeNeural",
     },
     "motivation": {
@@ -705,14 +735,40 @@ NICHES = {
 # (war news). Set BUILD_NICHES="tech_news,ai_money" etc. to add pages back.
 BUILD_NICHES = [n.strip() for n in os.getenv("BUILD_NICHES", "tech_news").split(",") if n.strip()]
 
+# ── LOCKED PAGES ──────────────────────────────────────────────
+# A locked page belongs to exactly ONE poster script. Every other pipeline
+# (main build/upload, engagement posts, blog promo, cross-promo, Zuzu, graphic
+# reels) must skip it — no reels, no photos, no feed links.
+#   blissful_moments (page 112465853843545) = SAGA OF THE NORTH (Vikings),
+#   posted only by post_next_viking.py.
+LOCKED_PAGES = {
+    "blissful_moments": "post_next_viking.py",
+}
+
+
+def page_locked(niche: str) -> bool:
+    """True if this page is reserved for another poster than the running one.
+
+    The owning script declares itself with PAGE_LOCK_OWNER (see post_next_viking.py);
+    everyone else gets True and must skip the page.
+    """
+    owner = LOCKED_PAGES.get(niche)
+    if not owner:
+        return False
+    return os.getenv("PAGE_LOCK_OWNER", "") != owner
+
+
 SCHEDULE = {
     "ai_money": {"short": 1},           # Smart Money AI (4.4K followers)
     "tech_news": {"short": 1},          # Tech Pulse Africa (10.4K followers) — world news & geopolitics
     "motivation": {"short": 1},         # Elevate You (243 followers)
     "health_wellness": {"short": 1},    # Herbal Organic Life (920 followers)
-    "blissful_moments": {"short": 1},   # Mzansi Baby Stars (58K followers)
+    # blissful_moments: LOCKED to SAGA OF THE NORTH — see LOCKED_PAGES / post_next_viking.py
     "daily_breakdown": {"short": 1},    # Mzansi Daily — Proudly South African (needs FB page)
     "limitless_you": {"short": 1},      # Africa 2050 (209 followers)
+    # Genesis News — PSL & Mzansi Football. Without this entry main.py falls back to
+    # {"short": 2}, which would fire SIX reels a day at the page across the 3 slots.
+    "sa_pulse": {"short": 1},           # Genesis News — PSL (Chiefs/Pirates/Sundowns)
     # shopmo_products: NO FB page — disabled
 }
 
@@ -834,7 +890,8 @@ GROWTH_REPORT_HOUR = 22
 # Active niches for growth engine (those with FB page ID + token)
 GROWTH_NICHES = [
     "ai_money", "tech_news", "motivation",
-    "health_wellness", "blissful_moments", "limitless_you",
+    "health_wellness", "limitless_you",
+    # blissful_moments excluded — locked to SAGA OF THE NORTH (post_next_viking.py)
 ]
 
 # Page display names (shared across growth modules)
@@ -843,7 +900,7 @@ NICHE_PAGE_NAMES = {
     "tech_news": "Tech Pulse Africa",
     "motivation": "Elevate You",
     "health_wellness": "Herbal Organic Life",
-    "blissful_moments": "Blissful Moments",
+    "blissful_moments": "SAGA OF THE NORTH",
     "daily_breakdown": "The Daily Breakdown",
     "shopmo_products": "ShopMO",
     "limitless_you": "Limitless You",

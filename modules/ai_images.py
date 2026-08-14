@@ -41,6 +41,18 @@ NICHE_IMAGE_STYLES = {
     "daily_breakdown": "RAW photograph of real South African scene, real people on streets of Johannesburg or Cape Town, SA flag visible, genuine emotion and pride, documentary street photography, shot on Leica Q3",
     "shopmo_products": "RAW photograph of real person unboxing product, genuine excitement on face, natural home lighting, real hands touching real product, authentic moment, shot on iPhone 15 Pro",
     "limitless_you": "RAW photograph of real young African entrepreneur in action, real African city background, genuine confidence, natural street lighting, documentary portrait, shot on Canon R5 85mm",
+    # PSL football page — the emotion of Mzansi matchday. ANONYMOUS fans and
+    # generic players only: never a recognisable real footballer, never a club
+    # badge or kit (that would be both trademark misuse and misinformation).
+    # Real players/matches come from properly credited press photos instead.
+    "sa_pulse": (
+        "RAW photograph of packed South African football stadium matchday, ecstatic "
+        "anonymous fans in plain gold or plain black-and-white supporters' gear, arms "
+        "raised mid-roar, vuvuzelas, makarapa helmets, flares of colour in the stands, "
+        "floodlights and evening haze, generic unbranded players in plain kit competing "
+        "for the ball, motion blur and grass spray, electric atmosphere, "
+        "shot on Canon EOS R3 400mm f2.8 sports photography, no club logos, no badges"
+    ),
 }
 
 
@@ -54,6 +66,12 @@ NICHE_SDXL_STYLES = {
     "daily_breakdown": "RAW photo, real South African street scene with real people, vibrant colors, SA cultural elements, documentary photography, genuine daily life, Leica quality",
     "shopmo_products": "RAW photo, real person's hands opening a package with genuine excitement, natural home lighting, real product visible, authentic unboxing moment",
     "limitless_you": "RAW photo, real young African professional in modern office, genuine confidence, natural city light, real environment with depth, documentary portrait, 85mm",
+    "sa_pulse": (
+        "RAW photo, packed African football stadium under floodlights, anonymous fans "
+        "roaring in plain unbranded supporters' gear, vuvuzelas and makarapas, generic "
+        "players in plain kit in action, motion blur, sports photography 400mm f2.8, "
+        "no logos, no badges"
+    ),
 }
 
 SDXL_NEGATIVE_PROMPT = (
@@ -383,6 +401,7 @@ async def generate_image_cloudflare(
     output_path: Path,
     niche: str = "",
     orientation: str = "landscape",
+    enhance: bool = True,
 ) -> str | None:
     """
     Generate an image using Cloudflare Workers AI (FREE — 100K images/day).
@@ -390,11 +409,16 @@ async def generate_image_cloudflare(
     Uses FLUX.1 schnell model. Requires CF_ACCOUNT_ID and CF_API_TOKEN.
     Retries up to 3 times with exponential backoff for reliability.
     Returns path to saved image, or None on failure.
+
+    enhance=False sends the prompt VERBATIM. Required for non-photographic work
+    (vector logos, badges, graphics): _enhance_prompt wraps everything in "RAW
+    photo … real skin texture with pores … genuine facial expressions", which
+    put a photoreal human head inside every club emblem it was asked for.
     """
     if not CF_ACCOUNT_ID or not CF_API_TOKEN:
         return None
 
-    enhanced = _enhance_prompt(prompt, niche, orientation)
+    enhanced = _enhance_prompt(prompt, niche, orientation) if enhance else prompt
     api_url = f"https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT_ID}/ai/run/@cf/black-forest-labs/flux-1-schnell"
 
     max_retries = 3
@@ -406,12 +430,13 @@ async def generate_image_cloudflare(
                     "Authorization": f"Bearer {CF_API_TOKEN}",
                     "Content-Type": "application/json",
                 },
-                json={
-                    "prompt": enhanced,
-                    "width": 1024 if orientation == "landscape" else 768,
-                    "height": 768 if orientation == "landscape" else 1024,
-                    "num_steps": 8,  # More steps = higher quality, more detail
-                },
+                # flux-1-schnell's schema accepts ONLY `prompt` (+ optional seed).
+                # Sending width/height/num_steps returns
+                #   "Bad input: Additional or unevaluated properties
+                #    '/width, /height, /num_steps' at '/' not allowed" (code 5006),
+                # which burned a failed attempt on most requests. Aspect ratio is
+                # handled by _enhance_prompt's orientation wording + the upscaler.
+                json={"prompt": enhanced},
                 timeout=120,  # Increased from 60s for reliability
             )
 
@@ -537,6 +562,21 @@ async def generate_image(
         from config import PREFER_LOCAL_IMAGES
     except Exception:
         PREFER_LOCAL_IMAGES = True
+
+    # Per-niche override: these pages go Cloudflare FLUX FIRST regardless of the
+    # global default. SDXL's CLIP encoder truncates at 77 tokens, which was cutting
+    # the tail off the PSL prompts ("...no logos, no badges" was being dropped —
+    # exactly the part that keeps club marks out of the picture). FLUX takes the
+    # full prompt, so the football page uses it as primary.
+    CLOUD_FIRST_NICHES = {"sa_pulse"}
+    if niche in CLOUD_FIRST_NICHES:
+        result = await generate_image_cloudflare(prompt, output_path, niche, orientation)
+        if result:
+            return result
+        print(f"[AIImage] Cloudflare unavailable for {niche} — falling back to SDXL")
+        result = await generate_image_sdxl(prompt, output_path, niche, orientation)
+        if result:
+            return result
 
     # 1. LOCAL SDXL first when preferred (free, unlimited, GPU is idle now)
     if PREFER_LOCAL_IMAGES:

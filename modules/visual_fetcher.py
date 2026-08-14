@@ -636,8 +636,21 @@ async def fetch_visuals_for_scenes(
             if hero is not None:
                 return hero
 
+        # ── STILLS-ONLY override ───────────────────────────────────────────
+        # Skip every image-to-video backend and go straight to stills + Ken Burns.
+        # Read from the environment at CALL time, and named so it is NOT in .env —
+        # config.py loads .env with override=True, so anything defined there wins
+        # over a shell variable and a normal override silently does nothing.
+        # Both RunPod Wan and WaveSpeed have hung this pipeline for 10+ minutes
+        # with no clips produced; for a news reel, stills + motion is enough.
+        _stills_only = os.getenv("FORCE_STILLS_ONLY", "").lower() in ("true", "1", "yes")
+        if _stills_only:
+            chosen = await _try_ai_image(scene_num, visual_desc, narration, duration)
+            if chosen is None and USE_STOCK_FOOTAGE:
+                chosen = _try_stock_video(scene_num, query, duration)
+
         # ── Strategy: cloud AI clip first (sharp), STOCK footage fallback ──
-        if I2V_BACKEND == "wan":
+        elif I2V_BACKEND == "wan":
             # Wan 2.2 on our RunPod endpoint -> LTX -> WaveSpeed -> stock
             chosen = await _try_wan(scene_num, visual_desc, narration, duration)
             if chosen is None:
@@ -734,6 +747,12 @@ async def fetch_visuals_for_scenes(
     # ── 4. Image-to-Video conversion (SVD-XT) ────────────────
     # Convert AI images into video clips with natural motion
     ai_image_count = sum(1 for r in results if r.get("type") == "ai_image")
+    # FORCE_STILLS_ONLY also skips the LOCAL SVD-XT pass. Turning off the cloud
+    # backends alone still landed here, where SVD runs ~47s/step x 15 steps x 6
+    # scenes — about an hour on this GPU. Ken Burns on the stills is the point.
+    if os.getenv("FORCE_STILLS_ONLY", "").lower() in ("true", "1", "yes"):
+        print("[Visual] stills-only: skipping SVD image-to-video (Ken Burns instead)")
+        ai_image_count = 0
     if ai_image_count > 0:
         try:
             from modules.ai_video_generator import convert_images_to_videos

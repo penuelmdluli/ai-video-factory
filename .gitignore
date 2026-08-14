@@ -23,3 +23,20 @@ assets/viseme_did_clips/
 logs/
 *.jsonl
 .github/
+# Claude Code local settings (may contain approved commands with secrets)
+.claude/settings.local.json
+
+# accidental / generated / heavy
+C\357\200\272UsersPenuelMDocumentsai-video-factory.env
+C:UsersPenuelMDocumentsai-video-factory.env
+blog/.wrangler/
+blog/build/
+data/growth_analytics.db
+echomimic-presenter/
+assets/ace_music_cache/
+assets/music_cache/
+assets/player_heads/
+assets/clip_library/
+blog/.wrangler/
+blog/build/
+data/growth_analytics.db

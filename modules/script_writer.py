@@ -54,45 +54,81 @@ image (fabricating a real leader in combat is misinformation and gets flagged); 
 name them, the picture stays anonymous. Never take a side; show the human cost without glorifying.
 Every frame should feel like real breaking-news footage of THIS specific story.""",
 
-    "sa_pulse": """STYLE: Trusted South African current-affairs explainer for "Genesis News".
-FOCUS: What is happening in South Africa right now and why it matters to ordinary people —
-national news and civic events, new laws and government decisions, the job market and real
-opportunities, tourism, border/migration policy, cost of living, and social cohesion.
-Explain it like a calm, credible SA news explainer — clear, factual, balanced, verified.
-Help citizens UNDERSTAND and feel hopeful, not panic.
+    "sa_pulse": """STYLE: High-energy South African PSL football news for "Genesis News" —
+the page Mzansi checks for Kaizer Chiefs, Orlando Pirates and Mamelodi Sundowns.
+You sound like a clued-up Mzansi football show host: fast, passionate, opinionated about
+the FOOTBALL, but never loose with the facts. Speak to fans, not at them.
 
-STRICT SAFETY (non-negotiable — this is sensitive civic content):
-- NEUTRAL & NON-PARTISAN: never endorse or attack any political party, leader or group
-  (ANC, DA, EFF, MK, IFP, etc.). Report what happened and give balanced context; let the
-  viewer decide. No campaigning, no partisan spin.
-- NO INCITEMENT: never call for, encourage or glorify protest, violence, looting, or any
-  action against anyone. Report civic events calmly and factually; show the human side.
-- REAL PEOPLE: only state established, verifiable facts about named people. NEVER invent
-  quotes, actions or scandals. When unsure, keep it general and say what is known.
-- IMMIGRATION / BORDERS / XENOPHOBIA: frame ONLY around ROOT CAUSES (unemployment,
-  inequality, scarce resources, service-delivery and migration-management failures) and
-  CONSTRUCTIVE SOLUTIONS (jobs, skills, regional integration, community dialogue, fair and
-  efficient policy). NEVER blame, mock or dehumanise any nationality or group; NEVER stoke
-  us-vs-them. Keep an empathetic, unifying, pan-African "we rise together" tone.
-- NO misinformation, no fear-mongering, no fake statistics. This is general information,
-  NOT legal or financial advice.
-Tone: Calm, credible, empowering Mzansi voice — a trusted friend who explains the news
-honestly and always points toward understanding and solutions.
+PRIORITY — KAIZER CHIEFS FIRST: Amakhosi drive the most engagement in SA football. Lead
+with Chiefs whenever there is a Chiefs angle, and when covering Pirates or Sundowns, tell
+it through what it MEANS for the title race and for Chiefs' rivals.
 
-VISUALS — MUST look unmistakably South African and MATCH each line:
-- Show the SOUTH AFRICAN FLAG and instantly-recognisable SA landmarks when they fit —
-  Table Mountain, the Union Buildings, Sandton/Joburg skyline, Durban beachfront, Cape Town,
-  Parliament, township streets, spaza shops, minibus taxi ranks, robots (traffic lights).
-- Every visual_description shows the ACTUAL subject of that line: jobs → people at work /
-  interviews / construction; laws → parliament / documents / a courtroom; cost of living →
-  shops, groceries, fuel pumps; tourism → landmarks; migration → a border post; grid →
-  pylons / substations. If SA money is mentioned, show the RAND.
-- Real, everyday South Africans of ALL backgrounds; GENERIC anonymous people only — NEVER
-  depict a real politician or leader in the image. One clear, specific, DIFFERENT subject per shot.
-- CINEMATIC & DRAMATIC: striking angles, golden-hour light, energy, motion and emotional
-  stakes — eye-catching, scroll-stopping footage. But the drama comes from great
-  cinematography and real human emotion, NEVER from violence, chaos or degrading imagery.
-  Peaceful and dignified, yet gripping.""",
+REEL STRUCTURE (follow this beat map for every short):
+- HOOK (0:00-0:05): a bold question or claim that starts an argument.
+  e.g. "Are Chiefs FINALLY ready for Sundowns?" / "Is this the signing Amakhosi needed?"
+  Name the clubs in the first sentence so the algorithm and the fan both know instantly.
+- THE NEWS (0:05-0:25): the actual story — who, what, when, and the result or quote that
+  was really reported. Include a real detail: a scoreline that was played, a named player,
+  a coach's actual words, a fixture and venue.
+- THE KEY BATTLE (0:25-0:45): the football insight — the matchup, the tactical question,
+  the form line, the player under pressure. This is what makes it worth watching.
+- CALL TO ACTION (0:45-0:60): a debate question that fans MUST answer in the comments
+  ("Drop your score prediction"), then follow on Facebook / subscribe on YouTube.
+
+TITLE RULES (the title decides whether anyone presses play — treat it as the
+single most important line you write):
+- 55 characters or fewer. Front-load the club or the derby: "Chiefs vs Sundowns:",
+  "Pirates' ", "Sundowns Just...".
+- Open an information gap around a REAL fact from the headlines — make them need
+  the answer: "The One Battle That Decides Chiefs vs Sundowns",
+  "Why Sundowns Fear This Chiefs Change", "'We Fear No One' — Inside Chiefs' Plan".
+- A named player + a stake beats anything generic: "Shabalala's Biggest Test Yet"
+  beats "Chiefs Team News".
+- Numbers work: "3 Battles", "2 Changes", "The 89th-Minute Problem".
+- NEVER promise what the video doesn't deliver, never invent a fact or score for
+  the title, no ALL-CAPS words (club initials excepted), no emoji in the title.
+
+STRICT FACTUALITY (non-negotiable — football fans fact-check instantly):
+- Use ONLY facts supplied in the live headlines / topic brief. NEVER invent a scoreline,
+  a goalscorer, a transfer, a signing, an injury, a log position or a quote.
+- Anything reported as a rumour stays a rumour: say "reports claim", "reports suggest",
+  "is being linked with" — NEVER state it as done.
+- NEVER name an outlet in the narration or on screen ("Goal.com", "Soccer Laduma",
+  "iDiski Times" must not be SPOKEN). Attribute to the person only: "Miguel said",
+  "reports claim". Credit the outlets in the DESCRIPTION instead — end the description
+  with a line like "Sources: Soccer Laduma, Goal.com".
+- If a detail is not in the brief, leave it out. A shorter true script beats a fuller fake
+  one. Never guess a fixture date, a final score or a squad list.
+- NO betting tips, odds, or "guaranteed" predictions. Fan opinion is fine; gambling advice
+  is not.
+- RESPECT: criticise performance, tactics and decisions — NEVER insult a player, coach,
+  referee or fan base personally, and never mock a club's supporters. No claims about
+  anyone's private life. Passionate rivalry banter only, the kind that keeps comments fun.
+
+Tone: Loud, warm, proudly South African — but the narration is READ BY A VOICE
+that struggles with Nguni words, so in NARRATION always use the pronounceable
+names: "Kaizer Chiefs" (never "Amakhosi"), "Sundowns" (never "Masandawana"),
+"Pirates" or "the Buccaneers" (fine), "FNB Stadium" or "the Calabash", "the
+Soweto Derby". Local flavour words (Amakhosi, Masandawana, eS'Godini, shibobo)
+may ONLY appear in the description/hashtags, never in a scene's narration.
+
+VISUALS — matchday energy, and legally/ethically safe:
+- Every visual_description is football: packed stands under floodlights, fans mid-roar with
+  vuvuzelas and makarapas, a keeper flying across goal, a tackle in midfield, boots and ball
+  on grass, a coach pacing the touchline, an empty stadium at golden hour, Soweto streets in
+  club colours.
+- ANONYMOUS people and GENERIC unbranded kit ONLY. NEVER describe a real, recognisable
+  footballer, coach or official, and NEVER a club badge, logo, sponsor or replica shirt —
+  generated images of real players are misinformation and club marks are trademarked.
+  The narration names real people; the picture stays generic.
+- Use plain COLOUR to signal a club instead of a badge: gold and black for Chiefs, black and
+  white for Pirates, yellow for Sundowns.
+- Match the shot to the line: transfer talk → a lone player walking out of a tunnel; injury
+  → a physio and a strapped ankle; a big fixture → a heaving crowd; the log → floodlights
+  over a full stadium.
+- CINEMATIC SPORTS PHOTOGRAPHY: long-lens compression, motion blur, grass spray, sweat,
+  flares of stand colour, night floodlight haze. Drama from atmosphere and emotion —
+  never from crowd trouble, violence or anything degrading.""",
 
     "motivation": """STYLE: Practical life coach.
 Share specific techniques for discipline, habits, and mindset.
@@ -333,6 +369,62 @@ Topic: "{topic}"
 """
 
 
+async def _live_facts_block(niche: str) -> str:
+    """
+    Real, sourced headlines appended to the script prompt for fact-bound niches.
+
+    The topic generator already picks the topic from live headlines, but the
+    script writer only received the topic STRING — leaving the model free to
+    invent the scoreline, the signing and the quote that fill the 60 seconds.
+    For football that is instantly falsifiable, so the same sourced headlines
+    are handed to the script writer as the only permitted facts.
+
+    Returns "" for every other niche (and on any failure) — behaviour unchanged.
+    """
+    try:
+        if not NICHES.get(niche, {}).get("use_live_headlines"):
+            return ""
+        from modules.psl_news import headlines_for_prompt
+        live = await headlines_for_prompt()
+        if not live:
+            print(f"[ScriptWriter] {niche}: no live headlines — keeping script general")
+            return ""
+        return (
+            f"\n\n## LIVE SOURCED HEADLINES — THE ONLY FACTS YOU MAY STATE\n{live}\n\n"
+            f"HARD RULES:\n"
+            f"- Every specific claim in the narration (score, goalscorer, signing, injury, "
+            f"quote, fixture, log position) MUST come from the list above, word for word in "
+            f"substance. If it is not there, do NOT say it.\n"
+            f"- NEVER speak an outlet name in the narration ('Goal.com', 'Soccer Laduma', "
+            f"'iDiski Times' etc. must not appear in any scene). Attribute to the person "
+            f"only ('Miguel said', 'reports claim'). CREDIT every outlet you used in the "
+            f"description field instead — end the description with 'Sources: <outlets>'.\n"
+            f"- Items flagged REPORT/RUMOUR must be voiced as reports, never as done deals.\n"
+            f"- If the headlines are thin, write a shorter, opinion-and-preview script rather "
+            f"than inventing detail. A true short beats a fake full one.\n"
+            f"- DO NOT INFER: if a headline does not say a player was signed, transferred, "
+            f"injured, dropped or made his debut, do not say it.\n"
+            f"- QUOTES ARE SACRED: only quote words that appear inside quote marks in the "
+            f"headlines above, verbatim and attributed to the SAME person (the outlet that "
+            f"published it goes in the description Sources line, never the narration). "
+            f"Never merge two headlines into one quote, never trim a quote into a fragment, and "
+            f"never attach a quote to a different person. If you cannot quote it exactly, "
+            f"paraphrase without quote marks.\n"
+            f"- NO STALE KNOWLEDGE: do not reference a trophy drought, a trophyless run, a "
+            f"last-trophy date, a league position, a head-to-head record or a manager's tenure "
+            f"unless it appears above. Kaizer Chiefs ENDED their 10-year drought by winning the "
+            f"2025 Nedbank Cup — 'can Chiefs finally win a trophy' is wrong and fans will say so.\n"
+            f"- NAME ONLY, NO LABELS: say 'Sphelele Mkhulise', never 'Sundowns striker Sphelele "
+            f"Mkhulise'. Do not attach a position (striker/midfielder/defender/keeper), age, "
+            f"nationality or club history to any player unless those exact words appear in the "
+            f"headlines above. Getting a player's position wrong is the fastest way to lose fans.\n"
+            f"- Lead with Kaizer Chiefs whenever the list has a Chiefs angle."
+        )
+    except Exception as e:
+        print(f"[ScriptWriter] live facts unavailable for {niche}: {e}")
+        return ""
+
+
 async def generate_viral_short_script(
     topic: str,
     niche: str,
@@ -371,12 +463,29 @@ async def generate_viral_short_script(
         end_point=end_point,
         scene_count=scene_count,
     )
+    prompt += await _live_facts_block(niche)
 
     # ── Strategy: Claude FIRST (reliable), Gemini fallback (free but rate-limited) ──
     response = None
 
-    # 1. Try Claude first (always available, no rate limits)
-    if ANTHROPIC_API_KEY:
+    # 0. Claude via the local Claude Code CLI — uses the subscription already paid
+    # for, so it costs nothing per call and does not depend on API credits. This is
+    # PRIMARY; the API key below is now only a fallback.
+    if not response:
+        try:
+            from modules.claude_cli import claude_cli_complete, cli_enabled
+            if cli_enabled():
+                text = await claude_cli_complete(
+                    prompt + "\n\nReturn ONLY valid JSON, no markdown, no commentary."
+                )
+                if text:
+                    response = type("R", (), {"text": text})()
+                    print("[ScriptWriter] Claude CLI (subscription) generated script")
+        except Exception as e:
+            print(f"[ScriptWriter] Claude CLI failed: {e}")
+
+    # 1. Try Claude API (fallback — needs credits on ANTHROPIC_API_KEY)
+    if not response and ANTHROPIC_API_KEY:
         try:
             import anthropic
             claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -393,7 +502,7 @@ async def generate_viral_short_script(
 
     # 2. Gemini fallback (if Claude fails)
     if not response or not response.text:
-        models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+        models = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"]
         for model_name in models:
             try:
                 response = client.models.generate_content(
@@ -633,9 +742,10 @@ async def generate_script_gemini(
         hashtags=", ".join(niche_config["hashtags"]),
         today=today,
     )
+    prompt += await _live_facts_block(niche)
 
     # Aggressive retry: cycle models with escalating waits (Gemini free tier resets per-minute)
-    models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]  # Current models (July 2026)
+    models = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"]  # Refreshed 2026-08-14: 2.0-flash + 2.0-flash-lite are retired (404)
     response = None
     max_rounds = 3
 
@@ -720,6 +830,7 @@ async def generate_script_claude(
             hashtags=", ".join(niche_config["hashtags"]),
             today=today,
         )
+        prompt += await _live_facts_block(niche)
 
         message = client.messages.create(
             model="claude-haiku-4-5-20251001",
@@ -748,6 +859,312 @@ async def generate_script_claude(
         return None
 
 
+# Role/position words that are claims about a real person. Stating one the sources
+# never gave is the fastest credibility kill on a football page — a fan knows
+# instantly that Luke Baartman is a winger, not a "midfield engine".
+_ROLE_WORDS = re.compile(
+    r"\b(striker|strikers|winger|wingers|midfielder|midfielders|midfield|defender|"
+    r"defenders|goalkeeper|goalkeepers|keeper|keepers|forward|forwards|captain|"
+    r"skipper|left-back|right-back|centre-back|center-back|fullback|full-back)\b",
+    re.IGNORECASE,
+)
+
+# "Sundowns striker Sphelele Mkhulise" → "Sphelele Mkhulise". Strips the label but
+# keeps the person, so the sentence still reads naturally.
+# The case-insensitive flag is scoped to the words that need it. Applying it to
+# the whole pattern makes [A-Z] match lowercase, so "striker does in the ninety
+# seconds" parsed as "<role> <Name>" and the scrub produced "watch what the does".
+_LABEL_BEFORE_NAME = re.compile(
+    r"\b(?:(?i:chiefs|kaizer chiefs|amakhosi|pirates|orlando pirates|buccaneers|bucs|"
+    r"sundowns|mamelodi sundowns|masandawana)\s+)?"
+    r"(?i:striker|winger|midfielder|defender|goalkeeper|keeper|forward|skipper|"
+    r"left-back|right-back|centre-back|center-back|fullback|full-back)\s+"
+    r"(?=[A-Z][a-z]+\s+[A-Z])"
+)
+
+# A bare role word with no name after it (e.g. "watch what the striker does").
+# Deleting it breaks the sentence, so swap in a neutral noun instead — the claim
+# disappears, the grammar survives.
+_BARE_ROLE = re.compile(
+    r"\b(?i:striker|strikers|winger|wingers|midfielder|midfielders|defender|defenders|"
+    r"goalkeeper|goalkeepers|keeper|keepers|forward|forwards)\b"
+)
+
+
+# Claims the model reaches for from stale training knowledge rather than from the
+# feed. The trophy-drought line is the live example: Chiefs ended a 10-year drought
+# by winning the 2025 Nedbank Cup, so "can Chiefs finally end their drought?" is both
+# wrong and the kind of thing Amakhosi fans pile on. Anything here must be earned
+# from a source headline or it does not go out.
+_STALE_CLAIMS = re.compile(
+    r"(trophy drought|trophyless|silverware drought|without a trophy|"
+    r"haven'?t won (?:a|any) (?:trophy|silverware)|has not won (?:a|any) (?:trophy|silverware)|"
+    r"last (?:won a )?trophy|end(?:ing)? (?:their|the) (?:long )?wait for silverware)",
+    re.IGNORECASE,
+)
+
+# Safe closers used when a scene's only content was an unsourced claim.
+_SAFE_CTA = "Drop your score prediction in the comments and follow Genesis News for every PSL update."
+
+
+def _unsourced_claims(script: dict, sources_text: str) -> list[str]:
+    """Stale-knowledge claims that no source headline supports."""
+    src = (sources_text or "").lower()
+    found = set()
+    for scene in script.get("scenes", []) or []:
+        for m in _STALE_CLAIMS.findall(scene.get("narration", "") or ""):
+            phrase = m if isinstance(m, str) else m[0]
+            if phrase.lower() not in src:
+                found.add(phrase.lower())
+    return sorted(found)
+
+
+def _strip_claim_sentences(script: dict) -> dict:
+    """Drop whole sentences carrying a stale claim; keep the scene speakable."""
+    for scene in script.get("scenes", []) or []:
+        n = scene.get("narration") or ""
+        if not n or not _STALE_CLAIMS.search(n):
+            continue
+        kept = [s for s in re.split(r"(?<=[.!?])\s+", n) if not _STALE_CLAIMS.search(s)]
+        scene["narration"] = " ".join(kept).strip() or _SAFE_CTA
+    return script
+
+
+# Quoted speech only. The apostrophe in "here's" / "it's" is NOT an opening quote —
+# an earlier version treated it as one and shredded whole scripts, so a single-quoted
+# span must start at a word boundary and close before punctuation/whitespace.
+_QUOTE_SPAN = re.compile(
+    r"[\"“]([^\"”\n]{8,})[\"”]"
+    r"|(?:^|(?<=[\s:,—–-]))['‘]([^'’\n]{8,})['’](?=[\s.,!?;:]|$)"
+)
+
+
+def _quotes_in(text: str) -> list[str]:
+    return [a or b for a, b in _QUOTE_SPAN.findall(text or "") if (a or b)]
+
+
+def _norm_words(text: str) -> str:
+    return " ".join(re.sub(r"[^a-z0-9 ]", " ", (text or "").lower()).split())
+
+
+def _unsourced_quotes(script: dict, sources_text: str) -> list[str]:
+    """
+    Quoted speech in the narration that no source headline actually contains.
+
+    Putting words in a named person's mouth — and crediting a named outlet for
+    them — is the most damaging thing this page can do. Observed failure: the
+    model merged two headlines into "Goal.com reports Monyane said 'We look to
+    keep up that'", which nobody said. A quote must appear in the sources
+    verbatim (first six words) or it does not air.
+    """
+    src = _norm_words(sources_text)
+    if not src:
+        return []
+    bad = []
+    for scene in script.get("scenes", []) or []:
+        for raw in _quotes_in(scene.get("narration", "")):
+            q = _norm_words(raw)
+            if not q:
+                continue
+            head = " ".join(q.split()[:6])
+            if head and head not in src:
+                bad.append(raw.strip())
+    return bad
+
+
+def _split_sentences(text: str) -> list[str]:
+    """Split on sentence ends, allowing a closing quote mark after the stop."""
+    return [s for s in re.split(r"(?<=[.!?])['\"’”]?\s+", text) if s.strip()]
+
+
+def _strip_quote_sentences(script: dict, sources_text: str) -> dict:
+    """
+    Drop only the sentences whose quote is unverifiable — a correctly sourced
+    quote is the most valuable line in the script and must survive.
+    """
+    src = _norm_words(sources_text)
+    scenes = script.get("scenes", []) or []
+    for scene in scenes:
+        n = scene.get("narration") or ""
+        if not n or not _quotes_in(n):
+            continue
+        kept = []
+        for s in _split_sentences(n):
+            unsourced = any(
+                " ".join(_norm_words(q).split()[:6]) not in src
+                for q in _quotes_in(s) if _norm_words(q)
+            )
+            if not unsourced:
+                kept.append(s)
+        scene["narration"] = " ".join(kept).strip()
+    # An emptied scene is DROPPED, never back-filled with the CTA — a stray
+    # "drop your prediction" as scene 1 wrecked a build.
+    script["scenes"] = [s for s in scenes if (s.get("narration") or "").strip()]
+    return script
+
+
+# "defender Inacio Miguel" — the role must be sourced FOR THIS PLAYER. A global
+# allow-list let "defender" through because a different headline called a Pirates
+# player a defender, which is how Inacio Miguel got the wrong position.
+# NOTE: the case-insensitive flag is scoped to the role words only. Applying it to
+# the whole pattern makes [A-Z] match lowercase, so "defender Inacio Miguel says"
+# captured the name as "Inacio Miguel says".
+_ROLE_THEN_NAME = re.compile(
+    r"\b((?i:striker|winger|midfielder|defender|goalkeeper|keeper|forward|skipper|captain))\s+"
+    r"((?:[A-Z][\w'’-]+\s+){0,2}[A-Z][\w'’-]+)"
+)
+
+
+def _unsourced_roles(script: dict, sources_text: str) -> list[str]:
+    """
+    Role words the sources do not support — checked per player, not globally.
+
+    A role is allowed only if some single source line contains BOTH the role word
+    and that player's surname. A bare role word with no name attached is allowed
+    only if the sources use it somewhere.
+    """
+    src_lines = [_norm_words(l) for l in (sources_text or "").splitlines() if l.strip()]
+    loose_ok = {w.lower() for w in _ROLE_WORDS.findall(sources_text or "")}
+    found = set()
+    for scene in script.get("scenes", []) or []:
+        text = scene.get("narration", "") or ""
+        paired = {}
+        for role, name in _ROLE_THEN_NAME.findall(text):
+            surname = _norm_words(name).split()[-1] if _norm_words(name) else ""
+            paired[role.lower()] = surname
+            if not any(role.lower() in l and surname and surname in l for l in src_lines):
+                found.add(f"{role.lower()} {surname}".strip())
+        for w in _ROLE_WORDS.findall(text):
+            if w.lower() not in paired and w.lower() not in loose_ok:
+                found.add(w.lower())
+    return sorted(found)
+
+
+# Outlet domains read badly aloud. Kokoro turned "Goal.com" into "Goal dot com
+# dot com" in a shipped voiceover. Say the masthead the way a presenter would.
+_SPEAKABLE_SOURCES = [
+    (re.compile(r"\bGoal\.com(?:\.com)*\b", re.IGNORECASE), "Goal dot com"),
+    (re.compile(r"\biol\.co\.za\b", re.IGNORECASE), "IOL"),
+    (re.compile(r"\bsupersport\.com\b", re.IGNORECASE), "SuperSport"),
+    (re.compile(r"\bflashscore\.co\.za\b", re.IGNORECASE), "Flashscore"),
+    (re.compile(r"\bkickoff\.com\b", re.IGNORECASE), "KickOff"),
+    (re.compile(r"\bsoccerladuma\.co\.za\b", re.IGNORECASE), "Soccer Laduma"),
+    (re.compile(r"\bidiskitimes\.co\.za\b", re.IGNORECASE), "iDiski Times"),
+    (re.compile(r"\btimeslive\.co\.za\b", re.IGNORECASE), "TimesLIVE"),
+]
+
+
+# Outlets we may quote from. Spoken narration must never contain them; the
+# description carries the credit ("Sources: ...") instead.
+_OUTLET_NAMES = [
+    "Soccer Laduma", "Goal.com", "Goal", "iDiski Times", "KickOff", "FARPost",
+    "SABC Sport", "TimesLIVE", "SuperSport", "Sowetan", "Daily Sun", "The Citizen",
+    "IOL", "News24", "SoccerLaduma",
+]
+_OUTLET_PHRASE = re.compile(
+    r"\s*(?:,?\s*)?(?:according to|as per|per|reports? (?:from|by|in)|via|told|"
+    r"speaking to|confirmed (?:to|by)|writes|reports)?\s*"
+    r"(?:the\s+)?(" + "|".join(re.escape(o) for o in _OUTLET_NAMES) + r")"
+    r"(?:\s+(?:reports?|reported|claims?|writes|said|revealed|confirms?|confirmed))?",
+    re.IGNORECASE)
+
+
+# Words the sa_pulse voice cannot pronounce cleanly -> spoken replacements.
+# Owner rule 2026-08-14: narration uses ONLY easy-to-say names; the flavour
+# words stay in descriptions/hashtags where nobody has to voice them.
+_TTS_FRIENDLY = [
+    (re.compile(r"\bAmakhosi\b", re.IGNORECASE), "Kaizer Chiefs"),
+    (re.compile(r"\bMasandawana\b", re.IGNORECASE), "Sundowns"),
+    (re.compile(r"\beS'?Godini\b", re.IGNORECASE), "Soweto"),
+    (re.compile(r"\bshibobo\b", re.IGNORECASE), "a nutmeg"),
+    (re.compile(r"\bmakarapa(s)?\b", re.IGNORECASE), r"fan helmet\1"),
+    (re.compile(r"\bKe nako\b", re.IGNORECASE), "It's time"),
+    (re.compile(r"\bLaduma\b", re.IGNORECASE), "Goal"),
+]
+
+
+def _tts_friendly_narration(script: dict) -> dict:
+    """Replace hard-to-pronounce words in every narration (captions follow)."""
+    changed = []
+    for scene in script.get("scenes", []) or []:
+        n = scene.get("narration") or ""
+        n2 = n
+        for pat, repl in _TTS_FRIENDLY:
+            n2 = pat.sub(repl, n2)
+        if n2 != n:
+            changed.append(True)
+        scene["narration"] = re.sub(r"\s{2,}", " ", n2).strip()
+    # avoid "Kaizer Chiefs ... Kaizer Chiefs" stutter from a replaced nickname
+    for scene in script.get("scenes", []) or []:
+        scene["narration"] = re.sub(r"\b(Kaizer Chiefs)(\s*[,—-]?\s*\1)+\b", r"\1",
+                                    scene.get("narration") or "")
+    if changed:
+        print(f"[ScriptWriter] TTS-friendly pass: {len(changed)} narration(s) adjusted")
+    return script
+
+
+def _outlets_to_credits(script: dict) -> dict:
+    """Strip outlet names from every narration; credit them in the description."""
+    used = []
+    for scene in script.get("scenes", []) or []:
+        n = scene.get("narration") or ""
+        if not n:
+            continue
+
+        def _grab(m):
+            used.append(m.group(1))
+            # keep the sentence grammatical: "Miguel told Goal.com 'X'" ->
+            # "Miguel said 'X'"; "according to Soccer Laduma, Chiefs..." -> "Chiefs..."
+            return " said" if re.search(r"\btold\b", m.group(0), re.IGNORECASE) else ""
+
+        n2 = _OUTLET_PHRASE.sub(_grab, n)
+        n2 = re.sub(r"\s{2,}", " ", n2).replace(" ,", ",").replace(" .", ".").strip(" ,")
+        if n2 and n2[0].islower():
+            n2 = n2[0].upper() + n2[1:]
+        scene["narration"] = n2
+    if used:
+        # normalise + dedupe, preserving order
+        canon = {o.lower(): o for o in _OUTLET_NAMES}
+        credits = list(dict.fromkeys(canon.get(u.lower(), u) for u in used))
+        desc = (script.get("description") or "").rstrip()
+        if "sources:" not in desc.lower():
+            script["description"] = f"{desc}\n\nSources: {', '.join(credits)}"
+        print(f"[ScriptWriter] outlets moved to credits: {credits}")
+    return script
+
+
+def _speakable_sources(script: dict) -> dict:
+    """Make outlet names pronounceable, and collapse repeated domain suffixes."""
+    for scene in script.get("scenes", []) or []:
+        n = scene.get("narration") or ""
+        if not n:
+            continue
+        for pat, repl in _SPEAKABLE_SOURCES:
+            n = pat.sub(repl, n)
+        n = re.sub(r"(\bdot com\b)(\s+\1)+", r"\1", n, flags=re.IGNORECASE)
+        scene["narration"] = re.sub(r"\s{2,}", " ", n).strip()
+    return script
+
+
+def _scrub_roles(script: dict) -> dict:
+    """
+    Remove unsourced position claims without wrecking the sentence.
+
+    Two cases:
+      "Sundowns striker Sphelele Mkhulise" -> "Sphelele Mkhulise"   (drop label)
+      "watch what the striker does"        -> "watch what the player does"
+    Plain deletion produced "watch what the does", which shipped into a voiceover.
+    """
+    for scene in script.get("scenes", []) or []:
+        n = scene.get("narration") or ""
+        if not n:
+            continue
+        n = _LABEL_BEFORE_NAME.sub("", n)          # role attached to a name
+        n = _BARE_ROLE.sub("player", n)            # role standing alone
+        scene["narration"] = re.sub(r"\s{2,}", " ", n).strip()
+    return script
+
+
 async def generate_script(
     topic: str,
     niche: str,
@@ -758,10 +1175,51 @@ async def generate_script(
 
     For shorts: uses generate_viral_short_script (optimized 30s format)
     Falls back to Claude direct if viral script fails.
+
+    Fact-bound niches (PSL football) get a hard guard: if the script asserts a
+    player's position that no source headline gave, it is regenerated once and
+    then scrubbed. Prompt rules alone did not hold — the model twice invented a
+    position — so this check is deterministic rather than advisory.
     """
+    fact_bound = bool(NICHES.get(niche, {}).get("use_live_headlines"))
+    sources_text = await _live_facts_block(niche) if fact_bound else ""
+
     # Shorts use the viral shorts pipeline (Claude primary, Gemini fallback)
     if format_type in ("short", "viral_short"):
         script = await generate_viral_short_script(topic, niche, duration_target=30)
+        if script and fact_bound:
+            roles = _unsourced_roles(script, sources_text)
+            claims = _unsourced_claims(script, sources_text)
+            quotes = _unsourced_quotes(script, sources_text)
+            if roles or claims or quotes:
+                print(f"[ScriptWriter] GUARD: unsourced roles={roles} claims={claims} "
+                      f"quotes={quotes} — regenerating once")
+                retry = await generate_viral_short_script(topic, niche, duration_target=30)
+                if retry:
+                    script = retry
+                    roles = _unsourced_roles(script, sources_text)
+                    claims = _unsourced_claims(script, sources_text)
+                    quotes = _unsourced_quotes(script, sources_text)
+                if quotes:
+                    print(f"[ScriptWriter] GUARD: still unsourced quotes={quotes} — dropping sentences")
+                    script = _strip_quote_sentences(script, sources_text)
+                if roles:
+                    print(f"[ScriptWriter] GUARD: still unsourced roles={roles} — scrubbing labels")
+                    script = _scrub_roles(script)
+                if claims:
+                    print(f"[ScriptWriter] GUARD: still unsourced claims={claims} — dropping sentences")
+                    script = _strip_claim_sentences(script)
+        if script and fact_bound:
+            # Always run, guard-triggered or not — the source credits are in every
+            # script by design, so they always need to be speakable.
+            script = _speakable_sources(script)
+            # Owner rule (2026-08-14): outlets are CREDITED, never SPOKEN. Move
+            # any outlet name the model still put in the narration out of the
+            # spoken text; the description keeps/receives the credit line.
+            script = _outlets_to_credits(script)
+            # Owner rule (2026-08-14): narration only uses words the voice can
+            # actually pronounce — "Kaizer Chiefs", never "Amakhosi".
+            script = _tts_friendly_narration(script)
         if script:
             print(f"[ScriptWriter] Generated viral short: {script.get('title', topic)[:60]}")
             return script
@@ -905,7 +1363,7 @@ async def generate_news_anchor_script(
     )
 
     client = genai.Client(api_key=GEMINI_API_KEY)
-    models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]  # Current models (July 2026)
+    models = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"]  # Refreshed 2026-08-14: 2.0-flash + 2.0-flash-lite are retired (404)
     response = None
 
     for model_name in models:

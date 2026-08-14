@@ -79,6 +79,12 @@ def generate(image_path, output_path, prompt, width=832, height=480,
     """Animate a still on the Wan 2.2 i2v endpoint. Returns mp4 path or None.
     Signature-compatible with runpod_ltx.generate. `steps` is clamped to >=8
     because this template is NOT the 4-step Lightning build by default."""
+    # Hard kill switch. Unsetting RUNPOD_WAN_ENDPOINT_ID in the shell does NOT work
+    # because config loads .env with override=True and puts it straight back — so
+    # this reads a var that is deliberately NOT in .env.
+    if os.getenv("DISABLE_RUNPOD_WAN", "").lower() in ("true", "1", "yes"):
+        return None
+
     key = _env("RUNPOD_API_KEY")
     ep = _env("RUNPOD_WAN_ENDPOINT_ID")
     if not key or not ep:

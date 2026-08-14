@@ -49,7 +49,7 @@ def _try_gemini(topic: str, niche: str) -> dict | None:
         from google import genai
         client = genai.Client(api_key=GEMINI_API_KEY)
         prompt = _META.format(topic=topic, niche=niche)
-        for model_name in ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"):
+        for model_name in ("gemini-3.7-flash", "gemini-3.5-flash", "gemini-2.5-flash", "gemini-flash-latest"):
             try:
                 r = client.models.generate_content(model=model_name, contents=prompt)
                 if r and r.text:

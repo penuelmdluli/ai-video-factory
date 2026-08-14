@@ -174,6 +174,22 @@ async def _fetch_trending_context(niche: str) -> str:
     return ""
 
 
+
+def _pin_ok(topic: str, niche_config: dict) -> bool:
+    """True if a generated topic actually honours the pin.
+
+    Prompt instructions alone have not held in this pipeline — the model produced
+    real-but-off-fixture topics repeatedly — so the pin is validated, not trusted.
+    """
+    if not niche_config.get("topic_pin"):
+        return True
+    terms = [t.lower() for t in niche_config.get("topic_pin_terms", [])]
+    if not terms:
+        return True
+    low = (topic or "").lower()
+    return any(t in low for t in terms)
+
+
 async def generate_trending_topic_ai(
     niche: str,
     perf_keywords: list[str] | None = None,
@@ -216,6 +232,41 @@ async def generate_trending_topic_ai(
                     f"pick a FRESH angle within this focus (a different event, figure, "
                     f"consequence, or question) that differs from the ALREADY COVERED list."
                 )
+
+                # LIVE HEADLINES for focused-but-factual pages (e.g. PSL football).
+                # A focus lock alone leaves the model free to invent the *specifics*
+                # — a scoreline, a signing, a quote. For sport that is instantly
+                # falsifiable, so pull the real headlines and make them the ONLY
+                # permitted source of facts.
+                # HARD PIN — every topic must be about this fixture/story.
+                pin = niche_config.get("topic_pin", "")
+                if pin:
+                    trending_context += (
+                        f"\n\n## PINNED STORY — NON-NEGOTIABLE\n"
+                        f"Every topic MUST be about: {pin}\n"
+                        f"Angle it differently each time (the key battle, a player, "
+                        f"form, tactics, what a rival's news means for it), but the "
+                        f"topic must clearly be about {pin}. Do NOT write about any "
+                        f"other fixture, club or competition, even if the headlines "
+                        f"below mention one."
+                    )
+
+                if niche_config.get("use_live_headlines"):
+                    try:
+                        from modules.psl_news import headlines_for_prompt
+                        live = await headlines_for_prompt()
+                        if live:
+                            trending_context += (
+                                f"\n\n## LIVE HEADLINES — THE ONLY FACTS YOU MAY USE\n{live}\n\n"
+                                f"RULES: build the topic from ONE of the headlines above. "
+                                f"NEVER invent a scoreline, transfer, signing, injury or quote "
+                                f"that is not in that list. Anything flagged REPORT/RUMOUR must "
+                                f"be phrased as a report ('reports claim...'), never as fact."
+                            )
+                        else:
+                            print(f"[TopicGen] {niche}: no live headlines — using evergreen angles only")
+                    except Exception as e:
+                        print(f"[TopicGen] live headline fetch failed for {niche}: {e}")
             else:
                 trending_context = await _fetch_trending_context(niche)
                 if trending_context:
@@ -285,7 +336,21 @@ Return ONLY the topic as a single line. No quotes. No explanation. Must be a COM
 
         # Strategy: Claude FIRST (reliable), Gemini fallback (free but rate-limited)
 
-        # 1. Try Claude first
+        # 0. Claude via the local Claude Code CLI (subscription — no API credits)
+        try:
+            from modules.claude_cli import claude_cli_complete, cli_enabled
+            if cli_enabled():
+                text = await claude_cli_complete(prompt, timeout=120)
+                if text:
+                    topic = text.strip().splitlines()[-1].strip().strip('"').strip("'")
+                    if topic and len(topic) > 10 and _pin_ok(topic, niche_config):
+                        return topic
+                    if topic and not _pin_ok(topic, niche_config):
+                        print(f"[TopicGen] PIN reject (CLI): {topic[:70]}")
+        except Exception as e:
+            print(f"[TopicGen] Claude CLI failed: {e}")
+
+        # 1. Try Claude API (fallback — needs credits)
         if ANTHROPIC_API_KEY:
             try:
                 import anthropic
@@ -297,15 +362,17 @@ Return ONLY the topic as a single line. No quotes. No explanation. Must be a COM
                 )
                 if msg.content:
                     topic = msg.content[0].text.strip().strip('"').strip("'")
-                    if topic and len(topic) > 10:
+                    if topic and len(topic) > 10 and _pin_ok(topic, niche_config):
                         return topic
+                    if topic and not _pin_ok(topic, niche_config):
+                        print(f"[TopicGen] PIN reject (API): {topic[:70]}")
             except Exception as e:
                 print(f"[TopicGen] Claude failed: {e}")
 
         # 2. Try Gemini models (if client available)
         if not client:
             return None
-        models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+        models = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"]
         for model_name in models:
             try:
                 response = client.models.generate_content(
@@ -313,8 +380,10 @@ Return ONLY the topic as a single line. No quotes. No explanation. Must be a COM
                     contents=prompt,
                 )
                 topic = response.text.strip().strip('"').strip("'")
-                if topic and len(topic) > 10:
+                if topic and len(topic) > 10 and _pin_ok(topic, niche_config):
                     return topic
+                if topic and not _pin_ok(topic, niche_config):
+                    print(f"[TopicGen] PIN reject ({model_name}): {topic[:70]}")
             except Exception as model_err:
                 if "429" in str(model_err) or "RESOURCE_EXHAUSTED" in str(model_err):
                     print(f"[TopicGen] {model_name} rate limited, trying next...")
