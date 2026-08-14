@@ -96,12 +96,24 @@ async def sweep(clubs: list[str] | None = None):
         except Exception as e:
             print(f"[ClipLib] {club}: search failed ({e})")
             continue
-        # a clip only belongs in this club's folder if the title actually
-        # names the club — search relevance alone filed a Chiefs video
-        # under Sekhukhune on the first sweep
-        club_words = [w.lower() for w in name.split() if len(w) > 3] or [name.lower()]
+        # a clip only belongs in this club's folder if the FULL club name is in
+        # the title. Single-word matching filed a Chiefs video under Siwelele
+        # and a "South Africa Tour ... Durban" lecture under Durban City.
+        def _named(title: str) -> bool:
+            t = " ".join(title.lower().split())
+            return name.lower() in t or (
+                len(name.split()) > 1 and name.split()[-1].lower() in t
+                and name.split()[0].lower() in t)
+
+        # re-validate what's already on disk — earlier sweeps had weaker rules
+        for vid in list(meta):
+            if not _named(meta[vid].get("title", "")):
+                (LIB / club / f"{vid}.mp4").unlink(missing_ok=True)
+                print(f"[ClipLib] - {club}: pruned mis-filed '{meta[vid].get('title', '')[:40]}'")
+                meta.pop(vid)
+
         for h in hits:
-            if not any(w in h["title"].lower() for w in club_words):
+            if not _named(h["title"]):
                 continue
             vid = h["video_id"]
             dest = LIB / club / f"{vid}.mp4"
