@@ -93,6 +93,7 @@ def make_news_card(
     prediction: str = "",
     log_rows: list | None = None,
     cover_mode: bool = False,
+    big_crest: bool = False,
 ) -> str | None:
     """
     Render a branded news card. Returns the output path, or None on failure.
@@ -239,6 +240,28 @@ def make_news_card(
             d.text((lx2 - 24 - d.textlength(pts, font=pf2), y), pts,
                    font=pf2, fill=fg)
             y += row_h
+
+    # ── Big club crest just above the title (owner rule) ──
+    # Fills the photo zone's lower-left when no live video plays there; sits
+    # opposite the log panel when one is drawn ("next to the log").
+    if big_crest:
+        badge = official_badge(club)
+        if badge:
+            try:
+                crest = _fit(Image.open(badge).convert("RGBA"), 230, 230)
+                pw, ph = crest.width + 36, crest.height + 36
+                bx, by = 60, int(H * 0.50) - ph - 36     # just above the kicker
+                panel = Image.new("RGBA", (pw, ph), (0, 0, 0, 0))
+                ImageDraw.Draw(panel).rounded_rectangle(
+                    [0, 0, pw - 1, ph - 1], radius=28, fill=(255, 255, 255, 238))
+                card = card.convert("RGBA")
+                card.alpha_composite(panel, (bx, by))
+                card.alpha_composite(crest, (bx + (pw - crest.width) // 2,
+                                             by + (ph - crest.height) // 2))
+                card = card.convert("RGB")
+                d = ImageDraw.Draw(card)
+            except Exception as e:
+                print(f"[NewsCard] big crest skipped: {e}")
 
     # ── Kicker (club name strip) ──
     # Headline block sits higher than a normal card so the burned-in subtitles

@@ -305,7 +305,8 @@ async def _make_prediction(title: str, log_rows: list) -> str:
 
 
 def build_cards(script: dict, images: list[dict], briefing: dict, work: Path,
-                prediction: str = "", log_rows: list | None = None) -> list[str]:
+                prediction: str = "", log_rows: list | None = None,
+                has_video: bool = False) -> list[str]:
     """Turn each image into a branded news card carrying the headline + credit."""
     from modules.news_card import make_news_card
 
@@ -334,7 +335,10 @@ def build_cards(script: dict, images: list[dict], briefing: dict, work: Path,
                               archive_year=img.get("archive_year", ""),
                               prediction=prediction if i == 0 else "",
                               log_rows=log_rows if (i == 1 or len(images) == 1)
-                              else None)
+                              else None,
+                              # big crest fills the photo zone wherever the
+                              # live video window is NOT playing
+                              big_crest=(i > 0) or not has_video)
         if made:
             cards.append(made)
     _log(f"news cards: {len(cards)}")
@@ -375,6 +379,30 @@ def _caption_clips(segments, video_w, work: Path):
         except Exception as e:
             print(f"[PSL] caption clip skipped: {e}")
     return clips
+
+
+def _subscribe_strip(work: Path) -> str:
+    """YouTube-red SUBSCRIBE pill shown in the reel's final seconds."""
+    from PIL import Image, ImageDraw, ImageFont
+    try:
+        fb = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 42)
+        fs = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 28)
+    except Exception:
+        fb = fs = ImageFont.load_default()
+    img = Image.new("RGBA", (CANVAS[0], 100), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    t1, t2 = "SUBSCRIBE", "youtube.com/@GenesisNewsPSL"
+    w1, w2 = d.textlength(t1, font=fb), d.textlength(t2, font=fs)
+    total = w1 + w2 + 110
+    x0 = (CANVAS[0] - total) / 2
+    d.rounded_rectangle([x0, 8, x0 + w1 + 56, 74], radius=16, fill=(230, 33, 23))
+    d.text((x0 + 28, 18), t1, font=fb, fill=(255, 255, 255))
+    d.rounded_rectangle([x0 + w1 + 70, 14, x0 + total, 68], radius=14,
+                        fill=(10, 12, 16, 215))
+    d.text((x0 + w1 + 90, 26), t2, font=fs, fill=(235, 238, 242))
+    p = work / "subscribe.png"
+    img.save(p)
+    return str(p)
 
 
 def _credit_strip(text: str, work: Path) -> str:
@@ -434,24 +462,38 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
     overlay_layers = []
     if cc_clip:
         try:
-            from moviepy import VideoFileClip
+            from moviepy import VideoFileClip, concatenate_videoclips as _cat
             WIN_Y, WIN_H = 307, 650          # photo zone: below brand bar, above kicker
             vc = VideoFileClip(cc_clip["path"]).without_audio()
-            emb_dur = float(min(vc.duration, per - 0.6, 9.0))
-            s = max(CANVAS[0] / vc.w, WIN_H / vc.h)
-            emb = vc.subclipped(0, emb_dur).resized(s)
+            # fill the WHOLE first card with live footage, looping short clips
+            emb_dur = float(per - 0.3)
+            src = vc
+            if src.duration < emb_dur:
+                src = _cat([vc] * (int(emb_dur // vc.duration) + 1))
+            s = max(CANVAS[0] / src.w, WIN_H / src.h)
+            emb = src.subclipped(0, emb_dur).resized(s)
             x1 = max(0, int((emb.w - CANVAS[0]) / 2))
             y1 = max(0, int((emb.h - WIN_H) / 2))
             emb = (emb.cropped(x1=x1, y1=y1, width=CANVAS[0], height=WIN_H)
-                   .with_start(0.5).with_position((0, WIN_Y)))
+                   .with_start(0.3).with_position((0, WIN_Y)))
             overlay_layers.append(emb)
             overlay_layers.append(
                 ImageClip(_credit_strip(cc_clip["credit"], work))
-                .with_start(0.5).with_duration(emb_dur)
+                .with_start(0.3).with_duration(emb_dur)
                 .with_position(("center", WIN_Y + WIN_H - 70)))
-            _log(f"live window: {emb_dur:.1f}s of real footage in card 1")
+            _log(f"live window: {emb_dur:.1f}s of real footage fills card 1")
         except Exception as e:
             _log(f"cc clip window skipped: {e}")
+
+    # subscribe promo — final seconds, YouTube red, above the caption band
+    try:
+        sub = _subscribe_strip(work)
+        overlay_layers.append(
+            ImageClip(sub).with_start(max(0, duration - 4.0))
+            .with_duration(min(4.0, duration))
+            .with_position(("center", CANVAS[1] - 120)))
+    except Exception as e:
+        _log(f"subscribe strip skipped: {e}")
 
     layers = [base] + overlay_layers + _caption_clips(captions, CANVAS[0], work)
     video = CompositeVideoClip(layers, size=CANVAS).with_duration(duration)
@@ -506,7 +548,7 @@ def write_manifest(script: dict, video_path: str, work: Path, voice: dict, image
             c = make_news_card(bg, work / "cover.png",
                                headline=script.get("title", ""), kicker=kicker,
                                credit=bg_credit, club=clubs[0] if clubs else "",
-                               log_rows=log_rows or None, cover_mode=True)
+                               log_rows=log_rows or None, cover_mode=True, big_crest=True)
             if c:
                 thumb = c
     except Exception as e:
@@ -565,7 +607,7 @@ async def main():
     except Exception as e:
         _log(f"prediction skipped: {e}")
 
-    cards = build_cards(script, images, briefing, work, prediction, log_rows)
+    cards = build_cards(script, images, briefing, work, prediction, log_rows, has_video=bool(cc_clip))
     video = await assemble(script, voice, cards, work, cc_clip=cc_clip)
     write_manifest(script, video, work, voice, images, prediction, log_rows)
 
