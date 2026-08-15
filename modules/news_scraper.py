@@ -291,7 +291,7 @@ Return JSON array (no markdown):
 [{{"index": 1, "score": 8, "queries": ["military vehicles", "middle east city"]}}, ...]"""
 
             response = client.models.generate_content(
-                model="gemini-2.0-flash-lite",
+                model="gemini-flash-lite-latest",
                 contents=prompt,
             )
 

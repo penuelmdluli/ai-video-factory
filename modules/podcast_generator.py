@@ -740,7 +740,7 @@ async def _generate_podcast_gemini(prompt: str) -> dict | None:
         from google import genai
         client = genai.Client(api_key=GEMINI_API_KEY)
 
-        models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]  # Current models (July 2026)
+        models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-lite-latest"]  # Current models (July 2026)
         for model_name in models:
             try:
                 response = client.models.generate_content(

@@ -143,34 +143,49 @@ async def cmd_result(a):
     return out
 
 
-async def _scorers(fixture_id: str) -> tuple[list[str], list[str], str, str]:
-    """Goal scorers + team ids from the ESPN scoreboard details feed."""
+async def _live_details(fixture_id: str) -> dict:
+    """Everything live from the scoreboard: scorers, red cards, per-event keys."""
     import httpx
+    out = {"sh": [], "sa": [], "events": []}
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
             r = await client.get(
                 "https://site.api.espn.com/apis/site/v2/sports/soccer/rsa.1/scoreboard")
             events = r.json().get("events", [])
     except Exception:
-        return [], [], "", ""
+        return out
     for e in events:
         if str(e.get("id")) != str(fixture_id):
             continue
         comp = (e.get("competitions") or [{}])[0]
         sides = {c.get("homeAway"): str(c.get("team", {}).get("id", ""))
                  for c in comp.get("competitors", [])}
-        home_id, away_id = sides.get("home", ""), sides.get("away", "")
-        sh, sa = [], []
+        home_id = sides.get("home", "")
         for det in comp.get("details", []):
-            if not (det.get("type", {}).get("text", "").lower().startswith("goal")
-                    or det.get("scoringPlay")):
+            kind = det.get("type", {}).get("text", "") or ""
+            is_goal = kind.lower().startswith("goal") or det.get("scoringPlay")
+            is_red = "red card" in kind.lower()
+            if not (is_goal or is_red):
                 continue
             names = [a.get("displayName", "") for a in det.get("athletesInvolved", [])]
+            who = names[0].split()[-1] if names and names[0] else kind
             clock = det.get("clock", {}).get("displayValue", "")
-            entry = f"{names[0].split()[-1] if names and names[0] else 'Goal'} {clock}"
-            (sh if str(det.get("team", {}).get("id", "")) == home_id else sa).append(entry)
-        return sh, sa, home_id, away_id
-    return [], [], "", ""
+            side = "home" if str(det.get("team", {}).get("id", "")) == home_id else "away"
+            entry = f"{who} {clock}"
+            if is_goal:
+                (out["sh"] if side == "home" else out["sa"]).append(entry)
+            out["events"].append({
+                "key": f"{'GOAL' if is_goal else 'RED'}|{side}|{who}|{clock}",
+                "kind": "GOAL" if is_goal else "RED CARD",
+                "side": side, "who": who, "clock": clock,
+            })
+        break
+    return out
+
+
+async def _scorers(fixture_id: str) -> tuple[list[str], list[str], str, str]:
+    d = await _live_details(fixture_id)
+    return d["sh"], d["sa"], "", ""
 
 
 async def _post_motm(f, sh: list[str], sa: list[str], post: bool) -> bool:
@@ -306,6 +321,36 @@ async def cmd_auto(a):
                     st["lineup"] = now.isoformat()
                 except SystemExit as e:
                     print(f"[Auto] official XI skipped: {e}")
+
+        # 2b) LIVE updates — a card for every new goal / red card while in play
+        if f["status"] == "in" and f["home_key"] and f["away_key"]:
+            live = await _live_details(f["id"])
+            seen = set(st.get("events", []))
+            fresh = [ev for ev in live["events"] if ev["key"] not in seen]
+            for ev in fresh[:3]:
+                scorer_club = f["home_key"] if ev["side"] == "home" else f["away_key"]
+                status = (f"GOAL {ev['clock']}" if ev["kind"] == "GOAL"
+                          else f"RED CARD {ev['clock']}")
+                from modules.result_card import make_result_card
+                card = make_result_card(
+                    _out("live"), home=f["home_key"], away=f["away_key"],
+                    score=f"{f['home_score']}-{f['away_score']}",
+                    scorers_home=live["sh"], scorers_away=live["sa"],
+                    competition="Betway Premiership", venue=f["venue"],
+                    status=status)
+                if card and a.post:
+                    emoji = "⚽" if ev["kind"] == "GOAL" else "🟥"
+                    caption = (f"{emoji} {ev['kind']}! {_name(scorer_club)} — "
+                               f"{ev['who']} {ev['clock']}\n\n"
+                               f"LIVE: {_name(f['home_key'])} {f['home_score']}-"
+                               f"{f['away_score']} {_name(f['away_key'])}\n"
+                               f"#PSL #BetwayPremiership")
+                    await _post_photo(card, caption,
+                                      "What a moment! Your reaction? 👇" if ev["kind"] == "GOAL"
+                                      else "Does this change the game? 👇")
+                print(f"[Auto] live event posted: {ev['key']}")
+                seen.add(ev["key"])
+            st["events"] = sorted(seen)
 
         # 3) result card, once, after full-time
         if f["completed"] and not st.get("result") and f["home_key"] and f["away_key"]:

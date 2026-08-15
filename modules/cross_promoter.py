@@ -195,7 +195,7 @@ Write the caption (no quotes):"""
         try:
             import google.generativeai as genai
             genai.configure(api_key=GEMINI_API_KEY)
-            model = genai.GenerativeModel("gemini-2.0-flash-lite")
+            model = genai.GenerativeModel("gemini-flash-lite-latest")
             response = model.generate_content(prompt)
             caption = response.text.strip().strip('"')
         except Exception as e:

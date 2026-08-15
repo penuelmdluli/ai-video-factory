@@ -838,7 +838,7 @@ async def _generate_with_ai(prompt: str) -> dict | None:
         try:
             import google.generativeai as genai
             genai.configure(api_key=GEMINI_API_KEY)
-            model = genai.GenerativeModel("gemini-2.0-flash-lite")
+            model = genai.GenerativeModel("gemini-flash-lite-latest")
             response = model.generate_content(
                 prompt,
                 generation_config={"response_mime_type": "application/json"},

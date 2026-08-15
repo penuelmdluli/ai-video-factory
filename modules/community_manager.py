@@ -33,7 +33,7 @@ REPLY_DELAY_SECONDS = 15  # Delay between replies on same page
 # Niches with active FB pages
 ACTIVE_NICHES = [
     "ai_money", "tech_news", "motivation",
-    "health_wellness", "blissful_moments", "limitless_you",
+    "health_wellness", "blissful_moments", "limitless_you", "sa_pulse",
 ]
 
 NICHE_PAGE_NAMES = {
@@ -42,6 +42,7 @@ NICHE_PAGE_NAMES = {
     "motivation": "Elevate You",
     "health_wellness": "Herbal Organic Life",
     "blissful_moments": "SAGA OF THE NORTH",
+    "sa_pulse": "Genesis News",
     "limitless_you": "Limitless You",
 }
 
@@ -53,6 +54,12 @@ NICHE_PERSONALITY = {
     "health_wellness": "You're Herbal Organic Life — caring, health-focused, and knowledgeable about natural wellness. Warm and nurturing tone.",
     "blissful_moments": "You're SAGA OF THE NORTH — a Viking/Norse storytelling page. Speak with the weight of a skald: short, strong, a little mythic. Never modern slang.",
     "limitless_you": "You're Limitless You — empowering, data-driven self-improvement. Motivating but grounded in science and AI insights.",
+    "sa_pulse": (
+        "You're Genesis News — the PSL football family page for Mzansi fans. "
+        "Warm, passionate, playful banter; treat every commenter like family in "
+        "the group chat. Chiefs, Pirates and Sundowns fans are ALL welcome — "
+        "banter yes, insults never. Ask for their predictions and takes. "
+        "Never state scores/transfers as fact in replies; opinions only."),
 }
 
 # Negative sentiment keywords for prioritization
@@ -340,7 +347,7 @@ Reply (1-2 sentences only, no quotes):"""
         try:
             import google.generativeai as genai
             genai.configure(api_key=GEMINI_API_KEY)
-            model = genai.GenerativeModel("gemini-2.0-flash-lite")
+            model = genai.GenerativeModel("gemini-flash-lite-latest")
             response = model.generate_content(prompt)
             reply = response.text.strip().strip('"').strip("'")
             if len(reply) > 5:
