@@ -331,6 +331,10 @@ async def cmd_auto(a):
         # 2b) LIVE updates — a card for every new goal / red card while in play
         if f["status"] == "in" and f["home_key"] and f["away_key"]:
             live = await _live_details(f["id"])
+            # score derived from the SAME payload as the events — the fixtures
+            # snapshot lags a fresh goal ("GOAL by Xulu" on a 0-0 card)
+            hs = max(int(f["home_score"] or 0), len(live["sh"]))
+            as_ = max(int(f["away_score"] or 0), len(live["sa"]))
             seen = set(st.get("events", []))
             fresh = [ev for ev in live["events"] if ev["key"] not in seen]
             for ev in fresh[:3]:
@@ -340,7 +344,7 @@ async def cmd_auto(a):
                 from modules.result_card import make_result_card
                 card = make_result_card(
                     _out("live"), home=f["home_key"], away=f["away_key"],
-                    score=f"{f['home_score']}-{f['away_score']}",
+                    score=f"{hs}-{as_}",
                     scorers_home=live["sh"], scorers_away=live["sa"],
                     cards_home=live.get("ych"), cards_away=live.get("yca"),
                     competition="Betway Premiership", venue=f["venue"],
@@ -349,8 +353,8 @@ async def cmd_auto(a):
                     emoji = "⚽" if ev["kind"] == "GOAL" else "🟥"
                     caption = (f"{emoji} {ev['kind']}! {_name(scorer_club)} — "
                                f"{ev['who']} {ev['clock']}\n\n"
-                               f"LIVE: {_name(f['home_key'])} {f['home_score']}-"
-                               f"{f['away_score']} {_name(f['away_key'])}\n"
+                               f"LIVE: {_name(f['home_key'])} {hs}-{as_} "
+                               f"{_name(f['away_key'])}\n"
                                f"#PSL #BetwayPremiership")
                     await _post_photo(card, caption,
                                       "What a moment! Your reaction? 👇" if ev["kind"] == "GOAL"
