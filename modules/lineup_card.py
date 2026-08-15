@@ -103,9 +103,11 @@ def make_lineup_card(
                 card.alpha_composite(lg, (44, 30))
         except Exception:
             pass
-        d.text((152, 40), "GENESIS NEWS", font=_font(36), fill=(255, 255, 255))
+        hdr = (12, 14, 18) if sum(accent) > 550 else (255, 255, 255)
+        sub = (60, 64, 70) if sum(accent) > 550 else (200, 205, 210)
+        d.text((152, 40), "GENESIS NEWS", font=_font(36), fill=hdr)
         d.text((153, 84), "PSL & MZANSI FOOTBALL", font=_font(20, bold=False),
-               fill=(200, 205, 210))
+               fill=sub)
 
         label = "PREDICTED XI" if predicted else "STARTING XI"
         lf = _font(40)

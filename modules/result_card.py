@@ -91,9 +91,11 @@ def make_result_card(
                 card.alpha_composite(lg, (44, 30))
         except Exception:
             pass
-        d.text((152, 40), "GENESIS NEWS", font=_font(36), fill=(255, 255, 255))
+        hdr = (12, 14, 18) if sum(h_accent) > 550 else (255, 255, 255)
+        subc = (60, 64, 70) if sum(h_accent) > 550 else (200, 205, 210)
+        d.text((152, 40), "GENESIS NEWS", font=_font(36), fill=hdr)
         d.text((153, 84), "PSL & MZANSI FOOTBALL", font=_font(20, bold=False),
-               fill=(200, 205, 210))
+               fill=subc)
         sf = _font(40)
         sw = d.textlength(status, font=sf)
         d.rounded_rectangle([W - sw - 110, 38, W - 40, 106], radius=16,
