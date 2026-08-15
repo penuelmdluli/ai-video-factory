@@ -308,6 +308,28 @@ async def cmd_auto(a):
             except SystemExit as e:
                 print(f"[Auto] predicted XI skipped: {e}")
 
+        # 1b) PRE-MATCH HYPE, once, ~75 min out (big-three): badge-tower cover
+        #     + kickoff caption — the "we are LIVE today" drumbeat
+        if (pri_ok and ko and not st.get("hype") and f["status"] == "pre"
+                and _td(0) < ko - now <= _td(minutes=75)):
+            try:
+                from modules.matchup_cover import make_matchup_cover
+                hype = make_matchup_cover(
+                    _out("hype"), f["home_key"], f["away_key"],
+                    line=" · ".join(x for x in (f["kickoff_sast"], f["venue"]) if x))
+                if hype and a.post:
+                    caption = (f"🚨 KICKOFF SOON: {_name(f['home_key'])} vs "
+                               f"{_name(f['away_key'])} — {f['kickoff_sast']}"
+                               f"{' · ' + f['venue'] if f['venue'] else ''} ⚽\n\n"
+                               f"Live goals, cards and the result — right here.\n"
+                               f"#PSL #BetwayPremiership")
+                    await _post_photo(hype, caption,
+                                      "Final score predictions — LAST CALL 👇")
+                st["hype"] = now.isoformat()
+                print(f"[Auto] pre-match hype posted: {label}")
+            except Exception as e:
+                print(f"[Auto] hype failed: {e}")
+
         # 2) OFFICIAL starting XI, once, as soon as the team sheet is published
         #    (ESPN summary feed carries it ~60-75 min before kickoff)
         if (pri_ok and ko and not st.get("lineup") and not f["completed"]
