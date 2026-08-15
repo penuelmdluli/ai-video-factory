@@ -273,8 +273,9 @@ async def cmd_auto(a):
     except Exception:
         state = {}
 
-    min_pri = 0 if a.all else 1
-    fixtures = [f for f in await todays_fixtures() if priority(f) >= min_pri]
+    # ALL PSL fixtures get live goals + results (a football news page reports
+    # every score); predicted XI / team sheets / MOTM stay big-three unless --all.
+    fixtures = await todays_fixtures()
     if not fixtures:
         print("[Auto] no qualifying fixtures today — normal cadence")
         return
@@ -287,9 +288,10 @@ async def cmd_auto(a):
         opp = f["away_key"] if club == f["home_key"] else f["home_key"]
         label = f"{f['home']} vs {f['away']}"
 
-        # 1) predicted XI, once, inside the 4h pre-match window
+        pri_ok = priority(f) >= 1 or a.all
+        # 1) predicted XI, once, inside the 4h pre-match window (big-three)
         ko = _dt.fromisoformat(f["kickoff_iso"]) if f["kickoff_iso"] else None
-        if (ko and not st.get("predicted") and f["status"] == "pre"
+        if (pri_ok and ko and not st.get("predicted") and f["status"] == "pre"
                 and _td(0) < ko - now <= _td(hours=4)):
             print(f"[Auto] pre-match window: {label} — posting predicted XI")
             ns = argparse.Namespace(
@@ -304,7 +306,7 @@ async def cmd_auto(a):
 
         # 2) OFFICIAL starting XI, once, as soon as the team sheet is published
         #    (ESPN summary feed carries it ~60-75 min before kickoff)
-        if (ko and not st.get("lineup") and not f["completed"]
+        if (pri_ok and ko and not st.get("lineup") and not f["completed"]
                 and _td(hours=-1) <= ko - now <= _td(hours=2)):
             from modules.psl_fixtures import official_lineups
             sheets = await official_lineups(f["id"])
@@ -365,7 +367,7 @@ async def cmd_auto(a):
             await cmd_result(ns)
             st["result"] = now.isoformat()
             # follow the score card with the MOTM face — the post-match pair
-            if not st.get("motm"):
+            if pri_ok and not st.get("motm"):
                 try:
                     if await _post_motm(f, sh, sa, a.post):
                         st["motm"] = now.isoformat()
