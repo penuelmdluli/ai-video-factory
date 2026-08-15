@@ -384,6 +384,25 @@ async def cmd_auto(a):
     print("[Auto] done")
 
 
+async def cmd_live(a):
+    """
+    Resident live watcher — the speed layer. Polls every 45s while any PSL
+    game is IN PLAY (goals/cards/FT post within a minute of the feed), sleeps
+    5 min otherwise. Run 24/7 under PM2; the 5-min scheduled task stays as a
+    backup for when this process is down.
+    """
+    from modules.psl_fixtures import todays_fixtures
+    print("[Live] resident watcher started")
+    while True:
+        try:
+            live_now = any(f["status"] == "in" for f in await todays_fixtures())
+            await cmd_auto(a)
+        except Exception as e:
+            print(f"[Live] tick failed: {e}")
+            live_now = False
+        await asyncio.sleep(45 if live_now else 300)
+
+
 def main():
     ap = argparse.ArgumentParser(description="Genesis News matchday posts")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -416,6 +435,10 @@ def main():
     au.add_argument("--all", action="store_true",
                     help="cover every PSL fixture, not just big-three games")
 
+    lv = sub.add_parser("live", help="resident watcher: 45s polling while games are in play")
+    lv.add_argument("--post", action="store_true")
+    lv.add_argument("--all", action="store_true")
+
     a = ap.parse_args()
     if a.cmd == "predict":
         asyncio.run(cmd_lineup(a, predicted=True))
@@ -423,6 +446,8 @@ def main():
         asyncio.run(cmd_lineup(a, predicted=False))
     elif a.cmd == "auto":
         asyncio.run(cmd_auto(a))
+    elif a.cmd == "live":
+        asyncio.run(cmd_live(a))
     else:
         asyncio.run(cmd_result(a))
 
