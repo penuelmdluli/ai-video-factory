@@ -125,10 +125,41 @@ def main():
     out = Path("output/growth")
     out.mkdir(parents=True, exist_ok=True)
     p = out / f"report_{today}.md"
-    p.write_text("\n".join(lines), encoding="utf-8")
+    body = "\n".join(lines)
+    p.write_text(body, encoding="utf-8")
     print(f"[Growth] report -> {p}")
-    print("\n".join(lines))
+    print(body)
+    _email_report(body, today)
     return str(p)
+
+
+def _email_report(body: str, today: str):
+    """
+    Zero-touch delivery: emails the scorecard when SMTP creds exist in .env.
+      SMTP_USER=<gmail address>
+      SMTP_APP_PASSWORD=<16-char Google App Password>
+      REPORT_EMAIL=<recipient, defaults to SMTP_USER>
+    Missing creds -> skip silently (file output still happens).
+    """
+    user = os.getenv("SMTP_USER", "")
+    pw = os.getenv("SMTP_APP_PASSWORD", "")
+    to = os.getenv("REPORT_EMAIL", user)
+    if not user or not pw:
+        print("[Growth] email skipped — set SMTP_USER + SMTP_APP_PASSWORD in .env")
+        return
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        msg = MIMEText(body, "plain", "utf-8")
+        msg["Subject"] = f"⚽ Genesis News Growth Scorecard — {today}"
+        msg["From"] = user
+        msg["To"] = to
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as s:
+            s.login(user, pw)
+            s.send_message(msg)
+        print(f"[Growth] emailed to {to}")
+    except Exception as e:
+        print(f"[Growth] email failed: {e}")
 
 
 if __name__ == "__main__":
