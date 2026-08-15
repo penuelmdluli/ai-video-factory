@@ -18,22 +18,40 @@ OUTBOX = AGENT_DATA / "outbox.json"
 ADMINS = AGENT_DATA / "admins.json"
 
 
-def notify(text: str) -> bool:
-    """Queue a WhatsApp message to the owner/admin. True if queued."""
+def _owner_phone() -> str:
+    """OWNER_WA_NUMBER from the agent's .env — a stable phone-number JID.
+    (@lid ids die when the session is re-linked; error 463 on send.)"""
     try:
-        admins = json.loads(ADMINS.read_text(encoding="utf-8"))
-        if not admins:
-            print("[WhatsApp] no admin jid configured")
-            return False
+        for line in (AGENT_DATA.parent / ".env").read_text(encoding="utf-8").splitlines():
+            if line.startswith("OWNER_WA_NUMBER="):
+                return line.split("=", 1)[1].strip()
+    except Exception:
+        pass
+    return ""
+
+
+def notify(text: str) -> bool:
+    """Queue a WhatsApp message to the owner. True if queued."""
+    try:
         try:
             items = json.loads(OUTBOX.read_text(encoding="utf-8"))
             if not isinstance(items, list):
                 items = []
         except Exception:
             items = []
-        items.append({"jid": admins[0], "text": f"🟡 GENESIS NEWS\n{text}"})
+        phone = _owner_phone()
+        msg = {"text": f"🟡 GENESIS NEWS\n{text}"}
+        if phone:
+            msg["phone"] = phone
+        else:
+            admins = json.loads(ADMINS.read_text(encoding="utf-8"))
+            if not admins:
+                print("[WhatsApp] no destination configured")
+                return False
+            msg["jid"] = admins[0]
+        items.append(msg)
         OUTBOX.write_text(json.dumps(items, indent=2), encoding="utf-8")
-        print(f"[WhatsApp] queued: {text[:60]}")
+        print(f"[WhatsApp] queued to {phone or 'admin jid'}: {text[:50]}")
         return True
     except Exception as e:
         print(f"[WhatsApp] queue failed: {e}")
