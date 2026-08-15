@@ -63,11 +63,17 @@ def build_card(s: dict) -> str | None:
 
     y = 610
     lf = _font(30, False)
-    for line in s["lines"][:8]:
-        while d.textlength(line, font=lf) > W - 140 and len(line) > 10:
+    tag_f = _font(26)
+    for line, won in s["lines"][:8]:
+        while d.textlength(line, font=lf) > W - 300 and len(line) > 10:
             line = line[:-4] + "…"
         d.rounded_rectangle([60, y, W - 60, y + 66], radius=14, fill=(20, 23, 29))
-        d.text((88, y + 16), line, font=lf, fill=(230, 234, 240))
+        dot = (60, 180, 90) if won else (210, 60, 60)
+        d.ellipse([84, y + 22, 106, y + 44], fill=dot)
+        d.text((124, y + 16), line, font=lf, fill=(230, 234, 240))
+        tag = "HIT" if won else "MISS"
+        tw = d.textlength(tag, font=tag_f)
+        d.text((W - 96 - tw, y + 18), tag, font=tag_f, fill=dot)
         y += 82
 
     foot = "Think you can beat us? Drop YOUR calls in the comments"

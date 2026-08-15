@@ -86,7 +86,7 @@ def weekly_summary() -> dict:
         "total": len(settled),
         "wins": sum(1 for c in settled if c["won"]),
         "scorer_hits": sum(1 for c in settled if c["scorer_hit"]),
-        "lines": [f"{c['fav'].title()} vs {c['other'].title()}: called "
-                  f"{c['score']}, real {c['result']} — "
-                  f"{'✅' if c['won'] else '❌'}" for c in settled],
+        "lines": [(f"{c['fav'].title()} vs {c['other'].title()}: called "
+                   f"{c['score']}, real {c['result']}", bool(c["won"]))
+                  for c in settled],
     }
