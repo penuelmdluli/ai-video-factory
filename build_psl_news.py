@@ -206,20 +206,41 @@ async def gather_images(script: dict, briefing: dict, work: Path) -> tuple[list[
     #    real footage from THIS WEEK beats an old Commons photo. The local
     #    clip library (daily sweep) answers instantly; live fetch is fallback.
     cc_clip = None
+    # GAME-TIME RULE (owner): while a big-three fixture is live/today, every
+    # video must show THE LIVE GAME — search for footage of this exact fixture
+    # uploaded today before touching the library.
     try:
-        from modules.clip_library import pick_clip
-        # any club in the story can supply the live window — Chiefs footage
-        # is valid on a Chiefs-vs-Sundowns story even when Sundowns lead it.
-        # pick_clip rotates: a FRESH clip every build, never the same one twice
-        # in a row while alternatives exist.
-        for ck in ([club] + [c for c in story_clubs if c != club]):
-            chosen = pick_clip(ck)
-            if chosen:
-                cc_clip = {**chosen, "club": ck}
-                _log(f"clip from library ({ck}, rotated): {chosen['title'][:45]}")
-                break
+        from datetime import datetime as _dt
+        from modules.psl_fixtures import todays_fixtures, SAST
+        from modules.cc_clips import fetch_cc_clip as _fetch
+        for f in await todays_fixtures():
+            keys = {f["home_key"], f["away_key"]}
+            if not keys & set(story_clubs or [club]):
+                continue
+            hn = CLUB_BRAND.get(f["home_key"], {}).get("name", "")
+            an = CLUB_BRAND.get(f["away_key"], {}).get("name", "")
+            live = await _fetch(f"{hn} vs {an}", work / "cc", days=1)
+            if live:
+                cc_clip = {**live, "club": f["home_key"]}
+                _log(f"LIVE GAME footage: {live['title'][:45]}")
+            break
     except Exception as e:
-        _log(f"clip library skipped: {e}")
+        _log(f"live-game clip check skipped: {e}")
+    if not cc_clip:
+        try:
+            from modules.clip_library import pick_clip
+            # any club in the story can supply the live window — Chiefs footage
+            # is valid on a Chiefs-vs-Sundowns story even when Sundowns lead it.
+            # pick_clip rotates: a FRESH clip every build, never the same one
+            # twice in a row while alternatives exist.
+            for ck in ([club] + [c for c in story_clubs if c != club]):
+                chosen = pick_clip(ck)
+                if chosen:
+                    cc_clip = {**chosen, "club": ck}
+                    _log(f"clip from library ({ck}, rotated): {chosen['title'][:45]}")
+                    break
+        except Exception as e:
+            _log(f"clip library skipped: {e}")
     if not cc_clip:
         try:
             from modules.cc_clips import fetch_cc_clip

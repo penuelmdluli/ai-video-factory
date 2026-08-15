@@ -143,9 +143,9 @@ def _download(video_id: str, dest: Path) -> str | None:
         return None
 
 
-async def fetch_cc_clip(query: str, out_dir: Path) -> dict | None:
+async def fetch_cc_clip(query: str, out_dir: Path, days: int = 14) -> dict | None:
     """Best recent CC clip for a query, downloaded and ready to composite."""
-    hits = await search_cc_videos(query)
+    hits = await search_cc_videos(query, days=days)
     for h in hits:
         p = Path(out_dir) / f"cc_{h['video_id']}.mp4"
         got = await asyncio.to_thread(_download, h["video_id"], p)
