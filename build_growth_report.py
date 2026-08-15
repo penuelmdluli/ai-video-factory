@@ -130,6 +130,14 @@ def main():
     print(f"[Growth] report -> {p}")
     print(body)
     _email_report(body, today)
+    try:
+        from modules.notify_whatsapp import notify
+        notify(f"Sunday Scorecard {today}\n"
+               f"FB: {fb['followers']} followers, {epp}/post engagement\n"
+               f"YT: {yt['subs']} subs, {yt['views_total']} views\n"
+               f"Full report emailed.")
+    except Exception:
+        pass
     return str(p)
 
 

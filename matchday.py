@@ -366,6 +366,12 @@ async def cmd_auto(a):
                 status="FULL-TIME", post=a.post)
             await cmd_result(ns)
             st["result"] = now.isoformat()
+            try:
+                from modules.notify_whatsapp import notify
+                notify(f"FT posted: {_name(f['home_key'])} {f['home_score']}-"
+                       f"{f['away_score']} {_name(f['away_key'])}")
+            except Exception:
+                pass
             # follow the score card with the MOTM face — the post-match pair
             if pri_ok and not st.get("motm"):
                 try:
