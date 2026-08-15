@@ -787,10 +787,12 @@ async def post_to_page(work: Path) -> dict | None:
         from modules.cloud_storage import is_cloud_storage_configured
         if is_cloud_storage_configured():
             from modules.uploader_instagram import upload_to_instagram_local
+            from modules.cloud_storage import upload_to_cloud
             ig = await upload_to_instagram_local(
                 video_path=manifest["video_path"],
                 caption=manifest.get("caption", manifest["title"]),
-                hashtags=manifest.get("tags", [])[:8])
+                hashtags=manifest.get("tags", [])[:8],
+                upload_to_cloud_fn=upload_to_cloud)
             _log(f"Instagram: {(ig or {}).get('status')}")
     except Exception as e:
         _log(f"Instagram skipped: {e}")
