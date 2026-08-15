@@ -66,6 +66,8 @@ def make_result_card(
     competition: str = "Betway Premiership",
     venue: str = "",
     status: str = "FULL-TIME",
+    cards_home: list[str] | None = None,
+    cards_away: list[str] | None = None,
 ) -> str | None:
     """Render the FT score graphic. Returns the path, or None on failure."""
     try:
@@ -141,6 +143,18 @@ def make_result_card(
             if not scorers:
                 d.text((cx - d.textlength("—", font=gf) / 2, y), "—", font=gf,
                        fill=(120, 125, 130))
+
+        # ── Bookings — yellow squares, the detail fans argue about ──
+        cf = _font(26, bold=False)
+        for cards, cx in ((cards_home or [], 270), (cards_away or [], W - 270)):
+            y = y0 + 290
+            for c in cards[:5]:
+                tw = d.textlength(c, font=cf)
+                x = cx - tw / 2
+                d.rectangle([x - 24, y + 4, x - 8, y + 26], fill=(255, 205, 40),
+                            outline=(120, 95, 10), width=2)   # yellow card
+                d.text((x, y), c, font=cf, fill=(200, 205, 212))
+                y += 38
 
         # ── Footer ──
         info = " · ".join(x for x in (competition, venue) if x)

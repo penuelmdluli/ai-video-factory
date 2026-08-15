@@ -146,7 +146,7 @@ async def cmd_result(a):
 async def _live_details(fixture_id: str) -> dict:
     """Everything live from the scoreboard: scorers, red cards, per-event keys."""
     import httpx
-    out = {"sh": [], "sa": [], "events": []}
+    out = {"sh": [], "sa": [], "events": [], "ych": [], "yca": []}
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
             r = await client.get(
@@ -165,7 +165,8 @@ async def _live_details(fixture_id: str) -> dict:
             kind = det.get("type", {}).get("text", "") or ""
             is_goal = kind.lower().startswith("goal") or det.get("scoringPlay")
             is_red = "red card" in kind.lower()
-            if not (is_goal or is_red):
+            is_yellow = "yellow card" in kind.lower()
+            if not (is_goal or is_red or is_yellow):
                 continue
             names = [a.get("displayName", "") for a in det.get("athletesInvolved", [])]
             who = names[0].split()[-1] if names and names[0] else kind
@@ -174,6 +175,9 @@ async def _live_details(fixture_id: str) -> dict:
             entry = f"{who} {clock}"
             if is_goal:
                 (out["sh"] if side == "home" else out["sa"]).append(entry)
+            if is_yellow:
+                (out["ych"] if side == "home" else out["yca"]).append(entry)
+                continue          # yellows ride on cards, never their own post
             out["events"].append({
                 "key": f"{'GOAL' if is_goal else 'RED'}|{side}|{who}|{clock}",
                 "kind": "GOAL" if is_goal else "RED CARD",
@@ -338,6 +342,7 @@ async def cmd_auto(a):
                     _out("live"), home=f["home_key"], away=f["away_key"],
                     score=f"{f['home_score']}-{f['away_score']}",
                     scorers_home=live["sh"], scorers_away=live["sa"],
+                    cards_home=live.get("ych"), cards_away=live.get("yca"),
                     competition="Betway Premiership", venue=f["venue"],
                     status=status)
                 if card and a.post:
