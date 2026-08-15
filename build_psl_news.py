@@ -324,6 +324,12 @@ async def _make_prediction(title: str, log_rows: list) -> str:
     txt = f"OUR CALL: {short} 2-1"
     if scorer:
         txt += f" — {scorer} TO SCORE"
+    try:
+        from modules.call_tracker import record_call
+        other = b if fav == a else a
+        record_call(fav, other, "2-1", scorer, txt)
+    except Exception:
+        pass
     return txt
 
 
@@ -765,6 +771,29 @@ async def post_to_page(work: Path) -> dict | None:
             _log(f"YouTube upload failed: {e}")
     else:
         _log("YouTube skipped — no channel token")
+
+    # TikTok + Instagram — same reel, two more audiences. Both best-effort:
+    # a dead TikTok session or IG hiccup must never block the FB/YT post.
+    try:
+        from modules.uploader_tiktok import upload_to_tiktok
+        tt = await upload_to_tiktok(
+            video_path=manifest["video_path"],
+            description=manifest.get("caption", manifest["title"])[:150],
+            hashtags=manifest.get("tags", [])[:5], niche=NICHE)
+        _log(f"TikTok: {(tt or {}).get('status')}")
+    except Exception as e:
+        _log(f"TikTok skipped: {e}")
+    try:
+        from modules.cloud_storage import is_cloud_storage_configured
+        if is_cloud_storage_configured():
+            from modules.uploader_instagram import upload_to_instagram_local
+            ig = await upload_to_instagram_local(
+                video_path=manifest["video_path"],
+                caption=manifest.get("caption", manifest["title"]),
+                hashtags=manifest.get("tags", [])[:8])
+            _log(f"Instagram: {(ig or {}).get('status')}")
+    except Exception as e:
+        _log(f"Instagram skipped: {e}")
 
     manifest["uploaded"] = True
     manifest["fb_post_id"] = post_id

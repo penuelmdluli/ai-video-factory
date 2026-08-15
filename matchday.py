@@ -375,6 +375,13 @@ async def cmd_auto(a):
                 status="FULL-TIME", post=a.post)
             await cmd_result(ns)
             st["result"] = now.isoformat()
+            try:
+                from modules.call_tracker import settle_calls
+                settle_calls(f["home_key"], f["away_key"],
+                             int(f["home_score"] or 0), int(f["away_score"] or 0),
+                             sh + sa)
+            except Exception as e:
+                print(f"[Calls] settle failed: {e}")
             # follow the score card with the MOTM face — the post-match pair
             if pri_ok and not st.get("motm"):
                 try:
