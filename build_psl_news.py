@@ -771,14 +771,6 @@ async def post_to_page(work: Path) -> dict | None:
     manifest["youtube_id"] = yt_id
     mp.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     _log(f"posted + 2 comments: {post_id}")
-    try:
-        from modules.notify_whatsapp import notify
-        msg = f"Reel posted: {manifest.get('title', '')[:60]}"
-        if yt_id:
-            msg += f"\nYT: https://youtube.com/watch?v={yt_id}"
-        notify(msg)
-    except Exception:
-        pass
     return fb
 
 
