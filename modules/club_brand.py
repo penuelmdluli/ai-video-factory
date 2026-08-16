@@ -112,6 +112,9 @@ CLUB_BRAND.update({
 ALIASES = {
     "kaizer chiefs": "chiefs", "chiefs": "chiefs", "amakhosi": "chiefs",
     "glamour boys": "chiefs",
+    # common misspellings — owner captions arrive fast-typed from WhatsApp
+    "kaizer chief": "chiefs", "kaiser chief": "chiefs", "kaizerchief": "chiefs",
+    "khosi": "chiefs",
     "orlando pirates": "pirates", "pirates": "pirates", "buccaneers": "pirates",
     "bucs": "pirates", "sea robbers": "pirates",
     "mamelodi sundowns": "sundowns", "sundowns": "sundowns",
