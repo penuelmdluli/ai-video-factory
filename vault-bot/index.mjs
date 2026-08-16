@@ -13,7 +13,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const VAULT = "C:\Users\PenuelM\Documents\ai-video-factory\assets\owner_media\inbox";
+const VAULT = "C:/Users/PenuelM/Documents/ai-video-factory/assets/owner_media/inbox";
 const OWNER = "27792572466";
 const logger = pino({ level: "silent" });
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);

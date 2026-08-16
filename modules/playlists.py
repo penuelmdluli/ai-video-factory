@@ -88,7 +88,7 @@ def add_facebook(video_id: str) -> bool:
         if not pid:
             r = requests.post(
                 f"https://graph.facebook.com/v24.0/{page_id}/video_lists",
-                data={"title": FB_LIST_TITLE,
+                data={"title": FB_LIST_TITLE, "video_ids": json.dumps([video_id]),
                       "description": "Daily PSL news and matchday coverage.",
                       "access_token": token}, timeout=30)
             if r.status_code != 200:
