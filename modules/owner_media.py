@@ -89,9 +89,13 @@ def _playback_path(p: Path) -> str:
     if out.exists() and out.stat().st_size > 10_000:
         return str(out)
     NORM.mkdir(parents=True, exist_ok=True)
+    # clean the WhatsApp crush on the way through: deblock -> denoise ->
+    # 2x lanczos upscale -> sharpen (then constant 30fps for real speed)
     r = subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", "-i", str(p),
-         "-vf", "fps=30", "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+         "-vf", ("deblock=filter=strong:block=8,hqdn3d=2:1:4:3,"
+                 "scale=iw*2:ih*2:flags=lanczos,unsharp=5:5:0.5,cas=0.4,fps=30"),
+         "-c:v", "libx264", "-preset", "fast", "-crf", "19",
          "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(out)],
         capture_output=True)
     if r.returncode == 0 and out.exists() and out.stat().st_size > 10_000:

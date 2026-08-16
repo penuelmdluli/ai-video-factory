@@ -241,7 +241,11 @@ async def gather_images(script: dict, briefing: dict, work: Path) -> tuple[list[
     # OWNER FOOTAGE FIRST — their own clips beat every other video source.
     try:
         from modules.owner_media import pick_owner_video
-        ov = pick_owner_video(owner_clubs)
+        # headline clubs first — footage should match what the title says,
+        # not a club only mentioned in passing
+        title_clubs = resolve_clubs(title)
+        ov = (pick_owner_video(title_clubs) if title_clubs else None) \
+            or pick_owner_video(owner_clubs)
         if ov:
             cc_clip = {**ov, "club": club}
             _log(f"OWNER footage: {Path(ov['path']).name} '{ov['caption'][:30]}'")
@@ -399,7 +403,7 @@ async def _make_prediction(title: str, log_rows: list) -> str:
 
 def build_cards(script: dict, images: list[dict], briefing: dict, work: Path,
                 prediction: str = "", log_rows: list | None = None,
-                has_video: bool = False) -> list[str]:
+                has_video: bool = False, video_cards: int = 0) -> list[str]:
     """Turn each image into a branded news card carrying the headline + credit."""
     from modules.news_card import make_news_card
 
@@ -423,6 +427,7 @@ def build_cards(script: dict, images: list[dict], briefing: dict, work: Path,
         if img["real"]:
             credit = f"photo: {credit}"
         out = work / f"card_{i+1}.png"
+        vm = i < video_cards        # this card carries the live window
         made = make_news_card(img["path"], out, headline=text, kicker=kicker,
                               credit=credit, club=club,
                               archive_year=img.get("archive_year", ""),
@@ -432,8 +437,9 @@ def build_cards(script: dict, images: list[dict], briefing: dict, work: Path,
                               # big crest fills the photo zone wherever the
                               # live video window is NOT playing; on the video
                               # card the crest-VS-crest rides ON the footage
-                              big_crest=(i > 0) or not has_video,
-                              show_crests=(i > 0) or not has_video)
+                              big_crest=not vm and ((i > 0) or not has_video),
+                              show_crests=not vm and ((i > 0) or not has_video),
+                              video_mode=vm)
         if made:
             cards.append(made)
     _log(f"news cards: {len(cards)}")
@@ -500,7 +506,10 @@ def _vs_badge(clubs: list[str], work: Path) -> str | None:
                              Image.LANCZOS)
         panels.append(crest)
     total = sum(p.width + pad * 2 for p in panels) + (vs_w + 14 if vs_w else 0)
-    x = (CANVAS[0] - total) // 2
+    # content-sized (not canvas-wide) so the caller can corner-align it
+    img = Image.new("RGBA", (total + 8, box + pad * 2 + 8), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    x = 4
     for j, crest in enumerate(panels):
         pw, ph = crest.width + pad * 2, crest.height + pad * 2
         panel = Image.new("RGBA", (pw, ph), (0, 0, 0, 0))
@@ -601,40 +610,35 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
     if cc_clip:
         try:
             from moviepy import VideoFileClip, concatenate_videoclips as _cat
-            WIN_Y, WIN_H = 307, 650          # photo zone: below brand bar, above kicker
+            # Full-bleed window on a dark stage (card draws the stage +
+            # horizontal log strip below) — no photo slivers, log visible.
+            WIN_Y, WIN_H = 190, 620
             vc = VideoFileClip(cc_clip["path"]).without_audio()
             # owner footage fills BOTH cards' windows; other sources card 1 only
             emb_dur = float(duration - 0.6) if cc_clip.get("owner")                 else float(per - 0.3)
             src = vc
             if src.duration < emb_dur:
                 src = _cat([vc] * (int(emb_dur // vc.duration) + 1))
-            if cc_clip.get("owner"):
-                # Owner footage: show the WHOLE frame (fit-contain, centred) —
-                # never crop away their shot. CC clips keep fill-crop below.
-                s = min(CANVAS[0] / src.w, WIN_H / src.h)
-                emb = (src.subclipped(0, emb_dur).resized(s)
-                       .with_start(0.3))
-                emb = emb.with_position((int((CANVAS[0] - emb.w) / 2),
-                                         WIN_Y + int((WIN_H - emb.h) / 2)))
-            else:
-                s = max(CANVAS[0] / src.w, WIN_H / src.h)
-                emb = src.subclipped(0, emb_dur).resized(s)
-                x1 = max(0, int((emb.w - CANVAS[0]) / 2))
-                y1 = max(0, int((emb.h - WIN_H) / 2))
-                emb = (emb.cropped(x1=x1, y1=y1, width=CANVAS[0], height=WIN_H)
-                       .with_start(0.3).with_position((0, WIN_Y)))
+            s = max(CANVAS[0] / src.w, WIN_H / src.h)
+            emb = src.subclipped(0, emb_dur).resized(s)
+            x1 = max(0, int((emb.w - CANVAS[0]) / 2))
+            y1 = max(0, int((emb.h - WIN_H) / 2))
+            emb = (emb.cropped(x1=x1, y1=y1, width=CANVAS[0], height=WIN_H)
+                   .with_start(0.3).with_position((0, WIN_Y)))
             overlay_layers.append(emb)
             overlay_layers.append(
                 ImageClip(_credit_strip(cc_clip["credit"], work))
                 .with_start(0.3).with_duration(emb_dur)
-                .with_position(("center", WIN_Y + WIN_H - 70)))
-            # crest VS crest rides ON the footage, broadcast-bug style
+                .with_position((28, WIN_Y + WIN_H - 62)))
+            # crest VS crest rides ON the footage — small, top-right corner,
+            # never blocking the action
             vs = _vs_badge(resolve_clubs(script.get("title", "")), work)
             if vs:
+                vsc = ImageClip(vs).resized(0.55)
                 overlay_layers.append(
-                    ImageClip(vs).with_start(0.3).with_duration(emb_dur)
-                    .with_position((0, WIN_Y + 16)))
-            _log(f"live window: {emb_dur:.1f}s of real footage fills card 1")
+                    vsc.with_start(0.3).with_duration(emb_dur)
+                    .with_position((CANVAS[0] - int(vsc.w) - 20, WIN_Y + 10)))
+            _log(f"live window: {emb_dur:.1f}s full-bleed on dark stage")
         except Exception as e:
             _log(f"cc clip window skipped: {e}")
 
@@ -760,7 +764,10 @@ async def main():
     except Exception as e:
         _log(f"prediction skipped: {e}")
 
-    cards = build_cards(script, images, briefing, work, prediction, log_rows, has_video=bool(cc_clip))
+    cards = build_cards(script, images, briefing, work, prediction, log_rows,
+                        has_video=bool(cc_clip),
+                        video_cards=(2 if (cc_clip and cc_clip.get("owner"))
+                                     else (1 if cc_clip else 0)))
     video = await assemble(script, voice, cards, work, cc_clip=cc_clip)
     write_manifest(script, video, work, voice, images, prediction, log_rows)
 

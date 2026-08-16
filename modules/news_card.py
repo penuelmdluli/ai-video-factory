@@ -95,6 +95,7 @@ def make_news_card(
     cover_mode: bool = False,
     big_crest: bool = False,
     show_crests: bool = True,
+    video_mode: bool = False,
 ) -> str | None:
     """
     Render a branded news card. Returns the output path, or None on failure.
@@ -125,6 +126,12 @@ def make_news_card(
     sd.rectangle([0, 0, W, int(H * 0.16)], fill=(0, 0, 0, 140))  # top bar for the logo
     card = Image.alpha_composite(card.convert("RGBA"), scrim).convert("RGB")
     d = ImageDraw.Draw(card)
+
+    # video_mode: the live window owns the whole zone — a solid dark stage
+    # instead of photo slivers peeking around the footage (owner note
+    # 2026-08-16: "the way we arrange it is not good")
+    if video_mode:
+        d.rectangle([0, 178, W, 958], fill=(12, 14, 18))
 
     # ── Logo (top-left) ──
     # cover_mode: the thumbnail wants the brand BIG in the empty top space —
@@ -195,7 +202,7 @@ def make_news_card(
     # ── ARCHIVE badge — never let an old photo read as today ──
     # Sits just under the crest, right-aligned; drops below the prediction
     # chip's row when one is present so the two never collide.
-    if archive_year:
+    if archive_year and not video_mode:
         label = f"ARCHIVE {archive_year}".strip()
         af = _font(30)
         aw = d.textlength(label, font=af)
@@ -212,15 +219,38 @@ def make_news_card(
     if prediction:
         pf = _font(30)
         pw = d.textlength(prediction, font=pf)
-        x1, y1 = 60, 222
+        # video_mode: the chip drops into the band under the live window
+        x1, y1 = (60, 852) if video_mode else (60, 222)
         d.rounded_rectangle([x1, y1, x1 + pw + 66, y1 + 62], radius=16,
                             fill=(15, 17, 22), outline=accent, width=3)
         d.ellipse([x1 + 20, y1 + 21, x1 + 40, y1 + 41], fill=accent,
                   outline=(255, 255, 255), width=2)     # ball dot
         d.text((x1 + 52, y1 + 14), prediction, font=pf, fill=(255, 255, 255))
 
-    # ── Mini log table (right column over the photo) ──
-    if log_rows:
+    # ── Mini log table ──
+    # video_mode: a horizontal BETWAY LOG strip in the band UNDER the live
+    # window — the right-column panel would hide behind the footage.
+    if log_rows and video_mode:
+        ty1, ty2 = 824, 944
+        d.rounded_rectangle([24, ty1, W - 24, ty2], radius=18,
+                            fill=(10, 12, 16))
+        lf = _font(24)
+        d.text((44, ty1 + 12), "BETWAY LOG", font=lf, fill=accent)
+        rows = log_rows[:6]
+        cw = (W - 88) // max(1, len(rows))
+        rf, pf2 = _font(26), _font(24, bold=False)
+        for j, r in enumerate(rows):
+            cx = 44 + j * cw
+            hot = club and r.get("team_key") == club
+            if hot:
+                d.rounded_rectangle([cx - 8, ty1 + 44, cx + cw - 16, ty2 - 10],
+                                    radius=10, fill=accent)
+            fg = (10, 10, 10) if hot else (235, 238, 242)
+            fg2 = (10, 10, 10) if hot else (170, 175, 182)
+            d.text((cx, ty1 + 50), f"{r['rank']} {str(r['name'])[:9]}",
+                   font=rf, fill=fg)
+            d.text((cx, ty1 + 84), f"{r['points']} pts", font=pf2, fill=fg2)
+    elif log_rows:
         lx2 = W - 44
         lx1 = lx2 - 400
         row_h = 54
@@ -247,7 +277,7 @@ def make_news_card(
     # ── Big club crest just above the title (owner rule) ──
     # Fills the photo zone's lower-left when no live video plays there; sits
     # opposite the log panel when one is drawn ("next to the log").
-    if big_crest:
+    if big_crest and not video_mode:      # crest would hide behind the footage
         badge = official_badge(club)
         if badge:
             try:
