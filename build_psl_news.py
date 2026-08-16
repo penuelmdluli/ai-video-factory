@@ -156,6 +156,16 @@ async def gather_images(script: dict, briefing: dict, work: Path) -> tuple[list[
     raw_dir = work / "photos"
     out = []
 
+    # 0) OWNER MEDIA — the owner's own photos outrank every other source:
+    #    fully licensed, real, current. Sent via the WhatsApp vault.
+    try:
+        from modules.owner_media import owner_images
+        for img in owner_images(club, limit=MAX_CARDS):
+            out.append(img)
+            _log(f"owner photo: {Path(img['path']).name}")
+    except Exception as e:
+        _log(f"owner media skipped: {e}")
+
     # 1) The players the story is actually about — newest photo first.
     heads = " ".join(i.get("title", "") for k in briefing or {}
                      if isinstance(briefing.get(k), list)
@@ -206,10 +216,21 @@ async def gather_images(script: dict, briefing: dict, work: Path) -> tuple[list[
     #    real footage from THIS WEEK beats an old Commons photo. The local
     #    clip library (daily sweep) answers instantly; live fetch is fallback.
     cc_clip = None
+    # OWNER FOOTAGE FIRST — their own clips beat every other video source.
+    try:
+        from modules.owner_media import pick_owner_video
+        ov = pick_owner_video(club)
+        if ov:
+            cc_clip = {**ov, "club": club}
+            _log(f"OWNER footage: {Path(ov['path']).name} '{ov['caption'][:30]}'")
+    except Exception as e:
+        _log(f"owner video skipped: {e}")
     # GAME-TIME RULE (owner): while a big-three fixture is live/today, every
     # video must show THE LIVE GAME — search for footage of this exact fixture
     # uploaded today before touching the library.
     try:
+        if cc_clip:
+            raise StopIteration          # owner footage already chosen
         from datetime import datetime as _dt
         from modules.psl_fixtures import todays_fixtures, SAST
         from modules.cc_clips import fetch_cc_clip as _fetch
@@ -560,8 +581,8 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
             from moviepy import VideoFileClip, concatenate_videoclips as _cat
             WIN_Y, WIN_H = 307, 650          # photo zone: below brand bar, above kicker
             vc = VideoFileClip(cc_clip["path"]).without_audio()
-            # fill the WHOLE first card with live footage, looping short clips
-            emb_dur = float(per - 0.3)
+            # owner footage fills BOTH cards' windows; other sources card 1 only
+            emb_dur = float(duration - 0.6) if cc_clip.get("owner")                 else float(per - 0.3)
             src = vc
             if src.duration < emb_dur:
                 src = _cat([vc] * (int(emb_dur // vc.duration) + 1))
@@ -749,6 +770,12 @@ async def post_to_page(work: Path) -> dict | None:
 
     post_id = fb.get("post_id")
     comment_target = fb.get("video_id") or post_id   # reels only accept comments on the video id
+    try:
+        from modules.playlists import add_facebook
+        if fb.get("video_id"):
+            add_facebook(fb["video_id"])
+    except Exception as e:
+        _log(f"fb playlist skipped: {e}")
     clubs = resolve_clubs(manifest.get("title", ""))
     names = [CLUB_BRAND.get(c, {}).get("name", c.title()) for c in clubs[:2]]
     pred = manifest.get("prediction", "")
@@ -788,6 +815,12 @@ async def post_to_page(work: Path) -> dict | None:
             )
             yt_id = (yt or {}).get("video_id", "")
             _log(f"YouTube: {yt.get('status')} {yt_id}")
+            if yt_id:
+                try:
+                    from modules.playlists import add_youtube
+                    add_youtube(yt_id, shorts=True)
+                except Exception as e:
+                    _log(f"playlist skipped: {e}")
         except Exception as e:
             _log(f"YouTube upload failed: {e}")
     else:
