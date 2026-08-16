@@ -251,7 +251,8 @@ async def _upload_video(
     init_resp.raise_for_status()
     init_data = init_resp.json()
     upload_session_id = init_data["upload_session_id"]
-    start_offset = int(init_data.get("start_offset", 0))
+    session_video_id = init_data.get("video_id", "")   # the finish step only
+    start_offset = int(init_data.get("start_offset", 0))  # returns success:true
     end_offset = int(init_data.get("end_offset", file_size))
     print(f"[Facebook] Upload session started: {upload_session_id[:20]}...")
 
@@ -300,7 +301,7 @@ async def _upload_video(
     )
     finish_resp.raise_for_status()
     result = finish_resp.json()
-    video_id = result.get("id") or result.get("video_id")
+    video_id = result.get("id") or result.get("video_id") or session_video_id
 
     print(f"[Facebook] Video published: {video_id}")
     return {
