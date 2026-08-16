@@ -207,6 +207,24 @@ async def main():
                 add_youtube(vid, shorts=False)
             except Exception as e:
                 _log(f"playlist skipped: {e}")
+        # ALWAYS also post to the Facebook page (owner rule 2026-08-16)
+        try:
+            from modules.uploader_facebook import upload_to_facebook, post_comment
+            fb = await upload_to_facebook(
+                video_path=str(final), title=title, description=desc,
+                niche="sa_pulse", is_reel=False, thumbnail_path=str(thumb))
+            fb_id = fb.get("video_id") or fb.get("post_id")
+            _log(f"Facebook: {fb.get('status')} {fb_id}")
+            if fb_id and fb.get("status") == "uploaded":
+                await post_comment(fb_id,
+                    f"🔥 Our own footage from the stands — {vs}! "
+                    "Were you at the stadium? Tell us below 👇⚽", "sa_pulse")
+                if vid:
+                    await post_comment(fb_id,
+                        f"▶️ Full highlights on YouTube — subscribe: "
+                        f"https://youtube.com/watch?v={vid}", "sa_pulse")
+        except Exception as e:
+            _log(f"Facebook failed: {e}")
 
     cut_parts(norm, src, caption)
     _log("DONE")
