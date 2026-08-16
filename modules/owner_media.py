@@ -122,8 +122,13 @@ def owner_images(club=None, limit: int = 2) -> list[dict]:
     for p in sorted(INBOX.glob("*.jpg"), key=lambda x: x.stat().st_mtime,
                     reverse=True):
         if _matches(p, club):
+            # "club" must be a single key (cards hash it) — prefer the media's
+            # own filing, else the first story club
+            own = _clubs_for(p)
+            wanted = [club] if isinstance(club, str) else list(club or [])
+            key = own[0] if own else (wanted[0] if wanted else "")
             out.append({"path": str(p), "credit": "Genesis News",
-                        "archive_year": "", "club": club or "", "real": True,
+                        "archive_year": "", "club": key or "", "real": True,
                         "owner": True})
         if len(out) >= limit:
             break
