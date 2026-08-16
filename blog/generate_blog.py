@@ -334,7 +334,16 @@ def _post_html(a, t):
     if not t.get("video"):
         # No video yet (e.g. the PSL channel before its first upload) — link the page
         # instead of embedding a broken player.
-        og_image = f"{SITE_URL}/style.css"  # no video thumb; social falls back to site card
+        # branded per-article share card — a share with no image is a dead post
+        try:
+            from promo_card import make_promo
+            from modules.club_brand import resolve_clubs as _rc
+            _club = (_rc(t["title"]) or [""])[0]
+            make_promo(t["title"], _club, POSTS / "og" / f"{t['slug']}.jpg")
+            og_image = f"{SITE_URL}/posts/og/{t['slug']}.jpg"
+        except Exception as _e:
+            print(f"[blog] promo card skipped: {_e}")
+            og_image = f"{SITE_URL}/index.html"
         video_block = (f'<p class="cta">⚽ Follow <a href="{t.get("channel_url", MZANSI_URL)}" '
                        f'rel="noopener">{html.escape(t["channel"])}</a> for daily PSL updates</p>')
     elif t.get("self_hosted"):

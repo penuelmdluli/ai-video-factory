@@ -62,6 +62,34 @@ def post_link(page_id, token, message, link):
         return json.loads(r.read())
 
 
+def post_photo(page_id, token, message, image_path):
+    """Photo post with the article link in the caption — a bare link post with
+    no preview image is a dead post (owner note 2026-08-16)."""
+    import requests
+    with open(image_path, "rb") as f:
+        r = requests.post(f"{GRAPH}/{page_id}/photos",
+                          data={"message": message, "access_token": token},
+                          files={"source": f}, timeout=60)
+    r.raise_for_status()
+    return r.json()
+
+
+def _promo_image(p):
+    """The article's share card, generating it on the fly if missing."""
+    og = ROOT / "build" / "posts" / "og" / f"{p['slug']}.jpg"
+    if og.exists():
+        return og
+    try:
+        from promo_card import make_promo
+        from modules.club_brand import resolve_clubs
+        club = (resolve_clubs(p.get("title", "")) or [""])[0]
+        made = make_promo(p.get("title", ""), club, og)
+        return Path(made) if made else None
+    except Exception as e:
+        print(f"[fb] promo card failed: {str(e)[:100]}")
+        return None
+
+
 def _is_live(url):
     try:
         req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "genesis-blog"})
@@ -101,8 +129,14 @@ def promote(p, dry_run=False):
     if dry_run:
         print(f"[fb] DRY-RUN would post '{niche}' -> {key}: {url}"); return True
     try:
-        res = post_link(page_id, token, msg, url)
-        print(f"[fb] posted '{niche}' -> {key}: {res.get('id', res)}")
+        img = _promo_image(p)
+        if img:
+            res = post_photo(page_id, token, msg, img)
+            res_id = res.get("post_id") or res.get("id", res)
+        else:
+            res = post_link(page_id, token, msg, url)
+            res_id = res.get("id", res)
+        print(f"[fb] posted '{niche}' -> {key}: {res_id}")
         return True
     except Exception as e:
         print(f"[fb] post failed ({key}): {str(e)[:160]}")
