@@ -52,9 +52,16 @@ async function start() {
         const vid = mm.videoMessage ||
           (mm.documentMessage && /video/i.test(mm.documentMessage.mimetype || "")
             ? mm.documentMessage : null);
-        const img = mm.imageMessage;
+        const img = mm.imageMessage ||
+          (mm.documentMessage && /image/i.test(mm.documentMessage.mimetype || "")
+            ? mm.documentMessage : null);
         if (!vid && !img) continue;
         const media = vid || img;
+        // documents keep the ORIGINAL quality — WhatsApp only recompresses
+        // media sent as "video"/"photo". Caption may sit on the outer wrapper.
+        const caption = (media.caption ||
+          outer.documentWithCaptionMessage?.message?.documentMessage?.caption ||
+          "").trim();
         log(`incoming owner ${vid ? "video" : "image"}… downloading`);
         const buf = await downloadMediaMessage(m, "buffer", {},
           { logger, reuploadRequest: sock.updateMediaMessage });
@@ -63,9 +70,9 @@ async function start() {
         const fname = `${stamp}_${vid ? "video.mp4" : "image.jpg"}`;
         fs.writeFileSync(path.join(VAULT, fname), buf);
         fs.writeFileSync(path.join(VAULT, fname + ".json"), JSON.stringify({
-          caption: (media.caption || "").trim(), from: phone,
+          caption, from: phone,
           ts: Date.now(), kind: vid ? "video" : "image" }, null, 2));
-        log(`saved ${fname} (${(buf.length / 1e6).toFixed(1)}MB) caption="${media.caption || ""}"`);
+        log(`saved ${fname} (${(buf.length / 1e6).toFixed(1)}MB) caption="${caption}"`);
       } catch (e) { log("save failed:", e.message); }
     }
   });

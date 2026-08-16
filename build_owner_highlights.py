@@ -103,7 +103,7 @@ def render(norm: Path, clubs: list[str], work: Path) -> Path:
     overlay = _brand_overlay(clubs, work / "brand_overlay.png")
     out = work / "highlights.mp4"
     fc = ("[0:v]scale=1920:1080,boxblur=24:2[bg];"
-          "[0:v]scale=-2:1080[fg];"
+          "[0:v]scale=-2:1080:flags=lanczos,unsharp=5:5:0.6[fg];"
           "[bg][fg]overlay=(W-w)/2:(H-h)/2[v1];"
           "[v1][1:v]overlay=0:0,fps=30,format=yuv420p[v]")
     r = subprocess.run(
