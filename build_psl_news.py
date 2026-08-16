@@ -303,16 +303,27 @@ async def _make_prediction(title: str, log_rows: list) -> str:
     clubs = resolve_clubs(title)
     if len(clubs) < 2:
         return ""
-    # NEVER predict a match that has kicked off or finished — "OUR CALL 2-1"
-    # under a completed 1-1 reads as fake. Live page = live truth.
+    # ONLY predict a matchup with an UPCOMING fixture (next 7 days, not yet
+    # kicked off). Completed games drop out of ESPN's day feed within hours,
+    # so "not finished" can't be tested — "has a future game" can. This is
+    # what killed the fake "OUR CALL 2-1" on the already-played 1-1 derby.
     try:
-        from modules.psl_fixtures import todays_fixtures
-        for f in await todays_fixtures():
-            if {f["home_key"], f["away_key"]} == set(clubs[:2]) and \
-                    f["status"] in ("in", "post"):
-                return ""
+        from datetime import timedelta as _td
+        from modules.psl_fixtures import fixtures_for, SAST
+        from datetime import datetime as _dt
+        upcoming = False
+        for dd in range(0, 7):
+            for f in await fixtures_for(_dt.now(SAST) + _td(days=dd)):
+                if {f["home_key"], f["away_key"]} == set(clubs[:2]) and \
+                        f["status"] == "pre":
+                    upcoming = True
+                    break
+            if upcoming:
+                break
+        if not upcoming:
+            return ""
     except Exception:
-        pass
+        return ""
     from modules.psl_squads import recent_starts, get_squad
     rank = {r.get("team_key"): r.get("rank", 99) for r in log_rows or []}
     a, b = clubs[:2]
