@@ -130,7 +130,8 @@ def _frames_from_clip(clip: dict, work: Path, need: int) -> list[dict]:
             capture_output=True)
         if r.returncode == 0 and p.exists() and p.stat().st_size > 30_000:
             out.append({"path": str(p),
-                        "credit": f"still: {clip['channel']} (CC BY, via YouTube)",
+                        "credit": ("Genesis News footage" if clip.get("owner")
+                                   else f"still: {clip['channel']} (CC BY, via YouTube)"),
                         "archive_year": "", "club": clip.get("club", ""),
                         "real": True})
     if out:
@@ -158,9 +159,16 @@ async def gather_images(script: dict, briefing: dict, work: Path) -> tuple[list[
 
     # 0) OWNER MEDIA — the owner's own photos outrank every other source:
     #    fully licensed, real, current. Sent via the WhatsApp vault.
+    #    Match on EVERY club in the story (a Chiefs–Sundowns recap names two),
+    #    and only vault media filed under one of them may ride the story.
+    try:
+        from modules.club_brand import resolve_clubs as _rc
+        owner_clubs = _rc(f"{title} {narrations}") or [club]
+    except Exception:
+        owner_clubs = [club]
     try:
         from modules.owner_media import owner_images
-        for img in owner_images(club, limit=MAX_CARDS):
+        for img in owner_images(owner_clubs, limit=MAX_CARDS):
             out.append(img)
             _log(f"owner photo: {Path(img['path']).name}")
     except Exception as e:
@@ -219,7 +227,7 @@ async def gather_images(script: dict, briefing: dict, work: Path) -> tuple[list[
     # OWNER FOOTAGE FIRST — their own clips beat every other video source.
     try:
         from modules.owner_media import pick_owner_video
-        ov = pick_owner_video(club)
+        ov = pick_owner_video(owner_clubs)
         if ov:
             cc_clip = {**ov, "club": club}
             _log(f"OWNER footage: {Path(ov['path']).name} '{ov['caption'][:30]}'")
@@ -586,12 +594,21 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
             src = vc
             if src.duration < emb_dur:
                 src = _cat([vc] * (int(emb_dur // vc.duration) + 1))
-            s = max(CANVAS[0] / src.w, WIN_H / src.h)
-            emb = src.subclipped(0, emb_dur).resized(s)
-            x1 = max(0, int((emb.w - CANVAS[0]) / 2))
-            y1 = max(0, int((emb.h - WIN_H) / 2))
-            emb = (emb.cropped(x1=x1, y1=y1, width=CANVAS[0], height=WIN_H)
-                   .with_start(0.3).with_position((0, WIN_Y)))
+            if cc_clip.get("owner"):
+                # Owner footage: show the WHOLE frame (fit-contain, centred) —
+                # never crop away their shot. CC clips keep fill-crop below.
+                s = min(CANVAS[0] / src.w, WIN_H / src.h)
+                emb = (src.subclipped(0, emb_dur).resized(s)
+                       .with_start(0.3))
+                emb = emb.with_position((int((CANVAS[0] - emb.w) / 2),
+                                         WIN_Y + int((WIN_H - emb.h) / 2)))
+            else:
+                s = max(CANVAS[0] / src.w, WIN_H / src.h)
+                emb = src.subclipped(0, emb_dur).resized(s)
+                x1 = max(0, int((emb.w - CANVAS[0]) / 2))
+                y1 = max(0, int((emb.h - WIN_H) / 2))
+                emb = (emb.cropped(x1=x1, y1=y1, width=CANVAS[0], height=WIN_H)
+                       .with_start(0.3).with_position((0, WIN_Y)))
             overlay_layers.append(emb)
             overlay_layers.append(
                 ImageClip(_credit_strip(cc_clip["credit"], work))
