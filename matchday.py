@@ -228,6 +228,24 @@ async def _post_motm(f, sh: list[str], sa: list[str], post: bool) -> bool:
     except Exception:
         pass
     if not img:
+        # OWNER vault media of this club beats any CC still (photo, else the
+        # sharpest clean frame of their footage)
+        try:
+            from modules.owner_media import owner_images, pick_owner_video
+            oi = owner_images([club], limit=1)
+            if oi:
+                img, credit = oi[0]["path"], oi[0]["credit"]
+            else:
+                ov = pick_owner_video([club])
+                if ov:
+                    from modules.clean_frames import sharpest_frames
+                    picks = sharpest_frames(
+                        ov["path"], Path("output/matchday/owner_frames"), 1, 8)
+                    if picks:
+                        img, credit = picks[0][0], ov["credit"]
+        except Exception:
+            pass
+    if not img:
         try:
             from modules.cc_clips import fetch_cc_clip
             from build_psl_news import _frames_from_clip
