@@ -52,11 +52,9 @@ def _dur(p: Path) -> float:
 
 
 def _badge(key: str):
-    for cand in (BADGES / f"{key}_badge_alpha.png", BADGES / f"{key}_badge.png",
-                 BADGES / "flux" / f"{key}.png"):
-        if cand.exists():
-            return cand
-    return None
+    # the OFFICIAL crest, same as every card — never the stylized fan badges
+    from modules.club_brand import official_badge
+    return official_badge(key)
 
 
 def _brand_overlay(clubs: list[str], out: Path) -> Path:
