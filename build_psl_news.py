@@ -118,17 +118,31 @@ def _frames_from_clip(clip: dict, work: Path, need: int) -> list[dict]:
         dur = float(dur_probe.stdout.strip())
     except Exception:
         dur = 10.0
-    offsets = [dur * f for f in (0.35, 0.7, 0.5, 0.85)][:max(need * 2, 2)]
-    for i, t in enumerate(offsets):
+    # sharpest frames win — a blurred still makes a cheap-looking card
+    try:
+        from modules.clean_frames import sharpest_frames
+        picks = sharpest_frames(clip["path"], work / "photos" / "cands",
+                                need=need, samples=10)
+    except Exception:
+        picks = []
+    if not picks:      # fallback: old fixed offsets
+        picks = [("", dur * f) for f in (0.35, 0.7)][:need]
+    for i, (cand, t) in enumerate(picks):
         if len(out) >= need:
             break
         p = work / "photos" / f"ccframe_{i+1}.jpg"
         p.parent.mkdir(parents=True, exist_ok=True)
-        r = subprocess.run(
-            ["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{t:.2f}",
-             "-i", clip["path"], "-frames:v", "1", "-q:v", "2", str(p)],
-            capture_output=True)
-        if r.returncode == 0 and p.exists() and p.stat().st_size > 30_000:
+        if cand:
+            import shutil as _sh
+            _sh.copy2(cand, p)
+        else:
+            r = subprocess.run(
+                ["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{t:.2f}",
+                 "-i", clip["path"], "-frames:v", "1", "-q:v", "2", str(p)],
+                capture_output=True)
+            if r.returncode != 0:
+                continue
+        if p.exists() and p.stat().st_size > 30_000:
             out.append({"path": str(p),
                         "credit": ("Genesis News footage" if clip.get("owner")
                                    else f"still: {clip['channel']} (CC BY, via YouTube)"),

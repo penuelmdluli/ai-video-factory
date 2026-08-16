@@ -117,11 +117,54 @@ def render(norm: Path, clubs: list[str], work: Path) -> Path:
     return out
 
 
-def thumbnail(final: Path, work: Path) -> Path:
+def thumbnail(norm: Path, work: Path, clubs: list[str] | None = None) -> Path:
+    """Branded 1280x720 thumb on the SHARPEST clean frame of the footage."""
+    from PIL import Image, ImageDraw, ImageFont
+
     t = work / "thumb.jpg"
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error",
-                    "-ss", f"{_dur(final) * 0.4:.1f}", "-i", str(final),
-                    "-frames:v", "1", "-q:v", "2", str(t)], capture_output=True)
+    try:
+        from modules.clean_frames import sharpest_frames
+        picks = sharpest_frames(norm, work / "thumb_cands", need=1, samples=12)
+        bg_path = picks[0][0]
+    except Exception:
+        bg_path = ""
+    if not bg_path:
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error",
+                        "-ss", f"{_dur(norm) * 0.4:.1f}", "-i", str(norm),
+                        "-frames:v", "1", "-q:v", "2", str(t)], capture_output=True)
+        return t
+
+    W, H = 1280, 720
+    src = Image.open(bg_path).convert("RGB")
+    s = max(W / src.width, H / src.height)
+    src = src.resize((int(src.width * s), int(src.height * s)))
+    im = src.crop(((src.width - W) // 2, (src.height - H) // 2,
+                   (src.width - W) // 2 + W, (src.height - H) // 2 + H))
+    d = ImageDraw.Draw(im, "RGBA")
+    d.rectangle([0, H - 200, W, H], fill=(8, 8, 10, 200))
+
+    def font(sz):
+        return ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", sz)
+
+    crest_x = W - 60 - 180 * min(2, len(clubs or []))
+    d.text((40, H - 178), "FAN HIGHLIGHTS", font=font(64), fill=(255, 200, 0))
+    names = [CLUB_BRAND.get(c, {}).get("name", c.title()).upper()
+             for c in (clubs or [])]
+    if len(names) >= 2:
+        line = f"{names[0]}  vs  {names[1]}"
+        sz = 48                              # shrink until clear of the crests
+        while sz > 24 and d.textlength(line, font=font(sz)) > crest_x - 80:
+            sz -= 2
+        d.text((40, H - 96), line, font=font(sz), fill=(255, 255, 255))
+    x = W - 60
+    for key in reversed((clubs or [])[:2]):
+        b = _badge(key)
+        if b:
+            c = Image.open(b).convert("RGBA")
+            c = c.resize((170, int(170 * c.height / c.width)))
+            x -= 180
+            im.paste(c, (x, H - 190), c)
+    im.save(t, quality=92)
     return t
 
 
@@ -181,7 +224,7 @@ async def main():
 
     norm = Path(_playback_path(src))          # constant 30fps, real speed
     final = render(norm, clubs, work)
-    thumb = thumbnail(final, work)
+    thumb = thumbnail(norm, work, clubs)
     _log(f"rendered: {final} ({_dur(final):.0f}s)")
 
     if not a.no_post:
