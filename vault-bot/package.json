@@ -1,0 +1,13 @@
+{
+  "name": "genesis-vault-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Receives owner media on WhatsApp and saves it for the Genesis News pipeline.",
+  "main": "index.mjs",
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.7.24",
+    "pino": "^9.5.0",
+    "qrcode": "^1.5.4"
+  }
+}
