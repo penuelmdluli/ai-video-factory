@@ -804,12 +804,20 @@ async def _story_comment(manifest: dict) -> str:
         import os
         from google import genai
         client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", ""))
+        facts = ""
+        try:
+            from modules.psl_facts import facts_pack
+            facts = await facts_pack()
+        except Exception:
+            pass
         prompt = (
             "You run Genesis News, a South African PSL football fan page. "
             "Write ONE first comment to pin under our own reel about this "
             "story:\n"
             f"TITLE: {title}\nSTORY: {desc}\n\n"
-            "Rules: max 22 words, ask fans ONE specific question about THIS "
+            + (f"LIVE LEAGUE FACTS (use ONE if it sharpens the question, "
+               f"quote numbers exactly):\n{facts}\n\n" if facts else "")
+            + "Rules: max 25 words, ask fans ONE specific question about THIS "
             "story (a player, a decision, a take) that starts an argument, "
             "sound like a fan not a brand, 1-2 emojis, end with 👇, no "
             "hashtags, no links. Reply with the comment text only."
@@ -823,6 +831,27 @@ async def _story_comment(manifest: dict) -> str:
     except Exception as e:
         _log(f"story comment fallback: {str(e)[:80]}")
     return ""
+
+
+def _seed_youtube_comments(video_id: str, story_comment: str):
+    """Seed our opening comments on our OWN Short — same family-we-chat
+    pattern as Facebook (owner 2026-08-17: 'I don't see the YouTube
+    comment on reels and shorts')."""
+    try:
+        from modules.playlists import _yt
+        yt = _yt()
+        msgs = [m for m in (
+            story_comment,
+            "📲 Follow Genesis News on Facebook for lineups before kickoff "
+            "and live matchday updates — search 'Genesis News PSL'. 🇿🇦⚽",
+        ) if m]
+        for m in msgs:
+            yt.commentThreads().insert(part="snippet", body={
+                "snippet": {"videoId": video_id, "topLevelComment": {
+                    "snippet": {"textOriginal": m}}}}).execute()
+        _log(f"YouTube comments seeded on {video_id} ({len(msgs)})")
+    except Exception as e:
+        _log(f"YouTube comment seed failed: {str(e)[:100]}")
 
 
 async def post_to_page(work: Path) -> dict | None:
@@ -914,6 +943,7 @@ async def post_to_page(work: Path) -> dict | None:
                     add_youtube(yt_id, shorts=True)
                 except Exception as e:
                     _log(f"playlist skipped: {e}")
+                _seed_youtube_comments(yt_id, c1)
         except Exception as e:
             _log(f"YouTube upload failed: {e}")
     else:

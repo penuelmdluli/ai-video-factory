@@ -302,10 +302,30 @@ WAR-NEWS REPLY DOCTRINE (CRITICAL — this page has an international audience):
 - Encourage discussion ("what's your read on this?") to boost engagement, never division.
 """
 
+    # PSL pages get the live facts pack so replies can quote REAL numbers —
+    # log positions, results, next kickoffs — and answer fixture questions
+    # accurately instead of vaguely (owner: "smarter and more relevant").
+    facts_block = ""
+    if niche == "sa_pulse":
+        try:
+            from modules.psl_facts import facts_pack
+            _facts = await facts_pack()
+            if _facts:
+                facts_block = (
+                    "\nLIVE LEAGUE FACTS — the ONLY facts you may state:\n"
+                    f"{_facts}\n"
+                    "FACT RULES (CRITICAL): quote numbers exactly as shown. "
+                    "If what the fan asks is NOT in these facts (e.g. a "
+                    "fixture not listed), say it isn't confirmed yet and "
+                    "invite them to follow for the announcement — NEVER "
+                    "invent fixtures, dates, scores or stats.\n")
+        except Exception:
+            pass
+
     prompt = f"""You are a social media community manager replying to a comment on Facebook.
 
 {personality}
-{neutrality_doctrine}
+{neutrality_doctrine}{facts_block}
 RULES:
 - Reply in 1-2 short sentences MAX
 - Sound human and warm, NOT like a bot or corporate account
