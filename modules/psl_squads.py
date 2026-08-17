@@ -40,6 +40,17 @@ NAME_FIX = {
 
 def fix_name(name: str) -> str:
     return NAME_FIX.get(name, name)
+
+
+# Confirmed departures ESPN still lists (owner + news verified 2026-08-17).
+# NEVER let these appear in squads, XIs or posts.
+DEPARTED = {
+    "chiefs": {"Thabo Cele", "Thatayaone Ditlhokwe", "Ashley Du Preez"},
+}
+
+
+def is_departed(club_key: str, name: str) -> bool:
+    return name in DEPARTED.get(club_key, set())
 CACHE_TTL = 24 * 3600              # 1 day — rosters move mid-window
 
 WIKI_API = "https://en.wikipedia.org/w/api.php"
@@ -138,11 +149,13 @@ async def get_squad(club_key: str, force_refresh: bool = False) -> list[dict]:
     cache = _load_cache()
     ent = cache.get(club_key)
     if ent and not force_refresh and time.time() - ent.get("at", 0) < CACHE_TTL:
-        return ent["squad"]
+        return [p for p in ent["squad"]
+                if not is_departed(club_key, p["name"])]
 
     # ESPN first — it tracks transfers and promotions faster than Wikipedia.
     squad = await _espn_squad(club_key)
     if squad:
+        squad = [p for p in squad if not is_departed(club_key, p["name"])]
         cache[club_key] = {"at": time.time(), "squad": squad, "source": "espn"}
         _save_cache(cache)
         print(f"[Squads] {club_key}: {len(squad)} current players from ESPN")
