@@ -913,4 +913,14 @@ async def post_to_page(work: Path) -> dict | None:
 if __name__ == "__main__":
     os.environ.setdefault("FORCE_STILLS_ONLY", "true")
     os.environ.setdefault("DISABLE_RUNPOD_WAN", "true")
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        # a build dying silently cost us two posting slots on 2026-08-16 —
+        # the owner must KNOW the machine skipped a beat
+        try:
+            from modules.notify_whatsapp import notify
+            notify(f"⚠️ GENESIS BUILD FAILED: {type(e).__name__}: {str(e)[:150]}")
+        except Exception:
+            pass
+        raise
