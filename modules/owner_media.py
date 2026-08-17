@@ -119,12 +119,18 @@ def owner_videos(club=None) -> list[dict]:
 
 
 def owner_images(club=None, limit: int = 2) -> list[dict]:
-    """Newest-first owner photos as gather_images-shaped dicts."""
+    """Owner photos as gather_images-shaped dicts, LEAST-RECENTLY-USED first —
+    the same photo must not front every card and thumbnail (owner rule
+    2026-08-17: 'always rotate the image used, even on the thumbnail')."""
     if not INBOX.exists():
         return []
+    try:
+        usage = json.loads(USAGE.read_text(encoding="utf-8"))
+    except Exception:
+        usage = {}
     out = []
-    for p in sorted(INBOX.glob("*.jpg"), key=lambda x: x.stat().st_mtime,
-                    reverse=True):
+    for p in sorted(INBOX.glob("*.jpg"),
+                    key=lambda x: (usage.get(x.name, 0), -x.stat().st_mtime)):
         if _matches(p, club):
             # "club" must be a single key (cards hash it) — prefer the media's
             # own filing, else the first story club
@@ -136,6 +142,11 @@ def owner_images(club=None, limit: int = 2) -> list[dict]:
                         "owner": True})
         if len(out) >= limit:
             break
+    if out:                               # stamp usage so the next build rotates
+        for i in out:
+            usage[Path(i["path"]).name] = time.time()
+        USAGE.parent.mkdir(parents=True, exist_ok=True)
+        USAGE.write_text(json.dumps(usage, indent=2), encoding="utf-8")
     return out
 
 
