@@ -192,12 +192,31 @@ def cut_parts(norm: Path, src: Path, caption: str) -> int:
         norm_dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(dst, norm_dst)
         made += 1
+    # sharpest stills into the photo vault too — they rotate as card
+    # backgrounds and thumbnails ("take images from the video", 2026-08-17)
+    stills = 0
+    try:
+        from modules.clean_frames import sharpest_frames
+        for i, (frame, _t) in enumerate(
+                sharpest_frames(norm, VAULT / "framecands" / src.stem,
+                                need=3, samples=12)):
+            name = f"{src.stem}_still{i+1}.jpg"
+            if (INBOX / name).exists():
+                continue
+            shutil.copy2(frame, INBOX / name)
+            (INBOX / (name + ".json")).write_text(json.dumps(
+                {"caption": caption, "from": "owner",
+                 "ts": int(src.stat().st_mtime * 1000) + 100 + i,
+                 "kind": "image"}, indent=2), encoding="utf-8")
+            stills += 1
+    except Exception as e:
+        _log(f"stills skipped: {e}")
     LONGFORM.mkdir(parents=True, exist_ok=True)
     shutil.move(str(src), LONGFORM / src.name)
     sc = src.parent / (src.name + ".json")
     if sc.exists():
         shutil.move(str(sc), LONGFORM / sc.name)
-    _log(f"cut {made} reel clips, original retired to longform/")
+    _log(f"cut {made} reel clips + {stills} stills, original retired to longform/")
     return made
 
 
