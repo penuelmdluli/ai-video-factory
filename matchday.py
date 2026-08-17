@@ -275,6 +275,11 @@ async def _red_card_post(f, ev, club: str):
         out = _out("redcard").with_suffix(".mp4")
         card_alert(out, player=(ev["who"] or "").upper(),
                    minute=ev["clock"], red=True, club=club)
+        from modules.motion_kit import attach_voice
+        out = await attach_voice(
+            out, f"Red card! {ev['who']} is off in minute "
+                 f"{ev['clock'].replace(chr(39), '')}, and "
+                 f"{_name(club)} are down to ten men.")
         cap = (f"🟥 RED CARD — {ev['who']} {ev['clock']}\n"
                f"{_name(f['home_key'])} v {_name(f['away_key'])}, down to "
                f"ten.\n\n#PSL #BetwayPremiership")
@@ -515,6 +520,12 @@ async def cmd_auto(a):
                                   when=f["kickoff_sast"],
                                   clubs=(f["home_key"], f["away_key"]),
                                   start_secs=secs, duration=8.0)
+                        from modules.motion_kit import attach_voice
+                        cd = await attach_voice(
+                            cd, f"Kickoff is coming. {_name(f['home_key'])} "
+                                f"against {_name(f['away_key'])}, "
+                                f"{f['kickoff_sast']}. Live goals, cards and "
+                                "the result, right here on Genesis News.")
                         fb = await upload_to_facebook(
                             video_path=str(cd), title="Countdown",
                             description=caption, niche=NICHE, is_reel=True)

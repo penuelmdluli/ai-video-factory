@@ -154,8 +154,21 @@ async def build(post: bool):
             from modules.uploader_facebook import upload_to_facebook, post_comment
             race = render_log_race(rows, prev,
                                    Path("output/matchday") /
-                                   f"lograce_{datetime.now():%Y%m%d}.mp4",
-                                   duration=16)
+                                   f"lograce_{datetime.now():%Y%m%d}.mp4")
+            # every animated piece speaks (owner rule 2026-08-17)
+            movers_up = [r for r in rows
+                         if prev.get(r.get("team_key") or r["name"],
+                                     r["rank"]) > r["rank"]][:3]
+            call = "The log race after this round. "
+            if movers_up:
+                call += " ".join(
+                    f"{m['name']} climb to number {m['rank']}."
+                    for m in movers_up) + " "
+            call += (f"{rows[0]['name']} lead the Betway Premiership on "
+                     f"{rows[0]['points']} points. Where does your team "
+                     "finish? Follow Genesis News.")
+            from modules.motion_kit import attach_voice
+            race = await attach_voice(race, call)
             rcap = (f"🏁 THE LOG RACE — watch this week's movers.\n"
                     f"{top['name']} on top with {top['points']} points.\n\n"
                     "Who climbs next week? 👇⚽\n"

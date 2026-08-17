@@ -74,6 +74,37 @@ def _base(d):
     d.text((44, 40), "GENESIS NEWS", font=_font(42), fill=(255, 255, 255))
 
 
+async def attach_voice(video_path, text: str, out_path=None) -> str:
+    """Give any silent motion piece a house-voice narration. Returns the
+    voiced file (defaults to <name>_voiced.mp4). Falls back to the silent
+    original on any failure — audio must never block a post."""
+    try:
+        from moviepy import (VideoFileClip, AudioFileClip,
+                             CompositeAudioClip)
+        from modules.voice_generator import generate_voice
+        video_path = Path(video_path)
+        out_path = Path(out_path) if out_path else \
+            video_path.with_name(video_path.stem + "_voiced.mp4")
+        vwork = video_path.parent / "voicework"
+        vwork.mkdir(parents=True, exist_ok=True)
+        v = await generate_voice(text, vwork, video_path.stem, "short",
+                                 "sa_pulse")
+        audio_p = (v or {}).get("audio_path")
+        if not audio_p:
+            return str(video_path)
+        clip = VideoFileClip(str(video_path))
+        voice = AudioFileClip(audio_p)
+        clip = clip.with_audio(
+            CompositeAudioClip([voice]).with_duration(clip.duration))
+        clip.write_videofile(str(out_path), fps=30, codec="libx264",
+                             audio_codec="aac", logger=None,
+                             preset="medium")
+        return str(out_path)
+    except Exception as e:
+        print(f"[MotionKit] voice attach failed: {str(e)[:100]}")
+        return str(video_path)
+
+
 def _render(frame_fn, out_path, duration, fps=30):
     import numpy as np
     from moviepy import VideoClip
