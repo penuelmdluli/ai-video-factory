@@ -44,12 +44,25 @@ def _log(msg):
 
 
 async def pick_topic() -> str:
-    from modules.topic_generator import generate_trending_topic_ai
-    topic = await generate_trending_topic_ai(NICHE)
+    # VARIETY RULE (owner 2026-08-17): consecutive reels kept re-covering the
+    # same story ("the defenders news"). Feed the last two weeks of used
+    # titles into the prompt so every build takes a FRESH angle, and record
+    # what we picked so the next build knows.
+    from modules.topic_generator import (generate_trending_topic_ai,
+                                         _get_recent_topic_titles,
+                                         _record_topic, _is_too_similar)
+    recent = _get_recent_topic_titles(NICHE, days=14)
+    topic = await generate_trending_topic_ai(NICHE, recent_titles=recent)
+    if topic and _is_too_similar(topic, recent):
+        _log(f"topic too close to recent coverage — asking for another")
+        retry = await generate_trending_topic_ai(
+            NICHE, recent_titles=recent + [topic])
+        topic = retry or topic
     if not topic:
         pin = NICHES[NICHE].get("topic_pin") or "Kaizer Chiefs latest news"
         topic = f"{pin}: what the latest team news means"
         _log(f"topic generation failed — using pin fallback")
+    _record_topic(NICHE, topic)
     _log(f"topic: {topic}")
     return topic
 
