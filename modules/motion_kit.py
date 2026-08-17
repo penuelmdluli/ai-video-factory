@@ -266,11 +266,21 @@ def card_alert(out, player="JONES", minute="42'", red=False,
     col = (220, 50, 50) if red else (255, 200, 0)
     label = "RED CARD" if red else "YELLOW CARD"
 
+    crest = _crest(club, 150)
+    boom = icon("impact", 220)
+
     def frame(t):
         im = Image.new("RGB", (W, H), DARK)
         d = ImageDraw.Draw(im, "RGBA")
         _base(d)
         d.text((46, 96), label, font=_font(28, False), fill=col)
+        # danger vignette pulse
+        pulse = int(45 + 35 * abs(math.sin(t * 3)))
+        for wdt in range(4):
+            d.rectangle([wdt * 8, wdt * 8, W - wdt * 8, H - wdt * 8],
+                        outline=(*col, max(0, pulse - wdt * 10)), width=8)
+        if crest:
+            im.paste(crest, (W - 44 - crest.width, 40), crest)
         # card spins in: rotation 540deg -> 0, y from -400 -> 640
         u = _ease(min(1, t / 0.7))
         card = Image.new("RGBA", (360, 520), (0, 0, 0, 0))
@@ -297,9 +307,13 @@ def card_alert(out, player="JONES", minute="42'", red=False,
         mw = d.textlength(minute, font=mf)
         d.text(((W - mw) / 2, y2 + 170), minute, font=mf, fill=col)
         if red and t > 2.2:
-            of = _font(48)
+            g = _over(min(1, (t - 2.2) / 0.35))
+            if boom:
+                b2 = boom.resize((int(220 * g), int(220 * g)))
+                im.paste(b2, (W // 2 - b2.width // 2, y2 - 380), b2)
+            of = _font(int(64 * g))
             ow = d.textlength("OFF!", font=of)
-            d.text(((W - ow) / 2, y2 - 220), "OFF!", font=of, fill=col)
+            d.text(((W - ow) / 2, y2 - 240), "OFF!", font=of, fill=col)
         return im
     return _render(frame, out, duration)
 
@@ -336,10 +350,20 @@ def player_spotlight(out, name="RENALDO LEANER", club="chiefs",
             barw = int((W - 320) * (val / mx) * u)
             d.rounded_rectangle([90, y + 56, 90 + max(barw, 8), y + 108],
                                 radius=16, fill=GOLD)
+            # shine sweep across the bar
+            if u > 0.15 and barw > 60:
+                sx = 90 + int((barw - 40) * ((t * 0.9) % 1.0))
+                d.rounded_rectangle([sx, y + 56, sx + 34, y + 108],
+                                    radius=16, fill=(255, 255, 255, 90))
             shown = int(round(val * u))
-            d.text((110 + max(barw, 8), y + 56), str(shown),
-                   font=_font(48), fill=(255, 255, 255))
+            pop = _over(min(1, max(0, (t - (0.8 + i * 0.55 + 0.9)) / 0.3)))
+            d.text((110 + max(barw, 8), y + 56 - int(6 * (pop - 1) * 10)),
+                   str(shown), font=_font(int(48 * pop)),
+                   fill=(255, 255, 255))
             y += 200
+        gl = icon("gloves", 130)
+        if gl:
+            im.paste(gl, (W - 190, 640), gl)
         return im
     return _render(frame, out, duration)
 
@@ -389,7 +413,26 @@ def head_to_head(out, a=("CHAINE", "pirates"), b=("R. WILLIAMS", "sundowns"),
                    font=_font(44), fill=(255, 255, 255))
             d.text((mid + 40 + wb, y + 60), str(int(round(vb * u))),
                    font=_font(44), fill=(255, 255, 255))
+            # winner star pops when the race lands
+            star = icon("star", 64)
+            if star and u >= 1:
+                sp = _over(min(1, (t - (0.7 + i * 0.6 + 1.0)) / 0.3))
+                s2 = star.resize((int(64 * sp), int(64 * sp)))
+                if va > vb:
+                    im.paste(s2, (mid - 60 - wa - 70, y + 52), s2)
+                elif vb > va:
+                    im.paste(s2, (mid + 40 + wb + 70, y + 52), s2)
             y += 220
+        if t > duration - 1.6:
+            u2 = _over(min(1, (t - (duration - 1.6)) / 0.35))
+            vf2 = _font(int(46 * u2))
+            msg = "YOUR VERDICT? 👇"
+            mw = d.textlength(msg.replace("👇", ""), font=vf2)
+            d.rounded_rectangle([(W - mw) / 2 - 26, 1560,
+                                 (W + mw) / 2 + 26, 1650], radius=18,
+                                fill=GOLD)
+            d.text(((W - mw) / 2, 1578), msg.replace(" 👇", ""),
+                   font=vf2, fill=(12, 12, 12))
         return im
     return _render(frame, out, duration)
 
@@ -420,14 +463,25 @@ def transfer_move(out, player="THABO CELE", from_club="chiefs",
         nf = _font(64)
         nw = d.textlength(player, font=nf)
         d.text(((W - nw) / 2, 1080), player, font=nf, fill=(255, 255, 255))
+        # dotted flight trail
+        for k in range(10):
+            uu = _ease(min(1, max(0, (t - 0.6) / 1.6))) * (k / 10)
+            tx = int(240 + (W - 480) * uu)
+            ty = int(780 - 240 * math.sin(uu * math.pi))
+            d.ellipse([tx - 6, ty - 6, tx + 6, ty + 6],
+                      fill=(*GOLD, 120 - k * 10))
         if t > 2.4:
             g = _over(min(1, (t - 2.4) / 0.4))
+            boom = icon("impact", 150)
+            if boom:
+                b2 = boom.resize((int(150 * g), int(150 * g)))
+                im.paste(b2, (W // 2 - b2.width // 2, 1080), b2)
             ff = _font(int(52 * g))
             fw = d.textlength(fee, font=ff)
-            d.rounded_rectangle([(W - fw) / 2 - 30, 1220,
-                                 (W + fw) / 2 + 30, 1330], radius=18,
+            d.rounded_rectangle([(W - fw) / 2 - 30, 1230,
+                                 (W + fw) / 2 + 30, 1340], radius=18,
                                 fill=(10, 10, 12, 230))
-            d.text(((W - fw) / 2, 1240), fee, font=ff, fill=GOLD)
+            d.text(((W - fw) / 2, 1250), fee, font=ff, fill=GOLD)
         return im
     return _render(frame, out, duration)
 
@@ -467,11 +521,21 @@ def quote_kinetic(out, quote="WE FEAR NOBODY IN THIS LEAGUE",
             d.text(((W - lw) / 2, y), line, font=lf,
                    fill=GOLD if li % 2 else (255, 255, 255))
             y += 120
+        # oversized quote marks framing the words
+        qf = _font(200)
+        d.text((60, 480), '"', font=qf, fill=(*GOLD, 120))
+        d.text((W - 190, y + 10), '"', font=qf, fill=(*GOLD, 120))
         if shown >= len(words):
             af = _font(30, False)
             aw = d.textlength(author, font=af)
-            d.text(((W - aw) / 2, y + 60), author, font=af,
+            d.text(((W - aw) / 2, y + 80), author, font=af,
                    fill=(200, 205, 210))
+            fire = icon("fire", 110)
+            if fire:
+                fg = _over(min(1, (t - len(words) * 0.38 - 0.3) / 0.4))
+                f2 = fire.resize((int(110 * fg), int(110 * fg)))
+                if f2.width > 1:
+                    im.paste(f2, (W // 2 - f2.width // 2, y + 160), f2)
         return im
     return _render(frame, out, duration)
 
@@ -499,21 +563,32 @@ def countdown(out, title="SUNDOWNS v GALLANTS", when="WEDNESDAY 19:30",
         tf = _font(54)
         tw = d.textlength(title, font=tf)
         d.text(((W - tw) / 2, 780), title, font=tf, fill=(255, 255, 255))
+        std = icon("stadium", 500)
+        if std:
+            ghost = std.copy()
+            ghost.putalpha(40)
+            im.paste(ghost, (W // 2 - 250, 1380), ghost)
         secs = max(0, int(start_secs - t))
         hh, mm, ss = secs // 3600, (secs % 3600) // 60, secs % 60
-        # rolling digits: each cell slides on change
-        cells = f"{hh:02d}:{mm:02d}:{ss:02d}"
-        cf = _font(140)
-        cw = d.textlength(cells, font=cf)
-        x = (W - cw) / 2
-        frac = (start_secs - t) % 1
-        for ch in cells:
-            chw = d.textlength(ch, font=cf)
-            dy = 0
-            if ch.isdigit() and ss != (secs + 1) % 60:
-                dy = int((1 - _ease(1 - frac)) * 0) if frac > 0.85 else 0
-            d.text((x, 960 + dy), ch, font=cf, fill=GOLD)
-            x += chw
+        # flip-card digit pairs (HH : MM : SS on dark cards)
+        pairs = [f"{hh:02d}", f"{mm:02d}", f"{ss:02d}"]
+        cf = _font(120)
+        cardw, gap = 250, 60
+        x0 = (W - (cardw * 3 + gap * 2)) // 2
+        for i, pair in enumerate(pairs):
+            cx = x0 + i * (cardw + gap)
+            d.rounded_rectangle([cx, 940, cx + cardw, 1140], radius=24,
+                                fill=(10, 10, 12, 235),
+                                outline=(*GOLD, 140), width=3)
+            d.line([cx + 14, 1040, cx + cardw - 14, 1040],
+                   fill=(60, 62, 70), width=3)
+            pw2 = d.textlength(pair, font=cf)
+            d.text((cx + (cardw - pw2) / 2, 968), pair, font=cf, fill=GOLD)
+            lbl = ("HOURS", "MINUTES", "SECONDS")[i]
+            lf = _font(22, False)
+            lw2 = d.textlength(lbl, font=lf)
+            d.text((cx + (cardw - lw2) / 2, 1156), lbl, font=lf,
+                   fill=(180, 185, 192))
         wf = _font(38, False)
         ww = d.textlength(when, font=wf)
         d.text(((W - ww) / 2, 1180), when, font=wf, fill=(220, 224, 228))
