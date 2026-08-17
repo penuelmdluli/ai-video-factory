@@ -24,6 +24,22 @@ from pathlib import Path
 import httpx
 
 CACHE = Path(__file__).parent.parent / "data" / "psl_squads_cache.json"
+
+# ── Fan-name normalisation ─────────────────────────────────────────────────
+# ESPN uses legal names; SA fans use match names. "Inácio Santos" (full name
+# Inácio Miguel dos Santos) went out in a post and the owner rightly asked
+# "who is that?" — every surface must print the name the league knows.
+NAME_FIX = {
+    "Inácio Santos": "Inácio Miguel",
+    "Inacio Santos": "Inácio Miguel",
+    "Inácio Miguel dos Santos": "Inácio Miguel",
+    "Inacio Miguel dos Santos": "Inácio Miguel",
+    "Brandon Peterson": "Brandon Petersen",
+}
+
+
+def fix_name(name: str) -> str:
+    return NAME_FIX.get(name, name)
 CACHE_TTL = 24 * 3600              # 1 day — rosters move mid-window
 
 WIKI_API = "https://en.wikipedia.org/w/api.php"
@@ -98,6 +114,7 @@ async def _espn_squad(club_key: str) -> list[dict]:
     try:
         # NOTE: default client headers on purpose — ESPN's edge returns an empty
         # body for unknown User-Agent strings.
+        # (name normalisation happens below via fix_name)
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
             r = await client.get(ESPN_ROSTER.format(tid=tid))
             athletes = r.json().get("athletes", [])
@@ -111,7 +128,8 @@ async def _espn_squad(club_key: str) -> list[dict]:
         if not name or not pos:
             continue
         no = str(a.get("jersey") or "").strip()
-        squad.append({"no": no if no.isdigit() else "", "pos": pos, "name": name})
+        squad.append({"no": no if no.isdigit() else "", "pos": pos,
+                      "name": fix_name(name)})
     return squad
 
 

@@ -106,7 +106,8 @@ async def official_lineups(event_id: str) -> dict:
         for p in starters[:11]:
             ath = p.get("athlete") or {}
             no = str(p.get("jersey") or ath.get("jersey") or "").strip()
-            nm = (ath.get("displayName") or "").split()
+            from modules.psl_squads import fix_name
+            nm = fix_name((ath.get("displayName") or "").strip()).split()
             surname = " ".join(nm[-2:]) if len(nm) > 1 and nm[-2].lower() in \
                 ("du", "de", "van", "von", "le", "da", "dos") else (nm[-1] if nm else "")
             players.append(f"{no} {surname}".strip())
