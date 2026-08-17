@@ -153,4 +153,12 @@ if __name__ == "__main__":
     import asyncio
     from dotenv import load_dotenv
     load_dotenv()
-    asyncio.run(build("--post" in sys.argv))
+    try:
+        asyncio.run(build("--post" in sys.argv))
+    except Exception as e:
+        try:
+            from modules.notify_whatsapp import notify_failure
+            notify_failure('log-card', f"LOG CARD FAILED: {type(e).__name__}: {str(e)[:140]}")
+        except Exception:
+            pass
+        raise

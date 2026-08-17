@@ -171,4 +171,12 @@ def _email_report(body: str, today: str):
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        try:
+            from modules.notify_whatsapp import notify_failure
+            notify_failure('growth-report', f"GROWTH REPORT FAILED: {type(e).__name__}: {str(e)[:140]}")
+        except Exception:
+            pass
+        raise

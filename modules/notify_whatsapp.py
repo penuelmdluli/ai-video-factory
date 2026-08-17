@@ -31,7 +31,14 @@ def _owner_phone() -> str:
 
 
 def notify(text: str) -> bool:
-    """Queue a WhatsApp message to the owner. True if queued."""
+    """Message the owner. Official Cloud API first (never logs out);
+    Baileys agent outbox as fallback. True if either path took it."""
+    try:
+        from modules.notify_wa_cloud import send as _cloud_send
+        if _cloud_send(f"🟡 GENESIS NEWS\n{text}"):
+            return True
+    except Exception:
+        pass
     try:
         try:
             items = json.loads(OUTBOX.read_text(encoding="utf-8"))
@@ -56,6 +63,27 @@ def notify(text: str) -> bool:
     except Exception as e:
         print(f"[WhatsApp] queue failed: {e}")
         return False
+
+
+STAMPS = Path(__file__).parent.parent / "data" / "fail_alerts.json"
+
+
+def notify_failure(tag: str, text: str, cooldown_h: float = 6.0) -> bool:
+    """Failure alert with a per-tag cooldown — a task that crashes every
+    5 minutes must page the owner ONCE, not forty times a night."""
+    import time
+    try:
+        stamps = json.loads(STAMPS.read_text(encoding="utf-8"))
+    except Exception:
+        stamps = {}
+    now = time.time()
+    if now - stamps.get(tag, 0) < cooldown_h * 3600:
+        print(f"[WhatsApp] '{tag}' alert suppressed (cooldown)")
+        return False
+    stamps[tag] = now
+    STAMPS.parent.mkdir(parents=True, exist_ok=True)
+    STAMPS.write_text(json.dumps(stamps, indent=2), encoding="utf-8")
+    return notify(f"⚠️ {text}")
 
 
 if __name__ == "__main__":

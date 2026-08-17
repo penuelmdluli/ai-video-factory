@@ -330,6 +330,16 @@ async def upload_to_tiktok(
             print(f"[TikTok] Failed: {err[:120]}")
             if "login" in err.lower() or "session" in err.lower():
                 print("[TikTok] Hint: Session expired — refresh TIKTOK_SESSION_ID in .env")
+            # the owner must hear about a dead session, once — not per reel
+            try:
+                from modules.notify_whatsapp import notify_failure
+                notify_failure("tiktok-upload",
+                               "TikTok upload failing — session likely expired. "
+                               "Fix: tiktok.com logged in > F12 > Application > "
+                               "Cookies > copy 'sessionid', send it to Claude.",
+                               cooldown_h=12)
+            except Exception:
+                pass
 
         result["platform"]    = "tiktok"
         result["auth_method"] = auth_method

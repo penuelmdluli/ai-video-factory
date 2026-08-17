@@ -10,6 +10,7 @@ Handles:
 - AI content disclosure
 """
 import json
+import os
 from pathlib import Path
 
 from googleapiclient.discovery import build
@@ -238,8 +239,10 @@ async def upload_to_youtube(
             except Exception as e:
                 print(f"[YouTube] Thumbnail upload failed: {e}")
 
-        # Upload SRT captions for SEO boost
-        if srt_path:
+        # Upload SRT captions for SEO boost. Skippable: caption inserts cost
+        # ~400 quota units each and our shorts carry burned-in subtitles —
+        # on tight-quota days this burned the daily budget for nothing.
+        if srt_path and os.getenv("SKIP_YT_CAPTIONS", "").lower() not in ("true", "1"):
             await upload_srt_captions(youtube, video_id, srt_path, language="en")
 
             # Multi-language caption tracks → international reach

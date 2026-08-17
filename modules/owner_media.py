@@ -90,16 +90,21 @@ def _playback_path(p: Path) -> str:
         return str(out)
     NORM.mkdir(parents=True, exist_ok=True)
     # clean the WhatsApp crush on the way through: deblock -> denoise ->
-    # 2x lanczos upscale -> sharpen (then constant 30fps for real speed)
+    # 2x lanczos upscale -> sharpen (fps=30 FIRST so filters see 5k frames,
+    # not the phone's 20k). Write to a temp name then rename — a killed
+    # encode must never leave a corrupt file that gets reused as done.
+    tmp = out.with_suffix(".tmp.mp4")
     r = subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", "-i", str(p),
-         "-vf", ("deblock=filter=strong:block=8,hqdn3d=2:1:4:3,"
-                 "scale=iw*2:ih*2:flags=lanczos,unsharp=5:5:0.5,cas=0.4,fps=30"),
+         "-vf", ("fps=30,deblock=filter=strong:block=8,hqdn3d=2:1:4:3,"
+                 "scale=iw*2:ih*2:flags=lanczos,unsharp=5:5:0.5,cas=0.4"),
          "-c:v", "libx264", "-preset", "fast", "-crf", "19",
-         "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(out)],
+         "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(tmp)],
         capture_output=True)
-    if r.returncode == 0 and out.exists() and out.stat().st_size > 10_000:
+    if r.returncode == 0 and tmp.exists() and tmp.stat().st_size > 10_000:
+        tmp.replace(out)
         return str(out)
+    tmp.unlink(missing_ok=True)
     return str(p)
 
 
