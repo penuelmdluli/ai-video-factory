@@ -62,6 +62,17 @@ class Board:
         self.annos.append({"type": "ring", "t0": t0, "t1": t1, "pid": pid,
                            "color": color or (90, 200, 255)})
 
+    def ball(self, waypoints):
+        """Animated ball with a comet trail. waypoints: [(t, (fx,fy)), ...] —
+        the ball glides through them (passes/shots like a TV replay)."""
+        self.annos.append({"type": "ball",
+                           "wp": sorted(waypoints, key=lambda w: w[0])})
+
+    def stat(self, t0, t1, text, sub=""):
+        """Big broadcast stat stamp that punches in ("2-0 · SEEMA 64'")."""
+        self.annos.append({"type": "stat", "t0": t0, "t1": t1,
+                           "text": text, "sub": sub})
+
     # ── geometry ──────────────────────────────────────────────────────────
     def _pos_at(self, t: float) -> dict:
         ks = self.keys
@@ -193,6 +204,65 @@ class Board:
                                     fill=(10, 10, 12, 225))
                 d.text((x - nw / 2, y + 57), name, font=_font(26),
                        fill=(255, 255, 255))
+
+        # ball with comet trail
+        for a in self.annos:
+            if a["type"] != "ball":
+                continue
+            wp = a["wp"]
+            if not wp or t < wp[0][0]:
+                continue
+
+            def ball_pos(tt):
+                if tt <= wp[0][0]:
+                    return wp[0][1]
+                for (ta, pa), (tb, pb) in zip(wp, wp[1:]):
+                    if ta <= tt <= tb:
+                        u = _ease((tt - ta) / max(tb - ta, 1e-6))
+                        return (pa[0] + (pb[0] - pa[0]) * u,
+                                pa[1] + (pb[1] - pa[1]) * u)
+                return wp[-1][1]
+
+            if t <= wp[-1][0] + 0.8:
+                for k in range(8):                     # trail
+                    tt = t - k * 0.05
+                    if tt < wp[0][0]:
+                        break
+                    bx, by = self._px(*ball_pos(tt))
+                    r = 22 - k * 2
+                    alpha = max(0, 200 - k * 26)
+                    d.ellipse([bx - r, by - r, bx + r, by + r],
+                              fill=(255, 255, 255, alpha))
+                bx, by = self._px(*ball_pos(t))
+                d.ellipse([bx - 22, by - 22, bx + 22, by + 22],
+                          fill=(255, 255, 255), outline=(20, 20, 20), width=3)
+                d.arc([bx - 22, by - 22, bx + 22, by + 22], 30, 210,
+                      fill=(20, 20, 20), width=3)
+
+        # stat stamps — punch in with overshoot, hold, fade
+        for a in self.annos:
+            if a["type"] != "stat" or not (a["t0"] <= t <= a["t1"]):
+                continue
+            u_in = _ease(min(1, (t - a["t0"]) / 0.35))
+            scale = 1.25 - 0.25 * u_in
+            fade = _ease(min(1, (a["t1"] - t) / 0.4))
+            alpha = int(255 * u_in * fade)
+            big = _font(int(96 * scale))
+            tw = d.textlength(a["text"], font=big)
+            cy = 760
+            d.rounded_rectangle([(W - tw) / 2 - 44, cy - 40,
+                                 (W + tw) / 2 + 44, cy + 106], radius=26,
+                                fill=(10, 10, 12, min(alpha, 235)))
+            d.rectangle([(W - tw) / 2 - 44, cy - 40,
+                         (W - tw) / 2 - 32, cy + 106],
+                        fill=(*self.accent, alpha))
+            d.text(((W - tw) / 2, cy - 30), a["text"], font=big,
+                   fill=(255, 255, 255, alpha))
+            if a["sub"]:
+                sf = _font(34)
+                sw2 = d.textlength(a["sub"], font=sf)
+                d.text(((W - sw2) / 2, cy + 116), a["sub"], font=sf,
+                       fill=(*self.accent, alpha))
 
         if self.subtitle:
             sw = d.textlength(self.subtitle, font=_font(30))

@@ -146,6 +146,30 @@ async def build(post: bool):
         await _post_photo(str(out), caption,
                           "Call your team's final position — screenshot this and "
                           "we'll check back in May 👇")
+
+        # THE LOG RACE — the same table, animated: rows glide from last
+        # week's positions, arrows pulse. Posted as a reel after the card.
+        try:
+            from modules.log_race import render_log_race
+            from modules.uploader_facebook import upload_to_facebook, post_comment
+            race = render_log_race(rows, prev,
+                                   Path("output/matchday") /
+                                   f"lograce_{datetime.now():%Y%m%d}.mp4",
+                                   duration=16)
+            rcap = (f"🏁 THE LOG RACE — watch this week's movers.\n"
+                    f"{top['name']} on top with {top['points']} points.\n\n"
+                    "Who climbs next week? 👇⚽\n"
+                    "#PSL #BetwayPremiership")
+            fb = await upload_to_facebook(video_path=race, title="The Log Race",
+                                          description=rcap, niche="sa_pulse",
+                                          is_reel=True)
+            fb_id = fb.get("video_id") or fb.get("post_id")
+            if fb_id and fb.get("status") == "uploaded":
+                await post_comment(fb_id, "Screenshot the table and tag a fan "
+                                   "whose team is falling 👇😂", "sa_pulse")
+            print(f"[Log] LOG RACE posted: {fb_id}")
+        except Exception as e:
+            print(f"[Log] log race skipped: {str(e)[:120]}")
     return str(out)
 
 
