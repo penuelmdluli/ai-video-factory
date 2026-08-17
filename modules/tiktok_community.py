@@ -38,6 +38,20 @@ SEEDS = [
     "What's your score prediction? Let's hear it",
 ]
 
+# public outreach — visible fan-banter on OTHER creators' PSL videos.
+# Genuine-sounding, zero links, zero self-promo (the profile name does the
+# marketing). Hard cap keeps this well under bot thresholds.
+OUTREACH_TAG = "https://www.tiktok.com/tag/psl"
+OUTREACH_MAX = 3
+TAKES = [
+    "This league is something else, honestly",
+    "PSL never lets us down",
+    "Mzansi football is the best entertainment, full stop",
+    "The Betway Premiership delivering again",
+    "This is why we love SA football",
+    "Scenes! What a league we have",
+]
+
 
 def _store() -> dict:
     try:
@@ -192,6 +206,73 @@ def run() -> int:
                         _pause(6, 12)
             except Exception as e:
                 print(f"[TT-Community] {vid} skipped: {str(e)[:100]}")
+        # ── public outreach: comment on other creators' PSL videos ──
+        # once per day (morning run only, by hour) to stay conservative
+        import datetime as _dt
+        if _dt.datetime.now().hour < 12 and actions < MAX_ACTIONS:
+            try:
+                page.goto(OUTREACH_TAG, wait_until="domcontentloaded",
+                          timeout=60000)
+                _pause(6, 9)
+                tag_links = page.eval_on_selector_all(
+                    'a[href*="/video/"]', "els => els.map(e => e.href)")
+                tag_links = [u for u in dict.fromkeys(tag_links)
+                             if "genesisnewspsl" not in u][:OUTREACH_MAX * 2]
+                done_out = 0
+                for url in tag_links:
+                    if done_out >= OUTREACH_MAX or actions >= MAX_ACTIONS:
+                        break
+                    vid = url.rstrip("/").split("/")[-1].split("?")[0]
+                    if f"out:{vid}" in store["replied"]:
+                        continue
+                    try:
+                        page.goto(url, wait_until="domcontentloaded",
+                                  timeout=60000)
+                        _pause(8, 11)
+                        opened = False
+                        for _a in range(3):
+                            page.evaluate(
+                                "() => { const c=[...document.querySelectorAll('*')]"
+                                ".filter(e=>e.textContent.trim().replace(/\\s*\\d+$/,'')==='Comments'"
+                                " && e.getBoundingClientRect().width>0);"
+                                " if(c.length){const t=c[c.length-1];"
+                                " for(const ev of ['pointerdown','mousedown','pointerup','mouseup','click'])"
+                                " t.dispatchEvent(new MouseEvent(ev,{bubbles:true,cancelable:true,view:window}));}}")
+                            _pause(3, 5)
+                            if page.query_selector('div[contenteditable="true"]'):
+                                opened = True
+                                break
+                        if not opened:
+                            continue
+                        if page.evaluate(
+                                "() => { const b=document.querySelector("
+                                "'div[contenteditable=\"true\"]');"
+                                " if (!b) return false; b.scrollIntoView();"
+                                " b.focus(); return true; }"):
+                            _pause(1, 2)
+                            page.keyboard.type(random.choice(TAKES),
+                                               delay=random.randint(50, 100))
+                            _pause(1, 2)
+                            if page.evaluate(
+                                    "() => { const p=document.querySelector("
+                                    "'[data-e2e=\"comment-post\"]');"
+                                    " if (!p) return false;"
+                                    " for (const ev of ['pointerdown','mousedown',"
+                                    "'pointerup','mouseup','click'])"
+                                    " p.dispatchEvent(new MouseEvent(ev,"
+                                    "{bubbles:true,cancelable:true,view:window}));"
+                                    " return true; }"):
+                                store["replied"].append(f"out:{vid}")
+                                actions += 1
+                                done_out += 1
+                                print(f"[TT-Community] outreach comment on {vid}")
+                                _save(store)
+                                _pause(15, 30)
+                    except Exception as e:
+                        print(f"[TT-Community] outreach {vid} skipped: {str(e)[:80]}")
+            except Exception as e:
+                print(f"[TT-Community] outreach skipped: {str(e)[:100]}")
+
         browser.close()
     print(f"[TT-Community] done — {actions} actions")
     return actions
