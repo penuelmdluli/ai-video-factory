@@ -525,48 +525,69 @@ def quote_kinetic(out, quote="WE FEAR NOBODY IN THIS LEAGUE",
     crest = _crest(club, 220)
     words = quote.split()
 
+    # FIXED layout, computed once: wrap the FULL quote, shrink font until the
+    # whole block (words + author + flame) fits with safe margins — text can
+    # NEVER cut off (owner 2026-08-17). Words then reveal inside this layout.
+    from PIL import ImageDraw as _ID, Image as _Im
+    _probe = _ID.Draw(_Im.new("RGB", (10, 10)))
+    fsize, line_gap = 76, 120
+    while True:
+        lines, cur = [], []
+        for wd in words:
+            cur.append(wd)
+            if _probe.textlength(" ".join(cur), font=_font(fsize)) > W - 220:
+                lines.append(" ".join(cur[:-1]))
+                cur = [wd]
+        lines.append(" ".join(cur))
+        block_h = len(lines) * line_gap + 260      # + author + flame space
+        if block_h <= 900 or fsize <= 44:
+            break
+        fsize -= 4
+        line_gap = int(fsize * 1.55)
+    y_start = 560 + (900 - block_h) // 2
+    # word -> (line_index, position) for the reveal
+    word_line = []
+    for li, line in enumerate(lines):
+        for wd in line.split():
+            word_line.append(li)
+
     def frame(t):
         im = Image.new("RGB", (W, H), DARK)
         d = ImageDraw.Draw(im, "RGBA")
         _base(d)
         d.text((46, 96), "THEY SAID IT", font=_font(28, False), fill=GOLD)
         if crest:
-            im.paste(crest, (W // 2 - crest.width // 2, 300), crest)
-        # words punch in one at a time, wrapped
+            im.paste(crest, (W // 2 - crest.width // 2, 280), crest)
+        qf = _font(170)
+        d.text((60, y_start - 180), '"', font=qf, fill=(*GOLD, 110))
         shown = int(t / 0.38)
-        lines, cur = [], []
-        for wd in words[:shown]:
-            cur.append(wd)
-            test = " ".join(cur)
-            if d.textlength(test, font=_font(76)) > W - 160:
-                lines.append(" ".join(cur[:-1]))
-                cur = [wd]
-        lines.append(" ".join(cur))
-        y = 640
+        wi = 0
         for li, line in enumerate(lines):
-            is_last = li == len(lines) - 1
-            pop = _over(min(1, (t - shown * 0.38 + 0.38) / 0.3)) \
-                if is_last and shown <= len(words) else 1.0
-            lf = _font(int(76 * pop))
+            lf = _font(fsize)
             lw = d.textlength(line, font=lf)
-            d.text(((W - lw) / 2, y), line, font=lf,
-                   fill=GOLD if li % 2 else (255, 255, 255))
-            y += 120
-        # oversized quote marks framing the words
-        qf = _font(200)
-        d.text((60, 480), '"', font=qf, fill=(*GOLD, 120))
-        d.text((W - 190, y + 10), '"', font=qf, fill=(*GOLD, 120))
+            x = (W - lw) / 2
+            for wd in line.split():
+                if wi < shown:
+                    pop = _over(min(1, (t - wi * 0.38) / 0.3))
+                    wf = _font(max(8, int(fsize * pop)))
+                    d.text((x, y_start + li * line_gap), wd, font=wf,
+                           fill=GOLD if li % 2 else (255, 255, 255))
+                x += d.textlength(wd + " ", font=lf)
+                wi += 1
+        end_y = y_start + len(lines) * line_gap
+        d.text((W - 180, end_y - 40), '"', font=qf, fill=(*GOLD, 110))
         if shown >= len(words):
             af = _font(30, False)
             aw = d.textlength(author, font=af)
-            d.text(((W - aw) / 2, y + 80), author, font=af,
-                   fill=(200, 205, 210))
-            fire = icon("fire", 110)
+            d.text(((W - aw) / 2, min(end_y + 60, H - 360)), author,
+                   font=af, fill=(200, 205, 210))
+            fire = icon("fire", 100)
             if fire:
                 fg = _over(min(1, (t - len(words) * 0.38 - 0.3) / 0.4))
-                f2 = fire.resize((int(110 * fg), int(110 * fg)))
+                f2 = fire.resize((max(1, int(100 * fg)),) * 2)
                 if f2.width > 1:
-                    im.paste(f2, (W // 2 - f2.width // 2, y + 160), f2)
+                    im.paste(f2, (W // 2 - f2.width // 2,
+                                  min(end_y + 130, H - 250)), f2)
         return im
     return _render(frame, out, duration)
 
