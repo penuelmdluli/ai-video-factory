@@ -49,6 +49,33 @@ class Board:
         self.keys.append((t, positions))
         self.keys.sort(key=lambda k: k[0])
 
+    def keyframe_balanced(self, t: float, changes: dict,
+                          strength: float = 0.35, radius: float = 0.25):
+        """Move only `changes` — every OTHER player auto-balances, drifting
+        in sympathy with the movers (nearer teammates react more), so the
+        whole shape breathes like a real team instead of statues
+        (owner 2026-08-17: 'players must auto balance')."""
+        import math
+        base = dict(self.keys[-1][1]) if self.keys else {}
+        new = dict(base)
+        deltas = []
+        for pid, xy in changes.items():
+            old = base.get(pid, xy)
+            deltas.append((old, (xy[0] - old[0], xy[1] - old[1])))
+            new[pid] = xy
+        for pid, xy in base.items():
+            if pid in changes:
+                continue
+            dx = dy = 0.0
+            for origin, delta in deltas:
+                dist = math.hypot(xy[0] - origin[0], xy[1] - origin[1])
+                w = math.exp(-dist / radius) * strength
+                dx += delta[0] * w
+                dy += delta[1] * w
+            new[pid] = (min(.97, max(.03, xy[0] + dx)),
+                        min(.97, max(.03, xy[1] + dy)))
+        self.keyframe(t, new)
+
     def arrow(self, t0, t1, a, b, color=None, label="", curve=0.0):
         self.annos.append({"type": "arrow", "t0": t0, "t1": t1, "a": a,
                            "b": b, "color": color or self.accent,
