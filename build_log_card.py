@@ -38,9 +38,31 @@ async def build(post: bool):
         print("[Log] no standings")
         return
     try:
-        prev = json.loads(SNAP.read_text(encoding="utf-8"))
+        raw = json.loads(SNAP.read_text(encoding="utf-8"))
     except Exception:
-        prev = {}
+        raw = {}
+    # snapshot v1 was {key: rank}; v2 is {"ranks": {...}, "points": {...}}
+    prev = raw.get("ranks", raw) if isinstance(raw, dict) else {}
+    prev_pts = raw.get("points", {}) if isinstance(raw, dict) else {}
+
+    # FRESHNESS GUARD — ESPN's table lags finished matchdays by a few hours.
+    # A full round was played since the last card, so if every team's points
+    # are identical to the snapshot the table simply hasn't updated yet:
+    # posting it would show a week with zero movement. Wait (30-min steps,
+    # up to 4h) instead of publishing a stale log.
+    if post and prev_pts:
+        import asyncio as _aio
+        cur = {r["team_key"]: r["points"] for r in rows}
+        for attempt in range(8):
+            if any(cur.get(k) != prev_pts.get(k) for k in cur):
+                break
+            print(f"[Log] table unchanged vs last post — ESPN stale, "
+                  f"waiting 30min ({attempt + 1}/8)")
+            await _aio.sleep(1800)
+            rows = await get_log(16, force_refresh=True)
+            cur = {r["team_key"]: r["points"] for r in rows}
+        else:
+            print("[Log] still stale after 4h — posting anyway with live data")
 
     img = Image.new("RGB", (W, H), (12, 14, 18))
     d = ImageDraw.Draw(img)
@@ -110,8 +132,10 @@ async def build(post: bool):
     print(f"[Log] card -> {out}")
 
     SNAP.parent.mkdir(parents=True, exist_ok=True)
-    SNAP.write_text(json.dumps({r.get("team_key") or r["name"]: r["rank"]
-                                for r in rows}, indent=2), encoding="utf-8")
+    SNAP.write_text(json.dumps({
+        "ranks": {r.get("team_key") or r["name"]: r["rank"] for r in rows},
+        "points": {r.get("team_key") or r["name"]: r["points"] for r in rows},
+    }, indent=2), encoding="utf-8")
     if post:
         from matchday import _post_photo
         top = rows[0]
