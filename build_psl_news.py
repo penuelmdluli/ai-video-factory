@@ -790,6 +790,41 @@ async def main():
         _log("POST COMPLETE")
 
 
+async def _story_comment(manifest: dict) -> str:
+    """One seeded comment that debates THIS video's actual story.
+
+    Gemini writes it from the title + narration; empty string on any failure
+    so the caller falls back to the generic templates.
+    """
+    title = manifest.get("title", "")
+    desc = (manifest.get("description") or "")[:400]
+    if not title:
+        return ""
+    try:
+        import os
+        from google import genai
+        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", ""))
+        prompt = (
+            "You run Genesis News, a South African PSL football fan page. "
+            "Write ONE first comment to pin under our own reel about this "
+            "story:\n"
+            f"TITLE: {title}\nSTORY: {desc}\n\n"
+            "Rules: max 22 words, ask fans ONE specific question about THIS "
+            "story (a player, a decision, a take) that starts an argument, "
+            "sound like a fan not a brand, 1-2 emojis, end with 👇, no "
+            "hashtags, no links. Reply with the comment text only."
+        )
+        r = client.models.generate_content(model="gemini-flash-lite-latest",
+                                           contents=prompt)
+        text = (r.text or "").strip().strip('"')
+        if 10 < len(text) < 220:
+            _log(f"story comment: {text[:60]}")
+            return text
+    except Exception as e:
+        _log(f"story comment fallback: {str(e)[:80]}")
+    return ""
+
+
 async def post_to_page(work: Path) -> dict | None:
     """
     Post the built reel DIRECTLY to the Genesis News page (no YouTube/TikTok
@@ -833,13 +868,20 @@ async def post_to_page(work: Path) -> dict | None:
     if pred:
         # our call, stated openly — the first comment IS the debate starter
         c1 = f"🔮 {pred}. Agree or are we dreaming? Drop YOUR scoreline 👇⚽"
-    elif len(names) == 2:
-        c1 = (f"🔥 {names[0]} vs {names[1]} — drop your score prediction below! "
-              f"Best prediction gets a shoutout 👇⚽")
-    elif names:
-        c1 = f"🔥 {names[0]} fans — where are you?! Rate this squad's chances below 👇⚽"
     else:
-        c1 = "🔥 PSL family — what's your take? Drop it below 👇⚽"
+        # STORY-SPECIFIC comment — written from the actual script so the
+        # debate is about THIS video, not a generic score-prediction ask
+        # (owner 2026-08-17: "make the reel comments relevant to the post")
+        c1 = await _story_comment(manifest)
+    if not c1:
+        if len(names) == 2:
+            c1 = (f"🔥 {names[0]} vs {names[1]} — drop your score prediction "
+                  f"below! Best prediction gets a shoutout 👇⚽")
+        elif names:
+            c1 = (f"🔥 {names[0]} fans — where are you?! Rate this squad's "
+                  f"chances below 👇⚽")
+        else:
+            c1 = "🔥 PSL family — what's your take? Drop it below 👇⚽"
     c2 = ("📲 Follow GENESIS NEWS for lineups before kickoff, full-time results "
           "and every big PSL story — Chiefs, Pirates, Sundowns and more. 🇿🇦⚽")
     c3 = ("▶️ More PSL videos on our YouTube channel — subscribe: "

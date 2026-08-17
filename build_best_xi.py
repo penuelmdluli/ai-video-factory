@@ -78,6 +78,118 @@ def _pad_card(src: str, out: Path) -> str:
     return str(out)
 
 
+def _xi_overlay(out: Path) -> str:
+    """Transparent 1080x1920 overlay: the FULL XI floating over the footage —
+    the lineup must be readable for the whole video (owner note 2026-08-17:
+    'only the starting 11 visible over the video, playing')."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    def font(sz, bold=True):
+        return ImageFont.truetype(
+            f"C:/Windows/Fonts/{'arialbd.ttf' if bold else 'arial.ttf'}", sz)
+
+    W, H = 1080, 1920
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+
+    # header
+    d.rounded_rectangle([40, 210, W - 40, 330], radius=22, fill=(10, 10, 12, 200))
+    d.text((70, 228), "OUR BEST KAIZER CHIEFS XI", font=font(46),
+           fill=(255, 200, 0, 255))
+    d.text((70, 284), "4-3-3  ·  the debate starts now", font=font(28, False),
+           fill=(235, 235, 235, 255))
+
+    rows = [
+        ([("17", "VELEBAYI"), ("11", "BAARTMAN"), ("70", "PHILI")], 430),
+        ([("5", "MTHETHWA"), ("6", "MABOE"), ("8", "NDLOVU")], 700),
+        ([("2", "MONYANE"), ("84", "MIGUEL"), ("4", "MACHEKE"),
+          ("39", "FROSLER")], 970),
+        ([("16", "LEANER")], 1240),
+    ]
+    nf, cf = font(30), font(34)
+    for players, y in rows:
+        step = W // (len(players) + 1)
+        for i, (no, name) in enumerate(players):
+            cx = step * (i + 1)
+            d.ellipse([cx - 44, y - 44, cx + 44, y + 44],
+                      fill=(255, 193, 7, 255), outline=(255, 255, 255, 255),
+                      width=3)
+            w_no = d.textlength(no, font=cf)
+            d.text((cx - w_no / 2, y - 22), no, font=cf, fill=(15, 15, 15, 255))
+            w_nm = d.textlength(name, font=nf)
+            d.rounded_rectangle([cx - w_nm / 2 - 16, y + 54,
+                                 cx + w_nm / 2 + 16, y + 104], radius=12,
+                                fill=(10, 10, 12, 220))
+            d.text((cx - w_nm / 2, y + 62), name, font=nf,
+                   fill=(255, 255, 255, 255))
+
+    bench = "BENCH: Petersen · Moloisane · Solomons · Chislett · Vilakazi · Shabalala · Silva"
+    bf = font(26)
+    while d.textlength(bench, font=bf) > W - 100 and bf.size > 20:
+        bf = font(bf.size - 2)
+    bw = d.textlength(bench, font=bf)
+    d.rounded_rectangle([(W - bw) / 2 - 20, 1395, (W + bw) / 2 + 20, 1455],
+                        radius=14, fill=(10, 10, 12, 210))
+    d.text(((W - bw) / 2, 1408), bench, font=bf, fill=(235, 238, 242, 255))
+    im.save(out)
+    return str(out)
+
+
+async def assemble_xi_over_video(script: dict, voice: dict, work: Path,
+                                 clip_path: str) -> str:
+    """Owner footage FULL-SCREEN with the XI overlay riding on top for the
+    entire duration — footage behind, lineup always readable."""
+    from moviepy import (AudioFileClip, ImageClip, VideoFileClip, ColorClip,
+                         CompositeVideoClip, CompositeAudioClip,
+                         concatenate_videoclips as _cat)
+    from modules.caption_generator import (parse_subtitle_to_segments,
+                                           group_words_into_phrases)
+    from modules.caption_align import align_captions
+    from modules.script_writer import get_full_narration
+    from build_psl_news import _caption_clips, _subscribe_strip
+
+    W, H = 1080, 1920
+    audio = AudioFileClip(voice["audio_path"])
+    duration = float(audio.duration) + 0.5
+
+    src = VideoFileClip(clip_path).without_audio()
+    if src.duration < duration:
+        src = _cat([src] * (int(duration // src.duration) + 1))
+    s = max(W / src.w, H / src.h)
+    bg = (src.subclipped(0, duration).resized(s)
+          .cropped(x_center=src.w * s / 2, y_center=src.h * s / 2,
+                   width=W, height=H))
+    dim = ColorClip(size=(W, H), color=(0, 0, 0)).with_opacity(0.45) \
+        .with_duration(duration)
+    xi = ImageClip(_xi_overlay(work / "xi_overlay.png")) \
+        .with_duration(duration)
+
+    layers = [bg, dim, xi]
+    try:
+        sub = _subscribe_strip(work)
+        layers.append(ImageClip(sub).with_start(max(0, duration - 4.0))
+                      .with_duration(min(4.0, duration))
+                      .with_position(("center", 1730)))
+    except Exception:
+        pass
+
+    try:
+        segments = parse_subtitle_to_segments(voice["subtitle_path"])
+        segments = align_captions(get_full_narration(script), segments)
+        phrases = group_words_into_phrases(segments, max_words=4)
+        layers += _caption_clips(phrases, W, work)
+    except Exception as e:
+        print(f"[BestXI] captions skipped: {e}")
+
+    video = CompositeVideoClip(layers, size=(W, H)).with_duration(duration)
+    video = video.with_audio(CompositeAudioClip([audio]).with_duration(duration))
+    out = work / "final.mp4"
+    video.write_videofile(str(out), fps=30, codec="libx264",
+                          audio_codec="aac", logger=None,
+                          preset="medium", threads=4)
+    return str(out)
+
+
 async def main(post: bool = True):
     from modules.lineup_card import make_lineup_card
     from build_psl_news import (make_voice, assemble, write_manifest,
@@ -96,28 +208,23 @@ async def main(post: bool = True):
     print(f"[BestXI] card: {card}")
 
     # 1) IMAGE POST — the card + the full argument in the caption
-    if post:
+    if post and "--video-only" not in sys.argv:
         r = await _post_photo(card, CAPTION, COMMENT)
         print(f"[BestXI] photo post: {r.get('status')} "
               f"{r.get('photo_id') or r.get('post_id')}")
 
-    # 2) VIDEO — narrated debate reel: owner footage window card, then the XI
+    # 2) VIDEO — owner footage FULL-SCREEN, the complete XI floating over it
+    # for the whole reel (the lineup IS the content; nothing may cover it)
     voice = await make_voice(SCRIPT, work)
     from modules.owner_media import pick_owner_video
     cc_clip = pick_owner_video([CLUB])
-    if cc_clip:
-        cc_clip = {**cc_clip, "club": CLUB}
-        print(f"[BestXI] owner clip: {Path(cc_clip['path']).name}")
+    if not cc_clip:
+        raise RuntimeError("no owner footage for the background")
+    print(f"[BestXI] owner clip: {Path(cc_clip['path']).name}")
 
-    from build_psl_news import build_cards
+    video = await assemble_xi_over_video(SCRIPT, voice, work, cc_clip["path"])
     images = [{"path": card, "credit": "Genesis News", "archive_year": "",
                "club": CLUB, "real": True, "owner": True}]
-    card1 = build_cards(SCRIPT, images, {}, work,
-                        video_cards=1 if cc_clip else 0)
-    padded = _pad_card(card, work / "card_xi.png")
-    cards = ([card1[0]] if card1 else []) + [padded]
-
-    video = await assemble(SCRIPT, voice, cards, work, cc_clip=cc_clip)
     write_manifest(SCRIPT, video, work, voice, images)
     print(f"[BestXI] video: {video}")
 
