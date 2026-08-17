@@ -138,7 +138,8 @@ def goal_alert(out, club="pirates", scorer="LUNGU", minute="60'",
 # ── 1b. GOAL REEL — alert slam + LIVE pitch replay + closing stamp ─────────
 def goal_reel(out, club="pirates", scorer="LUNGU", minute="60'",
               score="1-0", vs="Chippa United",
-              replay=None, duration_replay=6.5):
+              replay=None, duration_replay=6.5,
+              narration_audio=None, stamp_dur=2.5):
     """TOP-CLASS goal content: 3s alert slam -> animated pitch replay with
     moving players and ball -> 2.5s closing stamp. `replay` is a dict:
     {players: {...Board players...}, start: {pid:(fx,fy)},
@@ -238,12 +239,22 @@ def goal_reel(out, club="pirates", scorer="LUNGU", minute="60'",
         d.text(((W - cw) / 2, 1200), cta, font=cf, fill=(255, 255, 255))
         return im
 
-    c_path = _render(frame_c, work / "_gc.mp4", 2.5)
+    c_path = _render(frame_c, work / "_gc.mp4", stamp_dur)
 
     parts = [VideoFileClip(a_path)] + \
         ([VideoFileClip(b_path)] if b_path else []) + [VideoFileClip(c_path)]
     final = concatenate_videoclips(parts)
-    final.write_videofile(str(out), fps=30, codec="libx264", audio=False,
+    if narration_audio:
+        try:
+            from moviepy import AudioFileClip, CompositeAudioClip
+            voice = AudioFileClip(str(narration_audio))
+            final = final.with_audio(
+                CompositeAudioClip([voice]).with_duration(final.duration))
+        except Exception as e:
+            print(f"[GoalReel] audio skipped: {e}")
+    final.write_videofile(str(out), fps=30, codec="libx264",
+                          audio_codec="aac" if narration_audio else None,
+                          audio=bool(narration_audio),
                           logger=None, preset="medium")
     return str(out)
 

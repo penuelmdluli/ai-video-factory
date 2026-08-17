@@ -143,6 +143,152 @@ async def cmd_result(a):
     return out
 
 
+async def _goal_reel_post(f, ev, scorer_club: str, hs: int, as_: int):
+    """Broadcast-grade animated Goal Reel posted minutes after a real goal
+    (big-three fixtures). Teammate names come from REAL recent starters."""
+    try:
+        from modules.motion_kit import goal_reel
+        from modules.psl_squads import recent_starts, get_squad
+        from modules.uploader_facebook import upload_to_facebook, post_comment
+
+        sur = (ev["who"] or "").strip()
+        assist = (ev.get("assist") or "").strip()
+        how = ev.get("how", "solo")
+        starts, _ = await recent_starts(scorer_club)
+        squad = await get_squad(scorer_club)
+        num = next((p["no"] for p in squad
+                    if p["name"].split()[-1].lower() == sur.lower()), "")
+        mates = [p["name"].split()[-1].upper() for p in
+                 sorted(squad, key=lambda p: -starts.get(
+                     p["name"].split()[-1].lower(), 0))
+                 if p["name"].split()[-1].lower() not in
+                 (sur.lower(), assist.lower())][:3]
+        players = {"sc": {"no": num or "", "name": sur.upper()}}
+        for i, (m, anchor) in enumerate(zip(mates, [(.3, .5), (.5, .62),
+                                                    (.2, .3)])):
+            players[f"m{i}"] = {"no": "", "name": m}
+
+        # replay TEMPLATE matched to how the goal actually happened
+        mate_pos = {"m0": (.3, .5), "m1": (.5, .62), "m2": (.2, .3)}
+        if how == "penalty":
+            start = {"sc": (.5, .175), **mate_pos}
+            replay = {"players": players, "start": start,
+                      "moves": [("sc", (.5, .14))],
+                      "ball": [(1.6, (.5, .12)), (2.3, (.46, .045))],
+                      "arrow": None}
+            how_label = "PENALTY"
+        elif how in ("corner", "cross", "header"):
+            players["as"] = {"no": "", "name": assist.upper() or "DELIVERY"}
+            corner = how == "corner"
+            start = {"sc": (.55, .30), "as": (.95, .05) if corner
+                     else (.90, .30), **mate_pos}
+            replay = {"players": players, "start": start,
+                      "moves": [("sc", (.52, .10))],
+                      "ball": [(1.2, start["as"]), (2.6, (.6, .12)),
+                               (3.4, (.5, .04))],
+                      "arrow": (start["as"], (.58, .13),
+                                f"{(assist or 'the delivery').upper()}")}
+            how_label = how.upper()
+        elif how == "free kick":
+            start = {"sc": (.5, .34), **mate_pos}
+            replay = {"players": players, "start": start, "moves": [],
+                      "ball": [(1.4, (.5, .32)), (2.4, (.56, .045))],
+                      "arrow": None}
+            how_label = "FREE KICK"
+        else:
+            if assist:
+                players["as"] = {"no": "", "name": assist.upper()}
+                start = {"sc": (.72, .40), "as": (.45, .48), **mate_pos}
+                replay = {"players": players, "start": start,
+                          "moves": [("sc", (.55, .12))],
+                          "ball": [(1.0, (.45, .48)), (2.4, (.66, .28)),
+                                   (3.3, (.56, .13)), (3.9, (.5, .04))],
+                          "arrow": ((.72, .40), (.57, .14),
+                                    f"{sur.upper()}'S RUN")}
+            else:
+                start = {"sc": (.75, .45), **mate_pos}
+                replay = {"players": players, "start": start,
+                          "moves": [("sc", (.55, .12))],
+                          "ball": [(1.0, (.5, .6)), (2.6, (.7, .3)),
+                                   (3.4, (.56, .13)), (3.9, (.5, .04))],
+                          "arrow": ((.75, .45), (.57, .14),
+                                    f"{sur.upper()}'S RUN")}
+            how_label = "THE RUN"
+        if replay.get("arrow") is None:
+            replay.pop("arrow", None)
+
+        # commentary voice line — real scorer, real assist, real score
+        opp = f["away_key"] if ev["side"] == "home" else f["home_key"]
+        minute_said = ev["clock"].replace("'", "")
+        calls = {
+            "penalty": f"Goal! {sur} makes no mistake from the penalty spot "
+                       f"in minute {minute_said}.",
+            "corner": f"Goal! From the corner, "
+                      f"{assist + ' delivers and ' if assist else ''}"
+                      f"{sur} finishes in minute {minute_said}.",
+            "cross": f"Goal! {assist + ' with the cross, ' if assist else ''}"
+                     f"{sur} turns it in, minute {minute_said}.",
+            "header": f"Goal! {sur} rises highest and heads it home in "
+                      f"minute {minute_said}.",
+            "free kick": f"Goal! {sur} bends in the free kick, "
+                         f"minute {minute_said}.",
+        }
+        call = calls.get(how,
+                         f"Goal! {assist + ' slips in ' + sur if assist else sur + ' finishes it himself'}"
+                         f" in minute {minute_said}.")
+        call += (f" {_name(f['home_key'])} {hs}, {_name(f['away_key'])} "
+                 f"{as_}. Follow Genesis News for every goal.")
+        audio = None
+        try:
+            from modules.voice_generator import generate_voice
+            vwork = Path(OUTPUT_DIR) / "matchday" / "goalvoice"
+            vwork.mkdir(parents=True, exist_ok=True)
+            v = await generate_voice(call, vwork, "goalcall", "short", NICHE)
+            audio = (v or {}).get("audio_path")
+        except Exception as e:
+            print(f"[Auto] goal voice skipped: {str(e)[:80]}")
+
+        out = _out("goalreel").with_suffix(".mp4")
+        goal_reel(out, club=scorer_club, scorer=sur.upper(),
+                  minute=ev["clock"], score=f"{hs}-{as_}",
+                  vs=_name(opp), replay=replay,
+                  narration_audio=audio, stamp_dur=3.5)
+        cap = (f"🚨 THE GOAL REEL — {sur.upper()} {ev['clock']}!\n"
+               f"LIVE: {_name(f['home_key'])} {hs}-{as_} "
+               f"{_name(f['away_key'])}\n\n#PSL #BetwayPremiership")
+        fb = await upload_to_facebook(video_path=str(out), title="Goal Reel",
+                                      description=cap, niche=NICHE,
+                                      is_reel=True)
+        tid = fb.get("video_id") or fb.get("post_id")
+        if tid and fb.get("status") == "uploaded":
+            await post_comment(tid, "Rate that finish out of 10 👇", NICHE)
+        print("[Auto] GOAL REEL posted")
+    except Exception as e:
+        print(f"[Auto] goal reel skipped: {str(e)[:110]}")
+
+
+async def _red_card_post(f, ev, club: str):
+    """Animated red-card piece for big-three matches."""
+    try:
+        from modules.motion_kit import card_alert
+        from modules.uploader_facebook import upload_to_facebook, post_comment
+        out = _out("redcard").with_suffix(".mp4")
+        card_alert(out, player=(ev["who"] or "").upper(),
+                   minute=ev["clock"], red=True, club=club)
+        cap = (f"🟥 RED CARD — {ev['who']} {ev['clock']}\n"
+               f"{_name(f['home_key'])} v {_name(f['away_key'])}, down to "
+               f"ten.\n\n#PSL #BetwayPremiership")
+        fb = await upload_to_facebook(video_path=str(out), title="Red Card",
+                                      description=cap, niche=NICHE,
+                                      is_reel=True)
+        tid = fb.get("video_id") or fb.get("post_id")
+        if tid and fb.get("status") == "uploaded":
+            await post_comment(tid, "Fair red or soft? 👇", NICHE)
+        print("[Auto] RED CARD reel posted")
+    except Exception as e:
+        print(f"[Auto] red card reel skipped: {str(e)[:110]}")
+
+
 async def _live_details(fixture_id: str) -> dict:
     """Everything live from the scoreboard: scorers, red cards, per-event keys."""
     import httpx
@@ -173,6 +319,17 @@ async def _live_details(fixture_id: str) -> dict:
             clock = det.get("clock", {}).get("displayValue", "")
             side = "home" if str(det.get("team", {}).get("id", "")) == home_id else "away"
             entry = f"{who} {clock}"
+            # the second involved athlete on a goal is the ASSIST; the play
+            # text tells us HOW (penalty/corner/cross/header/free kick)
+            assist = names[1].split()[-1] if len(names) > 1 and names[1] else ""
+            how_txt = (det.get("text") or kind).lower()
+            how = ("penalty" if "penalt" in how_txt else
+                   "own goal" if "own goal" in how_txt else
+                   "corner" if "corner" in how_txt else
+                   "free kick" if "free kick" in how_txt else
+                   "header" if "header" in how_txt else
+                   "cross" if "cross" in how_txt else
+                   "solo")
             if is_goal:
                 (out["sh"] if side == "home" else out["sa"]).append(entry)
             if is_yellow:
@@ -182,6 +339,7 @@ async def _live_details(fixture_id: str) -> dict:
                 "key": f"{'GOAL' if is_goal else 'RED'}|{side}|{who}|{clock}",
                 "kind": "GOAL" if is_goal else "RED CARD",
                 "side": side, "who": who, "clock": clock,
+                "assist": assist, "how": how,
             })
         break
     return out
@@ -343,6 +501,30 @@ async def cmd_auto(a):
                                f"#PSL #BetwayPremiership")
                     await _post_photo(hype, caption,
                                       "Final score predictions — LAST CALL 👇")
+                    # ANIMATED countdown reel rides with the hype post —
+                    # live ticking clock to kickoff
+                    try:
+                        from modules.motion_kit import countdown
+                        from modules.uploader_facebook import (
+                            upload_to_facebook, post_comment)
+                        secs = max(60, int((ko - now).total_seconds()))
+                        cd = _out("countdown").with_suffix(".mp4")
+                        countdown(cd,
+                                  title=f"{_name(f['home_key'])} v "
+                                        f"{_name(f['away_key'])}",
+                                  when=f["kickoff_sast"],
+                                  clubs=(f["home_key"], f["away_key"]),
+                                  start_secs=secs, duration=8.0)
+                        fb = await upload_to_facebook(
+                            video_path=str(cd), title="Countdown",
+                            description=caption, niche=NICHE, is_reel=True)
+                        tid = fb.get("video_id") or fb.get("post_id")
+                        if tid and fb.get("status") == "uploaded":
+                            await post_comment(
+                                tid, "Where are you watching from? 👇", NICHE)
+                        print("[Auto] countdown reel posted")
+                    except Exception as e:
+                        print(f"[Auto] countdown skipped: {str(e)[:100]}")
                 st["hype"] = now.isoformat()
                 print(f"[Auto] pre-match hype posted: {label}")
             except Exception as e:
@@ -399,6 +581,14 @@ async def cmd_auto(a):
                     await _post_photo(card, caption,
                                       "What a moment! Your reaction? 👇" if ev["kind"] == "GOAL"
                                       else "Does this change the game? 👇")
+                    # ANIMATED follow-up for big-three drama: the Goal Reel /
+                    # red-card motion piece, minutes after the real moment
+                    from modules.psl_fixtures import priority as _prio
+                    if _prio(f) >= 1:
+                        if ev["kind"] == "GOAL":
+                            await _goal_reel_post(f, ev, scorer_club, hs, as_)
+                        else:
+                            await _red_card_post(f, ev, scorer_club)
                 print(f"[Auto] live event posted: {ev['key']}")
                 seen.add(ev["key"])
             st["events"] = sorted(seen)
