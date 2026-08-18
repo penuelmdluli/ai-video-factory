@@ -32,9 +32,16 @@ def _over(u):
 
 
 def _font(sz, bold=True):
+    """Load a font. Size is clamped to >=1.
+
+    Animated sizes are computed as int(base * eased_t), which is legitimately
+    0 on the first frame — and PIL raises on size 0, which crashed a whole
+    scheduled build. A 1px first frame is invisible anyway.
+    """
     from PIL import ImageFont
     return ImageFont.truetype(
-        f"C:/Windows/Fonts/{'arialbd.ttf' if bold else 'arial.ttf'}", sz)
+        f"C:/Windows/Fonts/{'arialbd.ttf' if bold else 'arial.ttf'}",
+        max(1, int(sz)))
 
 
 ICONS = Path(__file__).parent.parent / "assets" / "motion_icons"
