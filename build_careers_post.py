@@ -133,6 +133,16 @@ JOB = {
 
 
 async def publish(job: dict, video_path: str | None, card_only=False):
+    # HARD GATE. A dead link or an unverifiable claim stops the post — on a
+    # page selling "verified", one wrong closing date costs more trust than
+    # a week of good posts earns.
+    from modules.link_check import gate
+    verdict = gate(job)
+    if not verdict["ok"]:
+        print(f"[Careers] BLOCKED — {verdict['reason']}")
+        return {"blocked": verdict}
+    print(f"[Careers] verified: {verdict['link']['final']}")
+
     caption = build_caption(job)
     comment = build_comment(job)
     results = {}

@@ -34,14 +34,19 @@ BRANDS = {
 DARK = (10, 12, 15)
 
 
-def _fill(photo_path, w, h, focus=0.5, punch=True):
-    """Cover-crop a photo to fill w x h. focus = horizontal centre 0..1."""
+def _fill(photo_path, w, h, focus=0.5, focus_y=0.35, punch=True):
+    """Cover-crop a photo to fill w x h.
+
+    focus / focus_y say where along each axis the crop window starts (0..1) —
+    frame_picker supplies these so the subject stays inside the crop instead
+    of a blind centre cut landing on empty grass.
+    """
     im = Image.open(photo_path).convert("RGB")
     s = max(w / im.width, h / im.height)
     im = im.resize((max(1, int(im.width * s)), max(1, int(im.height * s))),
                    Image.LANCZOS)
     x = int((im.width - w) * min(1, max(0, focus)))
-    y = int((im.height - h) * 0.35)
+    y = int((im.height - h) * min(1, max(0, focus_y)))
     im = im.crop((x, y, x + w, y + h))
     if punch:
         im = ImageEnhance.Color(im).enhance(1.28)
@@ -117,10 +122,10 @@ def _brand_bug(d, brand, x, y, small=False):
 
 
 def _render(w, h, hook, kicker, chip, photo, brand, focus, vertical=False,
-            bottom_safe=0.0):
+            bottom_safe=0.0, focus_y=0.35):
     b = BRANDS[brand]
     if photo and Path(photo).exists():
-        im = _fill(photo, w, h, focus=focus)
+        im = _fill(photo, w, h, focus=focus, focus_y=focus_y)
         im = _shade(im, "left" if not vertical else "left",
                     frac=0.72 if not vertical else 1.0,
                     strength=210 if not vertical else 170)
@@ -186,26 +191,27 @@ def _render(w, h, hook, kicker, chip, photo, brand, focus, vertical=False,
 
 
 def make_thumb(out, hook, kicker="", chip="", photo=None, brand="careers",
-               focus=0.62):
+               focus=0.62, focus_y=0.35):
     """1280x720 YouTube thumbnail."""
-    im = _render(1280, 720, hook, kicker, chip, photo, brand, focus)
+    im = _render(1280, 720, hook, kicker, chip, photo, brand, focus,
+                 focus_y=focus_y)
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     im.save(out, quality=94)
     return str(out)
 
 
 def make_cover(out, hook, kicker="", chip="", photo=None, brand="careers",
-               focus=0.5):
+               focus=0.5, focus_y=0.35):
     """1080x1350 (4:5) cover for a Facebook/Instagram FEED photo post."""
     im = _render(1080, 1350, hook, kicker, chip, photo, brand, focus,
-                 vertical=True)
+                 vertical=True, focus_y=focus_y)
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     im.save(out, quality=94)
     return str(out)
 
 
 def make_reel_cover(out, hook, kicker="", chip="", photo=None,
-                    brand="careers", focus=0.5):
+                    brand="careers", focus=0.5, focus_y=0.35):
     """1080x1920 (9:16) cover for a REEL — Facebook, Instagram, TikTok.
 
     A reel cover MUST match the video's 9:16 or the platform crops it, which
@@ -213,7 +219,7 @@ def make_reel_cover(out, hook, kicker="", chip="", photo=None,
     because the caption, profile row and action buttons sit over it.
     """
     im = _render(1080, 1920, hook, kicker, chip, photo, brand, focus,
-                 vertical=True, bottom_safe=0.26)
+                 vertical=True, bottom_safe=0.26, focus_y=focus_y)
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     im.save(out, quality=94)
     return str(out)
