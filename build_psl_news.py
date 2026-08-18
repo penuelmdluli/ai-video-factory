@@ -113,8 +113,10 @@ def slot_plan() -> tuple[str, str]:
     from datetime import datetime as _d
     n = _d.now()
     # Chiefs still lead most slots (biggest audience) but not all of them.
-    lead_cycle = ["chiefs", "chiefs", "pirates", "chiefs", "sundowns",
-                  "chiefs", "pirates"]
+    # Owner call: MORE Chiefs, just never the same story. Chiefs take five of
+    # every seven slots; the other two keep Pirates and Sundowns alive.
+    lead_cycle = ["chiefs", "chiefs", "pirates", "chiefs", "chiefs",
+                  "sundowns", "chiefs"]
     idx = n.timetuple().tm_yday * 3 + (0 if n.hour < 11 else
                                        1 if n.hour < 17 else 2)
     return lead_cycle[idx % len(lead_cycle)], ANGLES[idx % len(ANGLES)]
@@ -673,6 +675,33 @@ def _credit_strip(text: str, work: Path) -> str:
     return str(p)
 
 
+def _story_intro(script: dict, work: Path, max_dur: float) -> str | None:
+    """Render the motion template that matches this story type.
+
+    Every reel used to open with the same two static cards whatever the story
+    was. Now a transfer opens with the crest-to-crest move, a quote with
+    kinetic type, an injury with the player spotlight — same brand, different
+    template. Returns None when nothing fits, and the reel opens as before.
+    """
+    try:
+        from modules.story_router import classify, render_intro
+        title = script.get("title", "")
+        kind, params = classify(title, script.get("caption", ""))
+        if not kind:
+            _log("story type: none matched — standard card open")
+            return None
+        dur = max(4.0, min(6.5, max_dur))
+        clip = render_intro(kind, params, work / f"intro_{kind}.mp4", dur)
+        if clip:
+            _log(f"story type: {kind} — opening with its template ({dur:.1f}s)")
+        else:
+            _log(f"story type: {kind} — template lacked data, standard open")
+        return clip
+    except Exception as e:
+        _log(f"story intro skipped: {e}")
+        return None
+
+
 async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
                    cc_clip: dict | None = None) -> str:
     """
@@ -753,6 +782,22 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
             .with_position(("center", CANVAS[1] - 120)))
     except Exception as e:
         _log(f"subscribe strip skipped: {e}")
+
+    # Story-matched opening. It plays full frame over the cards for its own
+    # length, then the reel continues exactly as before — voice and caption
+    # timing are untouched, so nothing can drift.
+    intro_path = _story_intro(script, work, duration * 0.34)
+    if intro_path:
+        try:
+            from moviepy import VideoFileClip
+            iv = VideoFileClip(str(intro_path)).without_audio()
+            iv = iv.subclipped(0, min(iv.duration, duration * 0.34))
+            # appended, not inserted — it must cover the live-footage window
+            # and the credit strip while it plays, or they punch through it
+            overlay_layers.append(
+                iv.resized(CANVAS).with_start(0).with_position((0, 0)))
+        except Exception as e:
+            _log(f"intro overlay skipped: {e}")
 
     layers = [base] + overlay_layers + _caption_clips(captions, CANVAS[0], work)
     video = CompositeVideoClip(layers, size=CANVAS).with_duration(duration)
