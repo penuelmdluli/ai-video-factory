@@ -29,6 +29,7 @@ os.environ["PAGE_LOCK_OWNER"] = "build_careers_post.py"
 sys.path.insert(0, str(Path(__file__).parent))
 
 from modules.careers_kit import job_alert, make_job_card  # noqa: E402
+from modules.thumb_engine import make_cover, make_thumb  # noqa: E402
 from modules.uploader_facebook import (  # noqa: E402
     post_comment, upload_photo, upload_to_facebook)
 
@@ -119,6 +120,9 @@ JOB = {
         "Submit before the closing date — late applications are rejected",
     ],
     "source": "Verified on the official Transnet careers portal",
+    "hook": "Transnet is hiring",
+    "kicker": "TVET students & graduates",
+    "focus": 0.62,
     "bg_photo": "assets/careers_transnet_bg.jpg",
     "photo_credit": "photo: Bob Adams (CC BY-SA 2.0, Wikimedia)",
     "yt_title": "TRANSNET Work Integrated Learning 2026 — TVET students & "
@@ -153,11 +157,26 @@ async def publish(job: dict, video_path: str | None, card_only=False):
     if card_only or not video_path:
         return results
 
+    # Covers. Without these Facebook and YouTube each grab a random mid-video
+    # frame — a letterboxed vertical clip that reads as nothing in a feed.
+    hook = job.get("hook") or f"{job['employer'].title()} is hiring"
+    fb_cover = make_cover(OUT / f"careers_{job['key']}_cover.jpg",
+                          hook=hook, kicker=job.get("kicker", ""),
+                          chip=f"closes {job['closes'].title()}",
+                          photo=job.get("bg_photo"), brand="careers",
+                          focus=job.get("focus", 0.55))
+    yt_thumb = make_thumb(OUT / f"careers_{job['key']}_thumb.jpg",
+                          hook=hook, kicker=job.get("kicker", ""),
+                          chip=f"{job['days_left']} days left",
+                          photo=job.get("bg_photo"), brand="careers",
+                          focus=job.get("focus", 0.66))
+    print(f"[Careers] covers: {fb_cover} | {yt_thumb}")
+
     r2 = await upload_to_facebook(
         video_path=str(video_path),
         title=job["yt_title"][:90],
         description=caption,
-        niche=NICHE, is_reel=True)
+        niche=NICHE, is_reel=True, thumbnail_path=fb_cover)
     print(f"[Careers] FB reel: {r2}")
     results["fb_reel"] = r2
     vid = r2.get("video_id") or r2.get("post_id")
@@ -169,7 +188,7 @@ async def publish(job: dict, video_path: str | None, card_only=False):
         r3 = await upload_to_youtube(
             video_path=str(video_path), title=job["yt_title"],
             description=caption, tags=job["yt_tags"], niche=NICHE,
-            is_short=True, privacy="public")
+            is_short=True, privacy="public", thumbnail_path=yt_thumb)
         print(f"[Careers] YouTube: {r3}")
         results["youtube"] = r3
         vid3 = r3.get("video_id")
