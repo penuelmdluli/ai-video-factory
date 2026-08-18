@@ -15,6 +15,71 @@ from modules.motion_kit import (_base, _font, _ease, _over, _render, icon,
 GREEN = (46, 200, 113)
 
 
+def make_job_card(out, employer="TRANSNET",
+                  programme="Work Integrated Learning Programme",
+                  details=("18-month programme with a stipend",
+                           "TVET students & graduates (N4–N6)",
+                           "Cape Town · Saldanha · Durban · Ngqura · PE",
+                           "Engineering, logistics & procurement fields"),
+                  closes="CLOSES 24 AUGUST 2026",
+                  apply_line="Apply FREE on the official Transnet careers portal",
+                  bg_photo=None,
+                  photo_credit="") -> str:
+    """Static shareable card — the image-post twin of the job_alert reel."""
+    from PIL import Image, ImageDraw, ImageFilter
+    CW, CH = 1080, 1350
+    im = Image.new("RGB", (CW, CH), DARK)
+    if bg_photo and Path(bg_photo).exists():
+        ph = Image.open(bg_photo).convert("RGB")
+        s = max(CW / ph.width, 640 / ph.height)
+        ph = ph.resize((int(ph.width * s), int(ph.height * s)))
+        ph = ph.crop(((ph.width - CW) // 2, 0,
+                      (ph.width - CW) // 2 + CW, 640))
+        im.paste(ph, (0, 130))
+        fade = Image.new("L", (CW, 240), 0)
+        for yy in range(240):
+            fade.paste(int(255 * (yy / 240)), (0, yy, CW, yy + 1))
+        dark = Image.new("RGB", (CW, 240), DARK)
+        im.paste(dark, (0, 530), fade)
+    d = ImageDraw.Draw(im, "RGBA")
+    d.rectangle([0, 0, CW, 130], fill=(10, 10, 12))
+    d.text((44, 30), "MZANSI CAREERS", font=_font(44), fill=(255, 255, 255))
+    d.text((46, 88), "VERIFIED OPPORTUNITY", font=_font(24, False),
+           fill=GREEN)
+    chip = "JOB ALERT"
+    cf = _font(34)
+    cw2 = d.textlength(chip, font=cf)
+    d.rounded_rectangle([44, 560, 44 + cw2 + 48, 630], radius=16, fill=GREEN)
+    d.text((68, 574), chip, font=cf, fill=(10, 10, 12))
+    d.text((44, 660), employer, font=_font(84), fill=(255, 255, 255))
+    d.text((44, 775), programme, font=_font(36, False), fill=(220, 224, 228))
+    y = 860
+    for det in details:
+        d.ellipse([50, y + 10, 74, y + 34], fill=GREEN)
+        d.text((96, y), det, font=_font(32), fill=(235, 238, 242))
+        y += 62
+    d.rounded_rectangle([44, y + 20, CW - 44, y + 110], radius=18,
+                        fill=(220, 50, 50))
+    clf = _font(44)
+    clw = d.textlength(closes, font=clf)
+    d.text(((CW - clw) / 2, y + 40), closes, font=clf, fill=(255, 255, 255))
+    af = _font(28, False)
+    aw = d.textlength(apply_line, font=af)
+    d.text(((CW - aw) / 2, y + 132), apply_line, font=af, fill=GREEN)
+    foot = "We verify every post — no scams, no fees, ever."
+    ff = _font(26, False)
+    fw = d.textlength(foot, font=ff)
+    d.text(((CW - fw) / 2, y + 186), foot, font=ff, fill=(200, 205, 210))
+    if photo_credit:
+        pf = _font(20, False)
+        pw2 = d.textlength(photo_credit, font=pf)
+        d.text((CW - pw2 - 20, 148), photo_credit, font=pf,
+               fill=(210, 214, 220))
+    out = Path(out)
+    im.save(out, quality=95)
+    return str(out)
+
+
 def job_alert(out, employer="TRANSNET", programme="Work Integrated Learning",
               details=("18 months", "TVET N4-N6", "5 coastal cities"),
               closes="24 AUGUST", days_left=7,

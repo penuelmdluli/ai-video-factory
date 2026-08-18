@@ -743,6 +743,9 @@ BUILD_NICHES = [n.strip() for n in os.getenv("BUILD_NICHES", "tech_news").split(
 #   posted only by post_next_viking.py.
 LOCKED_PAGES = {
     "blissful_moments": "post_next_viking.py",
+    # Elevate You is now MZANSI CAREERS — verified SA jobs only. Generic
+    # motivation/engagement content must never land on a careers page.
+    "motivation": "build_careers_post.py",
 }
 
 
@@ -761,7 +764,7 @@ def page_locked(niche: str) -> bool:
 SCHEDULE = {
     "ai_money": {"short": 1},           # Smart Money AI (4.4K followers)
     "tech_news": {"short": 1},          # Tech Pulse Africa (10.4K followers) — world news & geopolitics
-    "motivation": {"short": 1},         # Elevate You (243 followers)
+    # motivation: LOCKED to MZANSI CAREERS — see LOCKED_PAGES / build_careers_post.py
     "health_wellness": {"short": 1},    # Herbal Organic Life (920 followers)
     # blissful_moments: LOCKED to SAGA OF THE NORTH — see LOCKED_PAGES / post_next_viking.py
     "daily_breakdown": {"short": 1},    # Mzansi Daily — Proudly South African (needs FB page)
