@@ -65,13 +65,19 @@ def build_caption(job: dict) -> str:
         lines.append(f"✅ {d}")
     lines += [
         "",
-        f"🗓️ CLOSING DATE: {job['closes_full']}",
+        (f"🗓️ CLOSING DATE: {job['closes_full']}" if job.get("closes_full")
+         and job.get("closes") else
+         "🗓️ Transnet does not publish a closing date for this one — check "
+         "the portal regularly."),
         "",
         "HOW TO APPLY",
     ]
     for step in job["apply_steps"]:
         lines.append(f"• {step}")
     lines += [
+        "",
+        "🔁 PLEASE SHARE THIS POST. Someone on your timeline is looking for "
+        "exactly this — a share costs you nothing and can change their year.",
         "",
         "⚠️ You never pay to apply. Anyone asking for money is a scam.",
         "",
@@ -88,45 +94,61 @@ def build_caption(job: dict) -> str:
 
 
 def build_comment(job: dict) -> str:
+    deadline = (f"Closing {job['closes_full']}. " if job.get("closes")
+                else "Transnet does not list a closing date on this page, so "
+                     "check it regularly. ")
     return (
-        f"📌 APPLY HERE (official {job['employer']} portal only):\n"
+        f"📌 APPLY HERE (official {job['employer']} page only):\n"
         f"{job['apply_url']}\n\n"
-        f"Closing {job['closes_full']}. Have your ID, CV and academic "
-        "record ready as PDFs before you start — the portal times out.\n\n"
-        "Tag someone who needs this 👇"
+        f"{deadline}Have your ID, CV and academic record ready as PDFs "
+        "before you start.\n\n"
+        "🔁 SHARE this post — unemployment in Mzansi is beaten one shared "
+        "opportunity at a time. Tag someone who needs it 👇"
     )
 
 
+# Every string in card_details / must_verify below appears verbatim on
+# https://www.transnet.net/YouthDevelopmentProgrammes — the gate re-checks it
+# on every run. Nothing about closing dates, stipends, durations or locations
+# goes in until Transnet themselves publish it.
 JOB = {
     "key": "transnet-wil-2026",
     "employer": "TRANSNET",
-    "programme": "Work Integrated Learning Programme",
+    "programme": "Work Integrated Learning",
     "card_details": [
-        "18-month programme with a stipend",
-        "TVET students & graduates (N4–N6)",
-        "Cape Town · Saldanha · Durban · Ngqura · PE",
-        "Engineering, logistics & procurement fields",
+        "University of Technology students",
+        "You must have a completed S4",
+        "Civil, Electrical, Electronics, Mechanical",
+        "Industrial, Metallurgy, Data Analytics, Finance",
     ],
-    "reel_details": ("18 months", "TVET N4-N6", "5 coastal cities"),
-    "closes": "24 AUGUST",
-    "closes_full": "24 August 2026",
-    "closes_card": "CLOSES 24 AUGUST 2026",
-    "days_left": 7,
-    "apply_url": "https://www.transnet.net/Careers/",
+    "reel_details": ("Completed S4", "Univ. of Technology", "Engineering & IT"),
+    "must_verify": [
+        "Work Integrated Learning",
+        "completed S4",
+        "Civil",
+        "Electronics",
+        "Metallurgy",
+        "Data Analytics",
+    ],
+    "closes": "",
+    "closes_full": "no closing date published — check the portal",
+    "closes_card": "",
+    "days_left": None,
+    "apply_url": "https://www.transnet.net/YouthDevelopmentProgrammes",
     "apply_steps": [
-        "Go to the official Transnet careers portal (link in the comments)",
-        "Search 'Work Integrated Learning' and pick your city",
-        "Upload your ID, CV and latest academic record",
-        "Submit before the closing date — late applications are rejected",
+        "Open the official Transnet Youth Development page (link in comments)",
+        "Read the Work Integrated Learning section for your field",
+        "Follow Transnet's own application instructions on that page",
+        "Have your ID, CV and academic record ready as PDFs",
     ],
-    "source": "Verified on the official Transnet careers portal",
-    "hook": "Transnet is hiring",
-    "kicker": "TVET students & graduates",
+    "source": "Verified on transnet.net — Youth Development Programmes",
+    "hook": "Transnet WIL programme",
+    "kicker": "University of Technology students",
     "focus": 0.62,
     "bg_photo": "assets/careers_transnet_bg.jpg",
     "photo_credit": "photo: Bob Adams (CC BY-SA 2.0, Wikimedia)",
-    "yt_title": "TRANSNET Work Integrated Learning 2026 — TVET students & "
-                "graduates | Closes 24 August",
+    "yt_title": "TRANSNET Work Integrated Learning — University of "
+                "Technology students with a completed S4",
     "yt_tags": ["transnet", "sa jobs", "learnership", "internship",
                 "tvet", "mzansi careers", "south africa jobs", "wil"],
 }

@@ -58,11 +58,22 @@ def make_job_card(out, employer="TRANSNET",
         d.ellipse([50, y + 10, 74, y + 34], fill=GREEN)
         d.text((96, y), det, font=_font(32), fill=(235, 238, 242))
         y += 62
-    d.rounded_rectangle([44, y + 20, CW - 44, y + 110], radius=18,
-                        fill=(220, 50, 50))
-    clf = _font(44)
-    clw = d.textlength(closes, font=clf)
-    d.text(((CW - clw) / 2, y + 40), closes, font=clf, fill=(255, 255, 255))
+    # No closing date unless the official source states one. A deadline we
+    # cannot verify is the single most damaging thing a jobs page can print.
+    if closes:
+        d.rounded_rectangle([44, y + 20, CW - 44, y + 110], radius=18,
+                            fill=(220, 50, 50))
+        clf = _font(44)
+        clw = d.textlength(closes, font=clf)
+        d.text(((CW - clw) / 2, y + 40), closes, font=clf,
+               fill=(255, 255, 255))
+    else:
+        d.rounded_rectangle([44, y + 20, CW - 44, y + 110], radius=18,
+                            fill=(24, 28, 34), outline=GREEN, width=3)
+        clf = _font(34)
+        msg = "OPEN — CHECK THE PORTAL FOR DATES"
+        clw = d.textlength(msg, font=clf)
+        d.text(((CW - clw) / 2, y + 50), msg, font=clf, fill=GREEN)
     af = _font(28, False)
     aw = d.textlength(apply_line, font=af)
     d.text(((CW - aw) / 2, y + 132), apply_line, font=af, fill=GREEN)
@@ -154,8 +165,8 @@ def job_alert(out, employer="TRANSNET", programme="Work Integrated Learning",
             d.text(((W - cw) / 2, y + 16), det, font=cf,
                    fill=(255, 255, 255))
             y += 110
-        # closing countdown
-        if t > 3.2:
+        # closing countdown — only when the official source states a date
+        if t > 3.2 and days_left is not None and closes:
             g = _over(min(1, (t - 3.2) / 0.4))
             shown_days = int(round(days_left * min(1, (t - 3.2) / 1.2)))
             big = _font(int(110 * g))
@@ -170,6 +181,20 @@ def job_alert(out, employer="TRANSNET", programme="Work Integrated Learning",
             clw = d.textlength(f"CLOSES {closes}", font=clf)
             d.text(((W - clw) / 2, 1460), f"CLOSES {closes}", font=clf,
                    fill=(255, 200, 0))
+        elif t > 3.2:
+            g = _over(min(1, (t - 3.2) / 0.4))
+            of = _font(int(56 * g))
+            txt = "APPLICATIONS OPEN"
+            tw2 = d.textlength(txt, font=of)
+            d.rounded_rectangle([(W - tw2) / 2 - 36, 1300,
+                                 (W + tw2) / 2 + 36, 1420], radius=24,
+                                fill=(19, 22, 28, 235),
+                                outline=(*GREEN, 200), width=4)
+            d.text(((W - tw2) / 2, 1330), txt, font=of, fill=GREEN)
+            sf2 = _font(30)
+            s2 = "Dates are on the official portal"
+            sw3 = d.textlength(s2, font=sf2)
+            d.text(((W - sw3) / 2, 1450), s2, font=sf2, fill=(210, 215, 220))
         # verified badge + source
         if t > 4.5:
             g = _over(min(1, (t - 4.5) / 0.4))
