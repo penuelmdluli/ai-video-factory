@@ -1140,6 +1140,14 @@ async def post_to_page(work: Path) -> dict | None:
     except Exception as e:
         _log(f"TikTok skipped: {e}")
     try:
+        # Instagram needs THREE things, and it silently logged "failed" when
+        # any were absent: cloud hosting for a public URL, a linked IG
+        # business account, and a token carrying instagram_basic. Say which.
+        if not (os.getenv("INSTAGRAM_USER_ID")
+                and os.getenv("INSTAGRAM_ACCESS_TOKEN")):
+            _log("Instagram: not configured — run setup_instagram.py "
+                 "(account must be linked to the page first)")
+            raise RuntimeError("instagram not configured")
         from modules.cloud_storage import is_cloud_storage_configured
         if is_cloud_storage_configured():
             from modules.uploader_instagram import upload_to_instagram_local
@@ -1150,6 +1158,8 @@ async def post_to_page(work: Path) -> dict | None:
                 hashtags=manifest.get("tags", [])[:8],
                 upload_to_cloud_fn=upload_to_cloud)
             _log(f"Instagram: {(ig or {}).get('status')}")
+    except RuntimeError:
+        pass                      # already logged with the exact reason
     except Exception as e:
         _log(f"Instagram skipped: {e}")
 
