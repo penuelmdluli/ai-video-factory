@@ -436,6 +436,14 @@ async def upload_photo(image_path: str, caption: str, niche: str) -> dict:
     Post a single photo to the page feed (lineup cards, result cards).
     Returns {"status": "uploaded", "photo_id", "post_id"} on success.
     """
+    # Same lock as upload_to_facebook — a locked page takes photos only from
+    # its owning script (SAGA OF THE NORTH, Mzansi Careers).
+    from config import page_locked, LOCKED_PAGES
+    if page_locked(niche):
+        print(f"[Facebook] BLOCKED: '{niche}' page is locked to "
+              f"{LOCKED_PAGES[niche]} — not posting photo")
+        return {"platform": "facebook", "status": "skipped",
+                "error": f"page '{niche}' locked to {LOCKED_PAGES[niche]}"}
     try:
         cfg = _get_page_config(niche)
     except Exception as e:
