@@ -43,25 +43,114 @@ def _log(msg):
     print(f"[PSL] {msg}", flush=True)
 
 
+# Club names recur in every PSL title, so they must not count as "similar" —
+# otherwise a Pirates story looks like a Chiefs story. What matters is whether
+# the STORY is new.
+_CLUB_WORDS = {
+    "chiefs", "kaizer", "amakhosi", "pirates", "orlando", "buccaneers",
+    "sundowns", "mamelodi", "masandawana", "psl", "betway", "premiership",
+    "vs", "united", "fc",
+}
+
+
+def _stem(w: str) -> str:
+    """Crude stem so 'injury' / 'injured' / 'injuries' count as one word."""
+    for suf in ("ies", "ing", "ed", "es", "s", "y"):
+        if len(w) > 4 and w.endswith(suf):
+            return w[: -len(suf)]
+    return w
+
+
+def _is_fresh(topic: str, recent: list[str], min_new: int = 3,
+              window: int = 8) -> bool:
+    """True if the topic brings genuinely new subject matter.
+
+    Word-overlap alone let 'Da Cruz's Five-Injury Problem' and 'Salum Reports
+    After Da Cruz's Injury Crisis' both through — same story, different words.
+    This instead demands the topic introduce at least `min_new` content words
+    that appear NOWHERE in the last `window` topics.
+    """
+    stop = _CLUB_WORDS | {
+        "the", "a", "an", "is", "are", "to", "for", "in", "of", "and", "or",
+        "how", "why", "what", "this", "that", "with", "from", "it", "its",
+        "not", "can", "do", "does", "will", "be", "on", "at", "after",
+        "really", "actually", "means", "matter", "matters", "explained",
+    }
+
+    def words(s):
+        ws = {w.lower().strip(".,!?:;'\"()—-") for w in s.split()}
+        return {_stem(w) for w in ws - stop if len(w) > 3}
+
+    mine = words(topic)
+    # Guard 1 — no immediate re-tread. Sharing two content words with either
+    # of the last two topics means it is the same story wearing new words
+    # ('five defenders' -> 'lost five defenders and still held').
+    for t in recent[:2]:
+        if len(mine & words(t)) >= 2:
+            return False
+    # Guard 2 — over the recent window, the topic must bring real new subject
+    # matter, not just recombine what we have already said.
+    seen = set()
+    for t in recent[:window]:
+        seen |= words(t)
+    return len(mine - seen) >= min_new
+
+
+# Angle rotation — even the same club gets a different treatment each slot,
+# so three posts about one team are three different pieces of content.
+ANGLES = [
+    "a match preview built on what actually decides the game",
+    "one player's form and what it means for the team",
+    "a tactical or formation angle",
+    "a transfer or squad-building story",
+    "a league-wide story — the log race, another club, or a rival's result",
+    "a stat or record that fans will argue about",
+]
+
+
+def slot_plan() -> tuple[str, str]:
+    """(lead club, required angle) for this run — rotates through the week."""
+    from datetime import datetime as _d
+    n = _d.now()
+    # Chiefs still lead most slots (biggest audience) but not all of them.
+    lead_cycle = ["chiefs", "chiefs", "pirates", "chiefs", "sundowns",
+                  "chiefs", "pirates"]
+    idx = n.timetuple().tm_yday * 3 + (0 if n.hour < 11 else
+                                       1 if n.hour < 17 else 2)
+    return lead_cycle[idx % len(lead_cycle)], ANGLES[idx % len(ANGLES)]
+
+
 async def pick_topic() -> str:
-    # VARIETY RULE (owner 2026-08-17): consecutive reels kept re-covering the
-    # same story ("the defenders news"). Feed the last two weeks of used
-    # titles into the prompt so every build takes a FRESH angle, and record
-    # what we picked so the next build knows.
+    # VARIETY RULE (owner 2026-08-17, hardened 2026-08-18): the page ran ~20
+    # straight reels off one Chiefs fixture. The old guard retried ONCE and
+    # then used the repeat anyway. Now it keeps asking until the topic brings
+    # genuinely new subject matter, and each slot is handed a required angle.
     from modules.topic_generator import (generate_trending_topic_ai,
                                          _get_recent_topic_titles,
-                                         _record_topic, _is_too_similar)
+                                         _record_topic)
     recent = _get_recent_topic_titles(NICHE, days=14)
-    topic = await generate_trending_topic_ai(NICHE, recent_titles=recent)
-    if topic and _is_too_similar(topic, recent):
-        _log(f"topic too close to recent coverage — asking for another")
-        retry = await generate_trending_topic_ai(
-            NICHE, recent_titles=recent + [topic])
-        topic = retry or topic
+    lead, angle = slot_plan()
+    try:
+        from modules.psl_news import set_lead_club
+        set_lead_club(lead)   # topic generator + script writer both follow it
+    except Exception as e:
+        _log(f"lead club not set: {e}")
+    _log(f"slot plan: lead={lead} angle={angle}")
+
+    topic = ""
+    for attempt in range(4):
+        cand = await generate_trending_topic_ai(NICHE, recent_titles=recent)
+        if not cand:
+            continue
+        if _is_fresh(cand, recent):
+            topic = cand
+            break
+        _log(f"attempt {attempt + 1} repeats recent coverage: {cand[:60]}")
+        recent = [cand] + recent
     if not topic:
         pin = NICHES[NICHE].get("topic_pin") or "Kaizer Chiefs latest news"
-        topic = f"{pin}: what the latest team news means"
-        _log(f"topic generation failed — using pin fallback")
+        topic = f"{pin}: {angle}"
+        _log("no fresh topic after 4 tries — falling back to the slot angle")
     _record_topic(NICHE, topic)
     _log(f"topic: {topic}")
     return topic

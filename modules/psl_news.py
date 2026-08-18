@@ -38,6 +38,13 @@ CACHE_TTL_SECONDS = 60 * 45  # 45 min — three daily slots stay fresh, no feed 
 
 # ── The big three + the competitions they play in ─────────────────────────
 # key -> (display name, nickname, Google News query)
+# Betting promos and affiliate spam ride in on the league's sponsor name
+# ("Betway Premiership"), and read exactly like a headline. Never a story.
+JUNK_MARKERS = re.compile(
+    r"\b(sign[- ]?up offer|free bets?|bet £|bet \$|bet r\d|odds|betting tips|"
+    r"promo code|bonus code|predictions? and odds|casino|how to bet|"
+    r"deposit bonus|acca|accumulator)\b", re.I)
+
 CLUBS = {
     "chiefs": ("Kaizer Chiefs", "Amakhosi", "Kaizer Chiefs"),
     "pirates": ("Orlando Pirates", "Buccaneers", "Orlando Pirates"),
@@ -48,10 +55,12 @@ CLUBS = {
 # page deliberately over-indexes on Kaizer Chiefs: more headlines pulled, more
 # kept, and Chiefs lead every briefing. Pirates and Sundowns stay strong
 # secondary coverage (they are also what Chiefs fans argue about).
-FEED_LIMITS = {"chiefs": 14, "pirates": 8, "sundowns": 8,
-               "premiership": 6, "cups": 5, "continental": 4}
-KEEP_LIMITS = {"chiefs": 10, "pirates": 5, "sundowns": 5,
-               "premiership": 4, "cups": 3, "continental": 2}
+FEED_LIMITS = {"chiefs": 14, "pirates": 10, "sundowns": 10,
+               "premiership": 10, "cups": 6, "continental": 5,
+               "transfers": 8, "bafana": 6, "weekend": 8, "others": 8}
+KEEP_LIMITS = {"chiefs": 8, "pirates": 6, "sundowns": 6,
+               "premiership": 7, "cups": 4, "continental": 3,
+               "transfers": 6, "bafana": 4, "weekend": 6, "others": 6}
 
 # Extra Chiefs-only angles so Amakhosi coverage never runs dry on a quiet day.
 CHIEFS_EXTRA_QUERIES = [
@@ -63,7 +72,29 @@ COMPETITION_QUERIES = {
     "premiership": "Betway Premiership PSL",
     "cups": "MTN8 OR Nedbank Cup OR Carling Knockout South Africa football",
     "continental": "CAF Champions League South African club",
+    # League-wide angles. Without these the pool is only ever the big three,
+    # which is how the page ended up telling one fixture twenty times.
+    "transfers": "Betway Premiership transfer signing South Africa football",
+    "bafana": "Bafana Bafana South Africa national team squad",
+    "weekend": "Betway Premiership fixtures preview this weekend",
 }
+
+# The other thirteen Premiership clubs. Three are swept per run, rotating by
+# day, so the story pool always carries something that is not the big three.
+OTHER_CLUBS = [
+    "Stellenbosch FC", "SuperSport United", "Sekhukhune United",
+    "AmaZulu FC", "Richards Bay FC", "Golden Arrows", "Polokwane City",
+    "Chippa United", "Magesi FC", "Marumo Gallants", "TS Galaxy",
+    "Durban City", "Orbit College",
+]
+
+
+def rotating_other_clubs(day_index: int, n: int = 3) -> list[str]:
+    """Pick n other clubs for this run, walking the list so all get covered."""
+    if not OTHER_CLUBS:
+        return []
+    start = (day_index * n) % len(OTHER_CLUBS)
+    return [OTHER_CLUBS[(start + i) % len(OTHER_CLUBS)] for i in range(n)]
 
 # Outlets we consider trustworthy SA football reporting. Headlines from other
 # publishers are still kept, but these are surfaced first.
@@ -150,6 +181,8 @@ async def _fetch_feed(client: httpx.AsyncClient, query: str, limit: int = 8) -> 
         title = _clean_title(raw_title, source)
         if len(title) < 15:
             continue
+        if JUNK_MARKERS.search(title):
+            continue
         items.append({
             "title": title,
             "source": source or "unattributed",
@@ -212,17 +245,31 @@ async def get_psl_briefing(force_refresh: bool = False) -> dict:
             return_exceptions=True,
         )
 
-    # Extra Amakhosi-only sweeps so the Chiefs section is always the deepest.
+    # Extra Amakhosi-only sweeps so the Chiefs section is always the deepest,
+    # plus a rotating sweep of three other Premiership clubs so the pool is
+    # never only the big three.
+    from datetime import date as _date
+    others_q = rotating_other_clubs(_date.today().toordinal())
     async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-        extra = await asyncio.gather(
-            *[_fetch_feed(client, q, limit=6) for q in CHIEFS_EXTRA_QUERIES],
-            return_exceptions=True,
+        extra, other_res = await asyncio.gather(
+            asyncio.gather(*[_fetch_feed(client, q, limit=6)
+                             for q in CHIEFS_EXTRA_QUERIES],
+                           return_exceptions=True),
+            asyncio.gather(*[_fetch_feed(client, f"{c} football news", limit=6)
+                             for c in others_q],
+                           return_exceptions=True),
         )
+    others_items = []
+    for r in other_res:
+        if not isinstance(r, Exception) and r:
+            others_items.extend(r)
+    briefing["others_clubs"] = others_q
 
     seen: set[str] = set()
     # Chiefs are de-duped FIRST so a shared story (e.g. Chiefs vs Sundowns)
     # lands in the Chiefs section rather than being claimed by another club.
-    ordered = sorted(zip(queries.keys(), results), key=lambda kr: kr[0] != "chiefs")
+    pairs = list(zip(queries.keys(), results)) + [("others", others_items)]
+    ordered = sorted(pairs, key=lambda kr: kr[0] != "chiefs")
     for key, result in ordered:
         items = list(result) if not isinstance(result, Exception) and result else []
         if key == "chiefs":
@@ -280,20 +327,60 @@ def _format_items(items: list[dict], limit: int = 4) -> str:
     return "\n".join(lines) if lines else "  - (nothing new published in the last 48h)"
 
 
-async def headlines_for_prompt(force_refresh: bool = False) -> str:
+
+# The slot's lead club, set by the builder before it asks for a topic. Keeps
+# the rotation in one place so the topic generator and the script writer both
+# lead with the same club.
+_LEAD_CLUB = "chiefs"
+
+
+def set_lead_club(club: str):
+    global _LEAD_CLUB
+    _LEAD_CLUB = (club or "chiefs").lower()
+
+
+def get_lead_club() -> str:
+    return _LEAD_CLUB
+
+
+async def headlines_for_prompt(force_refresh: bool = False,
+                               lead_club: str = "") -> str:
     """Real PSL headlines formatted for injection into an LLM prompt."""
     b = await get_psl_briefing(force_refresh=force_refresh)
     if not any(b.get(k) for k in list(CLUBS) + list(COMPETITION_QUERIES)):
         return ""
 
+    # LEAD ROTATION. Chiefs used to be hard-wired as "lead with this section
+    # whenever there is anything at all here", which is how twenty straight
+    # reels came out of one Chiefs fixture. Chiefs still lead most slots —
+    # they are the biggest audience — but not every slot.
+    lead = (lead_club or _LEAD_CLUB or "chiefs").lower()
+    if lead not in CLUBS:
+        lead = "chiefs"
+    labels = {
+        "chiefs": "KAIZER CHIEFS (Amakhosi)",
+        "pirates": "ORLANDO PIRATES (Buccaneers)",
+        "sundowns": "MAMELODI SUNDOWNS (Masandawana)",
+    }
+    club_keys = [lead] + [k for k in CLUBS if k != lead]
     sections = [
         f"REAL PSL HEADLINES (fetched {b.get('fetched_human', 'just now')}) — "
         f"these are the ONLY facts you may use:",
-        f"KAIZER CHIEFS (Amakhosi) — PRIORITY CLUB, lead with this section whenever "
-        f"there is anything at all here:\n{_format_items(b.get('chiefs', []), 8)}",
-        f"ORLANDO PIRATES (Buccaneers):\n{_format_items(b.get('pirates', []))}",
-        f"MAMELODI SUNDOWNS (Masandawana):\n{_format_items(b.get('sundowns', []))}",
-        f"BETWAY PREMIERSHIP:\n{_format_items(b.get('premiership', []), 3)}",
+        f"{labels[lead]} — LEAD CLUB FOR THIS SLOT. Take your story from this "
+        f"section if it has anything usable:\n"
+        f"{_format_items(b.get(lead, []), 8)}",
+    ]
+    for k in club_keys[1:]:
+        sections.append(f"{labels[k]}:\n{_format_items(b.get(k, []))}")
+    sections += [
+        f"BETWAY PREMIERSHIP (league-wide):\n"
+        f"{_format_items(b.get('premiership', []), 5)}",
+        f"OTHER PREMIERSHIP CLUBS — "
+        f"{', '.join(b.get('others_clubs', []) or [])}:\n"
+        f"{_format_items(b.get('others', []), 5)}",
+        f"TRANSFERS:\n{_format_items(b.get('transfers', []), 4)}",
+        f"THIS WEEKEND'S FIXTURES:\n{_format_items(b.get('weekend', []), 4)}",
+        f"BAFANA BAFANA:\n{_format_items(b.get('bafana', []), 3)}",
         f"CUPS (MTN8 / Nedbank / Carling):\n{_format_items(b.get('cups', []), 3)}",
         f"CONTINENTAL (CAF):\n{_format_items(b.get('continental', []), 2)}",
     ]
