@@ -731,12 +731,12 @@ def write_manifest(script: dict, video_path: str, work: Path, voice: dict, image
             break
     kicker = CLUB_BRAND.get(clubs[0] if clubs else "", {}).get("name", "PSL")
     try:
-        from modules.thumb_engine import make_cover
+        from modules.thumb_engine import make_reel_cover
         if bg:
-            thumb = make_cover(work / "cover.png",
-                               hook=hook_from_title(script.get("title", "")),
-                               kicker=kicker, photo=bg, brand="genesis",
-                               focus=0.5)
+            thumb = make_reel_cover(
+                work / "cover.jpg",
+                hook=hook_from_title(script.get("title", "")),
+                kicker=kicker, photo=bg, brand="genesis", focus=0.5)
     except Exception as e:
         _log(f"thumb_engine cover skipped: {e}")
     if thumb == str(work / "card_1.png") and bg:

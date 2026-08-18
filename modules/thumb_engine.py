@@ -116,7 +116,8 @@ def _brand_bug(d, brand, x, y, small=False):
            fill=b["accent"])
 
 
-def _render(w, h, hook, kicker, chip, photo, brand, focus, vertical=False):
+def _render(w, h, hook, kicker, chip, photo, brand, focus, vertical=False,
+            bottom_safe=0.0):
     b = BRANDS[brand]
     if photo and Path(photo).exists():
         im = _fill(photo, w, h, focus=focus)
@@ -125,6 +126,9 @@ def _render(w, h, hook, kicker, chip, photo, brand, focus, vertical=False):
                     strength=210 if not vertical else 170)
     else:
         im = Image.new("RGB", (w, h), DARK)
+    # usable height: on a reel cover the bottom strip is covered by the
+    # caption, profile row and action buttons, so nothing may live there
+    uh = int(h * (1 - bottom_safe))
     # bottom scrim so the brand bug never disappears into busy photo detail
     scrim_h = int(h * 0.22)
     grad = Image.new("L", (1, scrim_h))
@@ -140,15 +144,19 @@ def _render(w, h, hook, kicker, chip, photo, brand, focus, vertical=False):
 
     # Zones, bottom-up: brand bug, then chip, and whatever is left is the
     # hook's. Nothing is allowed to grow into its neighbour.
-    brand_y = int(h * (0.855 if not vertical else 0.905))
-    chip_h = int(h * (0.115 if not vertical else 0.085))
-    chip_y = brand_y - int(h * 0.035) - (chip_h if chip else 0)
+    brand_y = int(uh * (0.855 if not vertical else 0.905))
+    chip_h = int(h * (0.115 if not vertical else 0.075))
+    chip_y = brand_y - int(h * 0.030) - (chip_h if chip else 0)
 
     # accent rule + kicker
     ky = int(h * (0.11 if not vertical else 0.085))
     d.rectangle([pad, ky, pad + int(w * 0.10), ky + 12], fill=b["accent"])
     kf_size = int(h * (0.052 if not vertical else 0.040))
     if kicker:
+        # shrink to fit — a kicker running off the edge reads as broken
+        while kf_size > 18 and d.textlength(
+                kicker.upper(), font=_font(kf_size)) > w - pad * 2:
+            kf_size -= 2
         d.text((pad, ky + 30), kicker.upper(), font=_font(kf_size),
                fill=b["accent"])
 
@@ -188,9 +196,24 @@ def make_thumb(out, hook, kicker="", chip="", photo=None, brand="careers",
 
 def make_cover(out, hook, kicker="", chip="", photo=None, brand="careers",
                focus=0.5):
-    """1080x1350 vertical cover for Facebook / TikTok."""
+    """1080x1350 (4:5) cover for a Facebook/Instagram FEED photo post."""
     im = _render(1080, 1350, hook, kicker, chip, photo, brand, focus,
                  vertical=True)
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    im.save(out, quality=94)
+    return str(out)
+
+
+def make_reel_cover(out, hook, kicker="", chip="", photo=None,
+                    brand="careers", focus=0.5):
+    """1080x1920 (9:16) cover for a REEL — Facebook, Instagram, TikTok.
+
+    A reel cover MUST match the video's 9:16 or the platform crops it, which
+    is what made our covers look the wrong size. The bottom ~26% is reserved
+    because the caption, profile row and action buttons sit over it.
+    """
+    im = _render(1080, 1920, hook, kicker, chip, photo, brand, focus,
+                 vertical=True, bottom_safe=0.26)
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     im.save(out, quality=94)
     return str(out)

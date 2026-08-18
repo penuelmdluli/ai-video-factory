@@ -29,7 +29,7 @@ os.environ["PAGE_LOCK_OWNER"] = "build_careers_post.py"
 sys.path.insert(0, str(Path(__file__).parent))
 
 from modules.careers_kit import job_alert, make_job_card  # noqa: E402
-from modules.thumb_engine import make_cover, make_thumb  # noqa: E402
+from modules.thumb_engine import make_reel_cover, make_thumb  # noqa: E402
 from modules.uploader_facebook import (  # noqa: E402
     post_comment, upload_photo, upload_to_facebook)
 
@@ -160,11 +160,13 @@ async def publish(job: dict, video_path: str | None, card_only=False):
     # Covers. Without these Facebook and YouTube each grab a random mid-video
     # frame — a letterboxed vertical clip that reads as nothing in a feed.
     hook = job.get("hook") or f"{job['employer'].title()} is hiring"
-    fb_cover = make_cover(OUT / f"careers_{job['key']}_cover.jpg",
-                          hook=hook, kicker=job.get("kicker", ""),
-                          chip=f"closes {job['closes'].title()}",
-                          photo=job.get("bg_photo"), brand="careers",
-                          focus=job.get("focus", 0.55))
+    # 9:16 — a reel cover that is not the video's aspect gets cropped by
+    # Facebook and reads as the wrong size.
+    fb_cover = make_reel_cover(OUT / f"careers_{job['key']}_cover.jpg",
+                               hook=hook, kicker=job.get("kicker", ""),
+                               chip=f"closes {job['closes'].title()}",
+                               photo=job.get("bg_photo"), brand="careers",
+                               focus=job.get("focus", 0.55))
     yt_thumb = make_thumb(OUT / f"careers_{job['key']}_thumb.jpg",
                           hook=hook, kicker=job.get("kicker", ""),
                           chip=f"{job['days_left']} days left",
