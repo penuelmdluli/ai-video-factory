@@ -703,7 +703,8 @@ def _story_intro(script: dict, work: Path, max_dur: float) -> str | None:
 
 
 async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
-                   cc_clip: dict | None = None) -> str:
+                   cc_clip: dict | None = None,
+                   log_rows: list | None = None) -> str:
     """
     Compose the reel directly — NO Ken Burns, NO zoom, NO cinematic effects.
 
@@ -770,6 +771,21 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
                     vsc.with_start(0.3).with_duration(emb_dur)
                     .with_position((CANVAS[0] - int(vsc.w) - 20, WIN_Y + 10)))
             _log(f"live window: {emb_dur:.1f}s full-bleed on dark stage")
+
+            # Animated stats band over the card's static log strip. Live
+            # table only — the strip used to be dead artwork under moving
+            # video; now it staggers in, ticks the points up, pulses the club
+            # the story is about and flips to a focus panel.
+            try:
+                from modules.stats_layer import stats_band, BAND_XY
+                club = (resolve_clubs(script.get("title", "")) or [None])[0]
+                band = stats_band(log_rows, emb_dur, club=club)
+                if band:
+                    overlay_layers.append(
+                        band.with_start(0.3).with_position(BAND_XY))
+                    _log(f"stats band: live log, {len(log_rows)} rows")
+            except Exception as e:
+                _log(f"stats band skipped: {e}")
         except Exception as e:
             _log(f"cc clip window skipped: {e}")
 
@@ -943,7 +959,8 @@ async def main():
                         has_video=bool(cc_clip),
                         video_cards=(2 if (cc_clip and cc_clip.get("owner"))
                                      else (1 if cc_clip else 0)))
-    video = await assemble(script, voice, cards, work, cc_clip=cc_clip)
+    video = await assemble(script, voice, cards, work, cc_clip=cc_clip,
+                           log_rows=log_rows)
     write_manifest(script, video, work, voice, images, prediction, log_rows)
 
     _log("BUILD COMPLETE")
