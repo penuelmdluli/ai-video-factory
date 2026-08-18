@@ -19,16 +19,33 @@ def job_alert(out, employer="TRANSNET", programme="Work Integrated Learning",
               details=("18 months", "TVET N4-N6", "5 coastal cities"),
               closes="24 AUGUST", days_left=7,
               source="Verified on the official Transnet careers portal",
-              duration=9.0):
-    from PIL import Image, ImageDraw
+              bg_photo=None, photo_credit="", duration=9.0):
+    from PIL import Image, ImageDraw, ImageFilter
     siren = icon("siren", 150)
     star = icon("star", 90)
+    photo = None
+    if bg_photo and Path(bg_photo).exists():
+        ph = Image.open(bg_photo).convert("RGB")
+        s = max(W / ph.width, H / ph.height)
+        ph = ph.resize((int(ph.width * s), int(ph.height * s)))
+        photo = ph.crop(((ph.width - W) // 2, (ph.height - H) // 2,
+                         (ph.width - W) // 2 + W, (ph.height - H) // 2 + H))
+        photo = photo.filter(ImageFilter.GaussianBlur(2))
 
     def frame(t):
-        im = Image.new("RGB", (W, H), DARK)
-        d = ImageDraw.Draw(im, "RGBA")
-        _base(d)
-        d.text((46, 96), "MZANSI CAREERS — VERIFIED OPPORTUNITY",
+        if photo is not None:
+            im = photo.copy()
+            dk = Image.new("RGBA", (W, H), (8, 10, 12, 195))
+            im = Image.alpha_composite(im.convert("RGBA"), dk).convert("RGB")
+            d = ImageDraw.Draw(im, "RGBA")
+            d.rectangle([0, 0, W, 170], fill=(10, 10, 12, 240))
+            d.text((44, 40), "MZANSI CAREERS", font=_font(42),
+                   fill=(255, 255, 255))
+        else:
+            im = Image.new("RGB", (W, H), DARK)
+            d = ImageDraw.Draw(im, "RGBA")
+            _base(d)
+        d.text((46, 96), "VERIFIED OPPORTUNITY — WE CHECK EVERY POST",
                font=_font(28, False), fill=GREEN)
         # green pulse frame
         pulse = int(50 + 35 * abs(math.sin(t * 3)))
@@ -98,5 +115,10 @@ def job_alert(out, employer="TRANSNET", programme="Work Integrated Learning",
             sw2 = d.textlength(source, font=sf)
             d.text(((W - sw2) / 2, 1650), source, font=sf,
                    fill=(200, 205, 210))
+        if photo_credit:
+            cf = _font(20, False)
+            cw2 = d.textlength(photo_credit, font=cf)
+            d.text((W - cw2 - 30, H - 40), photo_credit, font=cf,
+                   fill=(150, 155, 162))
         return im
     return _render(frame, out, duration)
