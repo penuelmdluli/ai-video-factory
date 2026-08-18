@@ -696,33 +696,61 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
     return str(out)
 
 
+def hook_from_title(title: str) -> str:
+    """Squeeze a headline into a thumbnail hook.
+
+    'Chiefs vs Sundowns: Da Cruz's Five-Injury Problem' -> "Da Cruz's
+    Five-Injury Problem". Drops the fixture prefix and trailing punctuation
+    but never cuts mid-phrase — the thumb engine shrinks to fit, so a clipped
+    hook would just read as broken.
+    """
+    t = (title or "").strip()
+    if ":" in t:
+        t = t.split(":")[-1].strip() or t
+    for sep in (" — ", " - "):
+        if sep in t:
+            t = t.split(sep)[0].strip() or t
+    t = t.rstrip("?!.").strip()
+    return t or "PSL"
+
+
 def write_manifest(script: dict, video_path: str, work: Path, voice: dict, images: list | None = None, prediction: str = "", log_rows: list | None = None) -> Path:
     hashtags = NICHES[NICHE]["hashtags"]
     caption = script.get("caption") or script.get("title", "")
 
-    # Reel cover: BOTH club badges, huge — a badge-first thumbnail out-pulls a
-    # photo card at feed size (owner rule 2026-08-14).
-    # Cover = the card_2 look the owner picked: real photo, crests, live log,
-    # headline — with the Genesis logo BIG in the top space (cover_mode).
+    # Reel cover. The old badge-first news_card read as dull at feed size —
+    # busy, dark, headline too small to land (owner call 2026-08-18). Now the
+    # thumb_engine look: photo edge-to-edge, ONE huge hook, fixed brand bug.
+    # news_card stays as the fallback when there is no usable photo.
     thumb = str(work / "card_1.png")
+    clubs = resolve_clubs(script.get("title", "") + " " + caption)
+    bg, bg_credit = None, ""
+    for img in images or []:
+        if Path(img.get("path", "")).exists():
+            bg, bg_credit = img["path"], img.get("credit", "")
+            break
+    kicker = CLUB_BRAND.get(clubs[0] if clubs else "", {}).get("name", "PSL")
     try:
-        from modules.news_card import make_news_card
-        clubs = resolve_clubs(script.get("title", "") + " " + caption)
-        bg, bg_credit = None, ""
-        for img in images or []:
-            if Path(img.get("path", "")).exists():
-                bg, bg_credit = img["path"], img.get("credit", "")
-                break
+        from modules.thumb_engine import make_cover
         if bg:
-            kicker = CLUB_BRAND.get(clubs[0] if clubs else "", {}).get("name", "PSL")
+            thumb = make_cover(work / "cover.png",
+                               hook=hook_from_title(script.get("title", "")),
+                               kicker=kicker, photo=bg, brand="genesis",
+                               focus=0.5)
+    except Exception as e:
+        _log(f"thumb_engine cover skipped: {e}")
+    if thumb == str(work / "card_1.png") and bg:
+        try:
+            from modules.news_card import make_news_card
             c = make_news_card(bg, work / "cover.png",
                                headline=script.get("title", ""), kicker=kicker,
                                credit=bg_credit, club=clubs[0] if clubs else "",
-                               log_rows=log_rows or None, cover_mode=True, big_crest=True)
+                               log_rows=log_rows or None, cover_mode=True,
+                               big_crest=True)
             if c:
                 thumb = c
-    except Exception as e:
-        _log(f"cover skipped: {e}")
+        except Exception as e:
+            _log(f"cover skipped: {e}")
     manifest = {
         "niche": NICHE,
         "format_type": "short",
