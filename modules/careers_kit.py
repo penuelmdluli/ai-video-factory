@@ -15,6 +15,34 @@ from modules.motion_kit import (_base, _font, _ease, _over, _render, icon,
 GREEN = (46, 200, 113)
 
 
+def _backdrop(w, h):
+    """Brand backdrop for posts with no photo.
+
+    Government circular posts have no employer photo, and the reel came out as
+    a flat black void. This gives every post a designed ground instead.
+    """
+    from PIL import Image, ImageDraw
+    im = Image.new("RGB", (w, h), (8, 12, 10))
+    d = ImageDraw.Draw(im, "RGBA")
+    for y in range(h):                       # deep green vertical wash
+        t = y / h
+        d.line([(0, y), (w, y)],
+               fill=(int(8 + 16 * (1 - t)), int(20 + 34 * (1 - t)),
+                     int(14 + 24 * (1 - t))))
+    for i in range(-h, w, 120):              # faint diagonal ribbing
+        d.line([(i, h), (i + h, 0)], fill=(*GREEN, 14), width=38)
+    d.ellipse([w * 0.16, h * 0.20, w * 0.84, h * 0.62],
+              fill=(*GREEN, 16))
+    return im
+
+
+def _fit(d, text, size, max_w, bold=True, floor=18):
+    """Largest font at or below `size` whose text fits max_w."""
+    while size > floor and d.textlength(text, font=_font(size, bold)) > max_w:
+        size -= 2
+    return _font(size, bold)
+
+
 def make_job_card(out, employer="TRANSNET",
                   programme="Work Integrated Learning Programme",
                   details=("18-month programme with a stipend",
@@ -28,7 +56,7 @@ def make_job_card(out, employer="TRANSNET",
     """Static shareable card — the image-post twin of the job_alert reel."""
     from PIL import Image, ImageDraw, ImageFilter
     CW, CH = 1080, 1350
-    im = Image.new("RGB", (CW, CH), DARK)
+    im = _backdrop(CW, CH)
     if bg_photo and Path(bg_photo).exists():
         ph = Image.open(bg_photo).convert("RGB")
         s = max(CW / ph.width, 640 / ph.height)
@@ -51,8 +79,11 @@ def make_job_card(out, employer="TRANSNET",
     cw2 = d.textlength(chip, font=cf)
     d.rounded_rectangle([44, 560, 44 + cw2 + 48, 630], radius=16, fill=GREEN)
     d.text((68, 574), chip, font=cf, fill=(10, 10, 12))
-    d.text((44, 660), employer, font=_font(84), fill=(255, 255, 255))
-    d.text((44, 775), programme, font=_font(36, False), fill=(220, 224, 228))
+    d.text((44, 660), employer, font=_fit(d, employer, 84, CW - 88),
+           fill=(255, 255, 255))
+    d.text((44, 775), programme,
+           font=_fit(d, programme, 36, CW - 88, bold=False),
+           fill=(220, 224, 228))
     y = 860
     for det in details:
         d.ellipse([50, y + 10, 74, y + 34], fill=GREEN)
@@ -118,9 +149,11 @@ def job_alert(out, employer="TRANSNET", programme="Work Integrated Learning",
             d.text((44, 40), "MZANSI CAREERS", font=_font(42),
                    fill=(255, 255, 255))
         else:
-            im = Image.new("RGB", (W, H), DARK)
+            im = _backdrop(W, H)
             d = ImageDraw.Draw(im, "RGBA")
-            _base(d)
+            d.rectangle([0, 0, W, 170], fill=(10, 10, 12, 240))
+            d.text((44, 40), "MZANSI CAREERS", font=_font(42),
+                   fill=(255, 255, 255))
         d.text((46, 96), "VERIFIED OPPORTUNITY — WE CHECK EVERY POST",
                font=_font(28, False), fill=GREEN)
         # green pulse frame
@@ -142,11 +175,11 @@ def job_alert(out, employer="TRANSNET", programme="Work Integrated Learning",
             d.text(((W - jw) / 2, 430), "JOB ALERT!", font=jf, fill=GREEN)
         if t > 0.9:
             g = _over(min(1, (t - 0.9) / 0.35))
-            ef = _font(int(84 * g))
+            ef = _fit(d, employer, int(84 * g), W - 110)
             ew = d.textlength(employer, font=ef)
             d.text(((W - ew) / 2, 620), employer, font=ef,
                    fill=(255, 255, 255))
-            pf = _font(40, False)
+            pf = _fit(d, programme, 40, W - 130, bold=False)
             pw = d.textlength(programme, font=pf)
             d.text(((W - pw) / 2, 750), programme, font=pf,
                    fill=(220, 224, 228))
@@ -156,7 +189,7 @@ def job_alert(out, employer="TRANSNET", programme="Work Integrated Learning",
             tu = _over(min(1, max(0, (t - 1.5 - i * 0.45) / 0.35)))
             if tu <= 0:
                 continue
-            cf = _font(int(38 * tu))
+            cf = _fit(d, det, int(38 * tu), W - 150)
             cw = d.textlength(det, font=cf)
             d.rounded_rectangle([(W - cw) / 2 - 28, y,
                                  (W + cw) / 2 + 28, y + 78], radius=18,

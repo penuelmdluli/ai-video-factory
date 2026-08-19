@@ -104,7 +104,7 @@ def opportunity_for(name, url, programme):
         "employer": name,
         "programme": programme,
         "card_details": lines,
-        "reel_details": tuple(l[:38] for l in lines[:3]),
+        "reel_details": tuple(lines[:3]),
         "must_verify": lines,          # lifted from the page, so they verify
         "apply_url": link["final"],
         "closes": "", "closes_full": "", "closes_card": "", "days_left": None,
@@ -201,10 +201,11 @@ def dpsa_opportunity():
         return None
 
     # the official document's own words — the gate checks these against it
+    tidy = lambda v: v.strip().rstrip(":").strip()          # noqa: E731
     details = [
-        f"Salary: {nxt['salary']}",
-        f"Centre: {nxt['centre']}",
-        f"Closing date: {nxt['closing']}",
+        f"Salary: {tidy(nxt['salary'])}",
+        f"Centre: {tidy(nxt['centre'])}",
+        f"Closing date: {tidy(nxt['closing'])}",
     ]
     if nxt["ref"]:
         details.insert(0, f"Reference: {nxt['ref']}")
@@ -231,7 +232,7 @@ def dpsa_opportunity():
         "employer": short.upper(),
         "programme": nxt["title"].title()[:60],
         "card_details": details,
-        "reel_details": tuple(d[:38] for d in details[:3]),
+        "reel_details": tuple(details[:3]),
         # verify only the short factual strings, which appear verbatim
         "must_verify": [nxt["salary"], nxt["centre"], nxt["closing"]],
         "source_text": source_text,

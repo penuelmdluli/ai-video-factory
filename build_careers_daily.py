@@ -25,6 +25,24 @@ from modules.careers_kit import job_alert                 # noqa: E402
 OUT = Path("output")
 
 
+def _closing(op):
+    """(label, days_left) from the source's own closing date, or ('', None).
+
+    Never invented: if the source states no date the countdown stays off.
+    """
+    from datetime import datetime, date
+    raw = (op.get("closes") or "").strip()
+    if not raw:
+        return "", None
+    for fmt in ("%d %B %Y", "%d %b %Y"):
+        try:
+            d = datetime.strptime(raw, fmt).date()
+            return raw.upper(), max(0, (d - date.today()).days)
+        except ValueError:
+            continue
+    return raw.upper(), None
+
+
 async def make_reel(op) -> str | None:
     """Voiced job alert for this opportunity."""
     from modules.voice_generator import generate_voice
@@ -41,9 +59,12 @@ async def make_reel(op) -> str | None:
         return None
     audio = v.get("audio_path") if isinstance(v, dict) else v
     dur = AudioFileClip(str(audio)).duration
+    # The circular publishes a real closing date, so show the countdown.
+    closes, days = _closing(op)
     silent = job_alert(work / "alert.mp4", employer=op["employer"],
-                       programme=op["programme"][:34],
-                       details=op["reel_details"], closes="", days_left=None,
+                       programme=op["programme"],
+                       details=op["reel_details"], closes=closes,
+                       days_left=days,
                        source=op["source"], duration=dur + 1.4)
     out = work / "reel.mp4"
     (VideoFileClip(str(silent))

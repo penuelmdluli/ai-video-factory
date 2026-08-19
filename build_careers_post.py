@@ -67,8 +67,8 @@ def build_caption(job: dict) -> str:
         "",
         (f"🗓️ CLOSING DATE: {job['closes_full']}" if job.get("closes_full")
          and job.get("closes") else
-         "🗓️ Transnet does not publish a closing date for this one — check "
-         "the portal regularly."),
+         f"🗓️ {job['employer'].title()} does not publish a closing date for "
+         "this one — check the source regularly."),
         "",
         "HOW TO APPLY",
     ]
@@ -95,8 +95,8 @@ def build_caption(job: dict) -> str:
 
 def build_comment(job: dict) -> str:
     deadline = (f"Closing {job['closes_full']}. " if job.get("closes")
-                else "Transnet does not list a closing date on this page, so "
-                     "check it regularly. ")
+                else f"{job['employer'].title()} does not list a closing "
+                     "date on this page, so check it regularly. ")
     return (
         f"📌 APPLY HERE (official {job['employer']} page only):\n"
         f"{job['apply_url']}\n\n"
@@ -173,8 +173,8 @@ async def publish(job: dict, video_path: str | None, card_only=False):
         OUT / f"careers_{job['key']}_card.png",
         employer=job["employer"], programme=job["programme"],
         details=job["card_details"], closes=job["closes_card"],
-        apply_line=f"Apply FREE on the official {job['employer'].title()} "
-                   "careers portal",
+        apply_line=job.get("apply_line")
+        or f"Apply FREE — official {job['employer'].title()} source",
         bg_photo=job.get("bg_photo"),
         photo_credit=job.get("photo_credit", ""))
     print(f"[Careers] card: {card}")
@@ -192,17 +192,26 @@ async def publish(job: dict, video_path: str | None, card_only=False):
     # Covers. Without these Facebook and YouTube each grab a random mid-video
     # frame — a letterboxed vertical clip that reads as nothing in a feed.
     hook = job.get("hook") or f"{job['employer'].title()} is hiring"
+    # Covers had no image at all for circular posts — a flat black rectangle
+    # in the feed. Fall back to the brand backdrop so there is always artwork.
+    photo = job.get("bg_photo")
+    if not photo:
+        from modules.careers_kit import _backdrop
+        bd = OUT / "careers_backdrop.jpg"
+        if not bd.exists():
+            _backdrop(1080, 1920).save(bd, quality=92)
+        photo = str(bd)
     # 9:16 — a reel cover that is not the video's aspect gets cropped by
     # Facebook and reads as the wrong size.
     fb_cover = make_reel_cover(OUT / f"careers_{job['key']}_cover.jpg",
                                hook=hook, kicker=job.get("kicker", ""),
                                chip=f"closes {job['closes'].title()}",
-                               photo=job.get("bg_photo"), brand="careers",
+                               photo=photo, brand="careers",
                                focus=job.get("focus", 0.55))
     yt_thumb = make_thumb(OUT / f"careers_{job['key']}_thumb.jpg",
                           hook=hook, kicker=job.get("kicker", ""),
                           chip=f"{job['days_left']} days left",
-                          photo=job.get("bg_photo"), brand="careers",
+                          photo=photo, brand="careers",
                           focus=job.get("focus", 0.66))
     print(f"[Careers] covers: {fb_cover} | {yt_thumb}")
 
