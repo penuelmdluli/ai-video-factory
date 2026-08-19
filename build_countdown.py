@@ -44,10 +44,10 @@ def _mark(fid: str):
     STATE.write_text(json.dumps(st, indent=2), encoding="utf-8")
 
 
-async def next_fixture():
+async def next_fixture(force: bool = False):
     """The most important fixture inside the window that we have not done."""
     now = datetime.now(SAST)
-    done = _state()
+    done = {} if force else _state()      # --force also ignores the state
     best = None
     for dd in range(0, 3):
         for f in (await fixtures_for(now + timedelta(days=dd))) or []:
@@ -69,7 +69,7 @@ async def next_fixture():
 
 
 async def build_and_post(dry=False, force=False):
-    got = await next_fixture()
+    got = await next_fixture(force)
     if not got:
         print("[Countdown] no fixture due in the window — nothing to post")
         return 1
@@ -84,24 +84,42 @@ async def build_and_post(dry=False, force=False):
     OUT.mkdir(parents=True, exist_ok=True)
     out = OUT / f"countdown_{f['id']}.mp4"
 
-    from modules.motion_kit import countdown, attach_voice
+    from modules.motion_kit import countdown
+    from modules.voice_generator import generate_voice
+    from moviepy import VideoFileClip, AudioFileClip, CompositeAudioClip
     short = (lambda n: n.replace("Mamelodi ", "").replace("Orlando ", "")
              .replace("Kaizer ", "").replace(" FC", "").upper())
+
+    venue = f.get("venue") or ""
+    call = (f"{f['home']} against {f['away']}. "
+            + f"Kick-off {when.strftime('%A')} at {when.strftime('%H:%M')}"
+            + (f", at {venue}. " if venue else ". ")
+            + "Who takes it? Drop your score in the comments. "
+              "Subscribe to Genesis News — we call every game before kick-off.")
+
+    # VOICE FIRST, then size the animation to it. Rendering a fixed 7s clip
+    # and attaching a 15s narration cut the voice off mid-sentence.
+    v = await generate_voice(call, OUT, f"countdown_{f['id']}", "short",
+                             "sa_pulse")
+    audio_p = (v or {}).get("audio_path")
+    vdur = AudioFileClip(audio_p).duration if audio_p else 7.0
+    print(f"[Countdown] narration {vdur:.1f}s — timer runs the full length")
+
     clip = countdown(out,
                      title=f"{short(f['home'])} v {short(f['away'])}",
                      when=when.strftime("%A %d %B · %H:%M").upper(),
                      clubs=(f.get("home_key") or "chiefs",
                             f.get("away_key") or "pirates"),
-                     start_secs=secs, duration=7.0)
+                     start_secs=secs, duration=vdur + 1.0)
 
-    venue = f.get("venue") or ""
-    call = (f"{f['home']} against {f['away']}. "
-            f"Kick-off {when:%A} at {when:%H:%M}"
-            + (f", at {venue}. " if venue else ". ")
-            + "Who takes it? Drop your score in the comments. "
-              "Subscribe to Genesis News — we call every game before kick-off.")
-    voiced = await attach_voice(str(clip), call,
-                                str(out).replace(".mp4", "_voiced.mp4"))
+    voiced = str(out).replace(".mp4", "_voiced.mp4")
+    if audio_p:
+        (VideoFileClip(str(clip))
+         .with_audio(CompositeAudioClip([AudioFileClip(audio_p)]))
+         .write_videofile(voiced, fps=30, codec="libx264",
+                          audio_codec="aac", logger=None))
+    else:
+        voiced = str(clip)
 
     if dry:
         print(f"[Countdown] dry run — {voiced}")

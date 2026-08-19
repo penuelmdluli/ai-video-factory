@@ -101,6 +101,17 @@ async def attach_voice(video_path, text: str, out_path=None) -> str:
             return str(video_path)
         clip = VideoFileClip(str(video_path))
         voice = AudioFileClip(audio_p)
+        # NEVER cut the narration. with_duration(clip.duration) silently
+        # truncated the voice whenever it ran longer than the animation —
+        # a countdown ended mid-sentence. Hold the final frame instead.
+        if voice.duration > clip.duration + 0.05:
+            from moviepy import ImageClip, concatenate_videoclips
+            tail = voice.duration - clip.duration + 0.4
+            freeze = (ImageClip(clip.get_frame(max(0, clip.duration - 0.05)))
+                      .with_duration(tail))
+            print(f"[MotionKit] voice is {voice.duration:.1f}s vs "
+                  f"{clip.duration:.1f}s of video — holding the last frame")
+            clip = concatenate_videoclips([clip, freeze], method="compose")
         clip = clip.with_audio(
             CompositeAudioClip([voice]).with_duration(clip.duration))
         clip.write_videofile(str(out_path), fps=30, codec="libx264",
