@@ -169,10 +169,12 @@ async def build(post: bool):
                      "finish? Follow Genesis News.")
             from modules.motion_kit import attach_voice
             race = await attach_voice(race, call)
-            rcap = (f"🏁 THE LOG RACE — watch this week's movers.\n"
-                    f"{top['name']} on top with {top['points']} points.\n\n"
-                    "Who climbs next week? 👇⚽\n"
-                    "#PSL #BetwayPremiership")
+            head = ("🏁 THE LOG RACE — the table going into this weekend."
+                    if friday else "🏁 THE LOG RACE — this week's movers.")
+            rcap = (head + "\n\n"
+                    + f"{top['name']} on top with {top['points']} points."
+                    + "\n\nWho climbs this round? 👇⚽\n"
+                    + "#PSL #BetwayPremiership #KaizerChiefs")
             fb = await upload_to_facebook(video_path=race, title="The Log Race",
                                           description=rcap, niche="sa_pulse",
                                           is_reel=True)
@@ -181,6 +183,22 @@ async def build(post: bool):
                 await post_comment(fb_id, "Screenshot the table and tag a fan "
                                    "whose team is falling 👇😂", "sa_pulse")
             print(f"[Log] LOG RACE posted: {fb_id}")
+            # the race never reached YouTube, which is where the
+            # subscriber growth actually has to come from
+            try:
+                from modules.uploader_youtube import upload_to_youtube
+                ytitle = ("The Log Race — Betway Premiership table "
+                          + ("this weekend" if friday else "this week")
+                          + " #Shorts")
+                yt = await upload_to_youtube(
+                    video_path=race, title=ytitle[:95],
+                    description=rcap,
+                    tags=["PSL", "Betway Premiership", "log"],
+                    niche="sa_pulse", is_short=True,
+                    privacy="public")
+                print(f"[Log] LOG RACE on YouTube: {yt.get('video_id')}")
+            except Exception as e:
+                print(f"[Log] youtube skipped: {str(e)[:120]}")
         except Exception as e:
             print(f"[Log] log race skipped: {str(e)[:120]}")
     return str(out)
