@@ -1,0 +1,14 @@
+{
+  "government": {
+    "path": "C:\\Users\\PenuelM\\Documents\\ai-video-factory\\assets\\careers_bg\\government.jpg",
+    "credit": "photo: Ruby D-Brown (CC BY 4.0, Wikimedia)"
+  },
+  "city": {
+    "path": "C:\\Users\\PenuelM\\Documents\\ai-video-factory\\assets\\careers_bg\\city.jpg",
+    "credit": "photo: CivArmy (CC BY-SA 4.0, Wikimedia)"
+  },
+  "work": {
+    "path": "C:\\Users\\PenuelM\\Documents\\ai-video-factory\\assets\\careers_bg\\work.jpg",
+    "credit": "photo: RogersK (CC BY-SA 4.0, Wikimedia)"
+  }
+}

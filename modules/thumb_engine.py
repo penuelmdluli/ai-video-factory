@@ -178,6 +178,10 @@ def _render(w, h, hook, kicker, chip, photo, brand, focus, vertical=False,
 
     if chip:
         cf_size = int(chip_h * 0.62)
+        # shrink to fit: "CLOSES 31 AUGUST 2026" ran off the right edge
+        while cf_size > 18 and d.textlength(
+                chip.upper(), font=_font(cf_size)) > w - pad * 2 - 52:
+            cf_size -= 2
         cf = _font(cf_size)
         cw = d.textlength(chip.upper(), font=cf)
         d.rounded_rectangle([pad, chip_y, pad + cw + 52, chip_y + chip_h],

@@ -11,6 +11,10 @@ export type NewsCardProps = {
   logRows?: { rank: number; name: string; points: number;
               team_key: string }[];
   clubKey?: string;
+  /** The reel plays live footage in a window over this card (y 178-958) and
+   *  composites its own animated log band at y 824-944. In that mode the card
+   *  must leave the zone clear and sit its type BELOW it, or the two collide. */
+  videoMode?: boolean;
 };
 
 const GOLD = "#FFC800";
@@ -25,13 +29,13 @@ const INK = "#0A0C10";
  */
 export const NewsCard: React.FC<NewsCardProps> = ({
   headline, kicker, credit, photo, clubColor = GOLD, archiveYear,
-  logRows = [], clubKey,
+  logRows = [], clubKey, videoMode = false,
 }) => (
   <AbsoluteFill style={{
     background: INK, fontFamily: "Arial Black, Arial, sans-serif",
     color: "#fff",
   }}>
-    {photo ? (
+    {photo && !videoMode ? (
       <>
         <Img src={staticFile(photo)} style={{
           width: "100%", height: "100%", objectFit: "cover",
@@ -42,6 +46,13 @@ export const NewsCard: React.FC<NewsCardProps> = ({
             `${INK}E6 66%, ${INK} 100%)`,
         }} />
       </>
+    ) : null}
+
+    {videoMode ? (
+      <div style={{
+        position: "absolute", left: 0, right: 0, top: 178, height: 780,
+        background: "#0C0E12",
+      }} />
     ) : null}
 
     {/* masthead */}
@@ -74,10 +85,13 @@ export const NewsCard: React.FC<NewsCardProps> = ({
     </AbsoluteFill>
 
     {/* headline block, anchored low */}
-    <AbsoluteFill style={{
-      justifyContent: "flex-end", padding: "0 44px 56px", gap: 20,
+    <div style={{
+      position: "absolute", left: 0, right: 0, bottom: 0,
+      top: videoMode ? 958 : 0,
+      display: "flex", flexDirection: "column", justifyContent: "flex-end",
+      padding: "0 44px 56px", gap: 20,
     }}>
-      {logRows.length ? (
+      {logRows.length && !videoMode ? (
         <div style={{
           display: "flex", gap: 8, background: "#0A0C10EB", borderRadius: 16,
           padding: "12px 14px", marginBottom: 6,
@@ -132,6 +146,6 @@ export const NewsCard: React.FC<NewsCardProps> = ({
           {credit}
         </div>
       ) : null}
-    </AbsoluteFill>
+    </div>
   </AbsoluteFill>
 );

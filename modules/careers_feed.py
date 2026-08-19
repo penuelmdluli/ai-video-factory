@@ -221,6 +221,14 @@ def dpsa_opportunity():
     state.setdefault("dpsa_done", []).append(key_of(nxt))
     _save(state)
 
+    # A real, credited photo instead of a flat green rectangle in the feed.
+    try:
+        from modules.careers_images import backdrop_for
+        bg, bg_credit = backdrop_for(nxt["department"], nxt["title"])
+    except Exception as e:
+        print(f"[CareersFeed] backdrop unavailable: {e}")
+        bg, bg_credit = None, ""
+
     dept = nxt["department"] or "Public Service"
     # "DEPARTMENT OF BASIC EDUCATION" truncated to 28 chars cut mid-word;
     # drop the boilerplate prefix and keep the name itself.
@@ -241,12 +249,14 @@ def dpsa_opportunity():
         "closes": nxt["closing"], "closes_full": nxt["closing"],
         "closes_card": f"CLOSES {nxt['closing'].upper()}", "days_left": None,
         "hook": nxt["title"].title()[:44],
-        "kicker": dept.title()[:40],
+        "kicker": dept.title(),
         "source": f"Public Service Vacancy Circular {circ['number']} of "
                   f"{circ['year']}",
         # generic wording turned into "official Forestry, Fisheries And The
         # Environment source", which wraps badly and reads like filler
         "apply_line": "Apply FREE via the official DPSA circular",
+        "bg_photo": bg,
+        "photo_credit": bg_credit,
         "apply_steps": [
             "Open the official DPSA circular (link in the comments)",
             f"Find post {nxt['post_no']} — reference {nxt['ref'] or 'in the circular'}",
