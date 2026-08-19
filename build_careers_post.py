@@ -169,15 +169,43 @@ async def publish(job: dict, video_path: str | None, card_only=False):
     comment = build_comment(job)
     results = {}
 
-    card = make_job_card(
-        OUT / f"careers_{job['key']}_card.png",
-        employer=job["employer"], programme=job["programme"],
-        details=job["card_details"], closes=job["closes_card"],
-        apply_line=job.get("apply_line")
-        or f"Apply FREE — official {job['employer'].title()} source",
-        bg_photo=job.get("bg_photo"),
-        photo_credit=job.get("photo_credit", ""))
-    print(f"[Careers] card: {card}")
+    card_path = OUT / f"careers_{job['key']}_card.png"
+    apply_line = (job.get("apply_line")
+                  or f"Apply FREE — official {job['employer'].title()} source")
+
+    # Genesis Studio first: long department names and salary lines wrap there
+    # instead of being shrunk to fit. PIL stays as the fallback so a renderer
+    # problem can never stop a verified opportunity going out.
+    card = None
+    try:
+        from modules.studio import render_still, stage_asset, available
+        if available():
+            photo = (stage_asset(job["bg_photo"])
+                     if job.get("bg_photo") else None)
+            card = render_still("JobCard", {
+                "employer": job["employer"],
+                "programme": job["programme"],
+                "details": job["card_details"],
+                "closes": job.get("closes_card", ""),
+                "applyLine": apply_line,
+                "source": job.get("source", ""),
+                "photo": photo,
+                "photoCredit": job.get("photo_credit", ""),
+            }, card_path)
+            if card:
+                print(f"[Careers] card: {card} (Genesis Studio)")
+    except Exception as e:
+        print(f"[Careers] studio card skipped: {e}")
+
+    if not card:
+        card = make_job_card(
+            card_path,
+            employer=job["employer"], programme=job["programme"],
+            details=job["card_details"], closes=job["closes_card"],
+            apply_line=apply_line,
+            bg_photo=job.get("bg_photo"),
+            photo_credit=job.get("photo_credit", ""))
+        print(f"[Careers] card: {card} (PIL fallback)")
 
     r = await upload_photo(card, caption, NICHE)
     print(f"[Careers] FB card: {r}")

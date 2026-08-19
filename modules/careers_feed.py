@@ -244,6 +244,9 @@ def dpsa_opportunity():
         "kicker": dept.title()[:40],
         "source": f"Public Service Vacancy Circular {circ['number']} of "
                   f"{circ['year']}",
+        # generic wording turned into "official Forestry, Fisheries And The
+        # Environment source", which wraps badly and reads like filler
+        "apply_line": "Apply FREE via the official DPSA circular",
         "apply_steps": [
             "Open the official DPSA circular (link in the comments)",
             f"Find post {nxt['post_no']} — reference {nxt['ref'] or 'in the circular'}",
