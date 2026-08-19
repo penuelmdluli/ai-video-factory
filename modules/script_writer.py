@@ -73,7 +73,15 @@ REEL STRUCTURE (follow this beat map for every short):
 - THE KEY BATTLE (0:25-0:45): the football insight — the matchup, the tactical question,
   the form line, the player under pressure. This is what makes it worth watching.
 - CALL TO ACTION (0:45-0:60): a debate question that fans MUST answer in the comments
-  ("Drop your score prediction"), then follow on Facebook / subscribe on YouTube.
+  ("Drop your score prediction"), then the closing ask.
+  THE CLOSING LINE IS MANDATORY and must use the word "subscribe" out loud, with a
+  REASON to come back — not a bare "follow us". The same audio runs on YouTube,
+  Facebook and TikTok, and on YouTube "subscribe" is the action that counts.
+  Vary the wording every time, and name what they get:
+    "Subscribe to Genesis News — we call every Chiefs game before kick-off."
+    "Subscribe. We break the team news before the whistle."
+    "Hit subscribe — the log race, every Friday, on Genesis News."
+  Never end on the debate question alone.
 
 TITLE RULES (the title decides whether anyone presses play — treat it as the
 single most important line you write):

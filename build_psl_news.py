@@ -161,11 +161,41 @@ async def pick_topic() -> str:
     return topic
 
 
+# Rotating closing asks. The prompt requires one, but a prompt is a request,
+# not a guarantee — and the channel converts ~0.25% of views to subscribers,
+# so the ask is too valuable to leave to chance.
+SUBSCRIBE_LINES = [
+    "Subscribe to Genesis News — we call every Chiefs game before kick-off.",
+    "Subscribe. We break the team news before the whistle.",
+    "Hit subscribe — the log race, every Friday, on Genesis News.",
+    "Subscribe to Genesis News for the real Amakhosi picture, every day.",
+    "Subscribe — we post the team sheets the moment they land.",
+]
+
+
+def _ensure_subscribe(script: dict) -> dict:
+    """Guarantee the last scene actually says 'subscribe'."""
+    scenes = script.get("scenes") or []
+    if not scenes:
+        return script
+    last = scenes[-1]
+    text = (last.get("narration") or "")
+    if "subscrib" in text.lower():
+        return script
+    from datetime import datetime as _d
+    line = SUBSCRIBE_LINES[_d.now().timetuple().tm_yday % len(SUBSCRIBE_LINES)]
+    last["narration"] = f"{text.rstrip()} {line}".strip()
+    last["duration_seconds"] = last.get("duration_seconds", 4) + 2
+    _log("closing subscribe ask was missing — appended")
+    return script
+
+
 async def write_script(topic: str) -> dict:
     from modules.script_writer import generate_script
     script = await generate_script(topic, NICHE, "short")
     if not script:
         raise RuntimeError("script generation failed")
+    script = _ensure_subscribe(script)
     _log(f"script: {script.get('title', '')[:70]} ({len(script.get('scenes', []))} scenes)")
     return script
 
