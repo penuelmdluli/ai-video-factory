@@ -122,7 +122,21 @@ def opportunity_for(name, url, programme):
     }
 
 
-def next_opportunity(skip_recent=True):
+def next_opportunity(skip_recent=True, prefer_dpsa=True):
+    """Next opportunity to post.
+
+    The circular is tried first: it is the only source with enough verified
+    volume to fill five slots a day. Employer pages are the fallback and the
+    variety.
+    """
+    if prefer_dpsa:
+        op = dpsa_opportunity()
+        if op:
+            return op
+    return _next_employer_page(skip_recent)
+
+
+def _next_employer_page(skip_recent=True):
     """The next employer due, skipping any posted inside the cooldown."""
     state = _load()
     now = datetime.now()
@@ -153,3 +167,87 @@ def next_opportunity(skip_recent=True):
             _save(state)
             return op
     return None
+
+
+# ── Government circular: the volume source ────────────────────────────────
+# Corporate careers sites are JavaScript and yield nothing to a scraper. The
+# DPSA circular is a plain weekly PDF with hundreds of real posts, published
+# by the employer itself. Every field below is quoted from that document.
+
+def dpsa_opportunity():
+    """The next unposted vacancy from the current DPSA circular."""
+    from modules.dpsa_circular import latest_circular, parse_posts, fetch_pdf
+    import io
+    try:
+        circ = latest_circular()
+        if not circ:
+            print("[CareersFeed] DPSA: no circular found")
+            return None
+        posts = parse_posts(circ["pdf"], limit=400)
+    except Exception as e:
+        print(f"[CareersFeed] DPSA unavailable: {e}")
+        return None
+    if not posts:
+        return None
+
+    state = _load()
+    done = set(state.get("dpsa_done", []))
+    key_of = lambda p: f"{circ['number']}:{p['post_no']}"          # noqa: E731
+    nxt = next((p for p in posts
+                if key_of(p) not in done and p["salary"] and p["centre"]
+                and p["closing"]), None)
+    if not nxt:
+        print("[CareersFeed] DPSA: every post in this circular already used")
+        return None
+
+    # the official document's own words — the gate checks these against it
+    details = [
+        f"Salary: {nxt['salary']}",
+        f"Centre: {nxt['centre']}",
+        f"Closing date: {nxt['closing']}",
+    ]
+    if nxt["ref"]:
+        details.insert(0, f"Reference: {nxt['ref']}")
+
+    try:
+        import PyPDF2
+        reader = PyPDF2.PdfReader(io.BytesIO(fetch_pdf(circ["pdf"])))
+        source_text = " ".join((pg.extract_text() or "")
+                               for pg in reader.pages)
+    except Exception:
+        source_text = ""
+
+    state.setdefault("dpsa_done", []).append(key_of(nxt))
+    _save(state)
+
+    dept = nxt["department"] or "Public Service"
+    # "DEPARTMENT OF BASIC EDUCATION" truncated to 28 chars cut mid-word;
+    # drop the boilerplate prefix and keep the name itself.
+    short = re.sub(r"^Department Of\s+", "", dept, flags=re.I).strip()
+    if len(short) > 26:
+        short = " ".join(short[:26].split()[:-1]) or short[:26]
+    return {
+        "key": f"dpsa-{circ['number']}-{nxt['post_no'].replace('/', '-').strip()}",
+        "employer": short.upper(),
+        "programme": nxt["title"].title()[:60],
+        "card_details": details,
+        "reel_details": tuple(d[:38] for d in details[:3]),
+        # verify only the short factual strings, which appear verbatim
+        "must_verify": [nxt["salary"], nxt["centre"], nxt["closing"]],
+        "source_text": source_text,
+        "apply_url": circ["page"],
+        "closes": nxt["closing"], "closes_full": nxt["closing"],
+        "closes_card": f"CLOSES {nxt['closing'].upper()}", "days_left": None,
+        "hook": nxt["title"].title()[:44],
+        "kicker": dept.title()[:40],
+        "source": f"Public Service Vacancy Circular {circ['number']} of "
+                  f"{circ['year']}",
+        "apply_steps": [
+            "Open the official DPSA circular (link in the comments)",
+            f"Find post {nxt['post_no']} — reference {nxt['ref'] or 'in the circular'}",
+            "Apply with a fully completed Z83 form and your CV",
+            "Send it to the address given in the circular before the closing date",
+        ],
+        "yt_title": f"{nxt['title'].title()[:60]} — {nxt['centre'][:24]}",
+        "yt_tags": ["government jobs", "DPSA", "public service", "SA jobs"],
+    }

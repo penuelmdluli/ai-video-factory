@@ -76,7 +76,9 @@ def gate(job: dict) -> dict:
         return {"ok": False, "link": link,
                 "reason": "no must_verify claims listed — refusing to post "
                           "unverified specifics"}
-    text = fetch_text(link["final"])
+    # A PDF circular's claims live in the document, not the landing page, so
+    # a caller that already read the official document supplies its text.
+    text = job.get("source_text") or fetch_text(link["final"])
     v = verify_claims(text, must)
     if not v["ok"]:
         return {"ok": False, "link": link, "claims": v,
