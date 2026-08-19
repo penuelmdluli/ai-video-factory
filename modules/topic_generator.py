@@ -196,6 +196,7 @@ async def generate_trending_topic_ai(
     hook_style: str = "",
     title_style: str = "",
     recent_titles: list[str] | None = None,
+    angle: str = "",
 ) -> str | None:
     """
     Use Gemini to generate a fresh trending topic for the niche.
@@ -286,6 +287,16 @@ async def generate_trending_topic_ai(
         if perf_keywords:
             perf_context = f"\n\nOur TOP PERFORMING past topics included these themes: {', '.join(perf_keywords)}"
             perf_context += "\nThese themes get the MOST engagement from our audience. Lean into them."
+
+        # The slot's required angle. Without this the rotation was decorative:
+        # it was logged, then only used if generation failed outright.
+        if angle:
+            perf_context += (
+                "\n\nREQUIRED ANGLE FOR THIS POST: " + angle
+                + "\nThe topic MUST take this angle. Our own "
+                "numbers say posts built on a disagreement out-perform "
+                "straight information by a wide margin, so name who "
+                "disagrees with whom.")
 
         # A/B test modifiers
         hook_instruction = ""
