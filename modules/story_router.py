@@ -21,6 +21,10 @@ from modules.club_brand import resolve_club, resolve_clubs
 
 # Ordered — first match wins, so the most specific patterns sit at the top.
 PATTERNS = [
+    ("dispute", re.compile(
+        r"\b(says?|said|warns?|warning|insists?|denies|denied|rejects?|"
+        r"hits? back|responds?|blames?|slams?|questions?|disagrees?|"
+        r"aren'?t|isn'?t|refuses?)\b", re.I)),
     ("rumour", re.compile(
         r"\b(rumour|rumor|reportedly|reports? (claim|say|link)|linked (with|to)|"
         r"in talks|hold talks|could join|set to (join|sign)|eyeing|target(ing)?|"
@@ -29,8 +33,10 @@ PATTERNS = [
         r"\b(next (match|game|up)|upcoming|look ahead|who they face|"
         r"fixtures? ahead|weekend fixtures|days to go|countdown)\b", re.I)),
     ("transfer", re.compile(
-        r"\b(sign(s|ed|ing)?|transfer|move to|joins?|exit|departure|leaves?|"
-        r"loan|deal|unveil|snap up|swoop|contract terminated|sold)\b", re.I)),
+        r"\b(transfers?|signs?( \w+){0,3} (for|from|with)|signing of|"
+        r"completes? (a )?(move|deal|signing)|unveil(s|ed)?|"
+        r"contract terminated|sold to|snapped up|swoop for|"
+        r"loan (move|deal|spell)|joins? [A-Z])\b", re.I)),
     ("quote", re.compile(r"[\"“']([^\"”']{12,})[\"”']|\bsays?\b|\bwarns?\b|"
                          r"\btells?\b|\binsists?\b|\bslams?\b", re.I)),
     ("injury", re.compile(
@@ -48,7 +54,7 @@ PATTERNS = [
 
 # Which templates we are willing to open a NEWS reel with. Result/goal reels
 # are built by the matchday pipeline from real event data, never guessed here.
-SUPPORTED = {"rumour", "lookahead", "transfer", "quote", "injury",
+SUPPORTED = {"dispute", "rumour", "lookahead", "transfer", "quote", "injury",
              "discipline", "table", "preview", "player"}
 
 
@@ -74,6 +80,13 @@ def classify(title: str, extra: str = "") -> tuple[str, dict]:
                     continue
                 params["quote"] = after[1].strip(" :—-")[:110]
             params["author"] = _speaker(text)
+        if kind == "dispute":
+            params["speaker"] = _person(title)
+            after = re.split(r"\b(?:says?|said|warns?|insists?|denies|"
+                             r"rejects?|blames?|slams?)\b", text,
+                             maxsplit=1, flags=re.I)
+            params["claim"] = (after[1].strip(" :—-")[:70]
+                               if len(after) > 1 else "")
         if kind in ("rumour", "transfer"):
             params["player"] = _person(title)
             params["from_club"] = clubs[0] if clubs else "chiefs"
@@ -223,6 +236,23 @@ def render_intro(kind: str, params: dict, out_path, duration: float = 6.5):
     club = params.get("club") or "chiefs"
     try:
         from modules import motion_kit as mk
+        if kind == "dispute":
+            clubs = params.get("clubs") or []
+            if not (params.get("speaker") and params.get("claim")):
+                return None
+            # The speaker gets NO crest: a headline reading "Chiefs vs
+            # Sundowns: Kekana says..." does not tell us which club he plays
+            # for, and guessing put a Sundowns player in a Chiefs badge.
+            other = clubs[1] if len(clubs) > 1 else (
+                clubs[0] if clubs else "")
+            label = (resolve_club(other) or other or "THE OTHER SIDE")
+            return mk.clash(
+                out,
+                side_a=(params["speaker"], None),
+                side_b=(str(label).upper(), other or None),
+                claim_a=params["claim"],
+                claim_b="",          # never invent a quote for the other side
+                verdict="WHO IS RIGHT?", duration=duration)
         if kind == "rumour":
             # A rumour is NOT a signing. Same move graphic, but stamped so no
             # viewer can read it as a done deal.

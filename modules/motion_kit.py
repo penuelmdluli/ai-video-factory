@@ -701,3 +701,98 @@ def countdown(out, title="SUNDOWNS v GALLANTS", when="WEDNESDAY 19:30",
                             radius=8, fill=(*GOLD, 160))
         return im
     return _render(frame, out, duration)
+
+
+# ── 9. THE CLASH ───────────────────────────────────────────────────────────
+def clash(out, side_a=("KEKANA", "sundowns"), side_b=("MAJORO", "chiefs"),
+          claim_a="WE ARE NOT OUT TO PROVE ANYTHING",
+          claim_b="THIS IS A STATEMENT GAME",
+          verdict="WHO IS RIGHT?", duration=7.0):
+    """Two people, two claims, one argument — built like the goal reel.
+
+    The goal reel works because it is STAGED: slam, then the substance, then
+    a stamp. The news intros were one flat move, and nine reels in a row
+    opened with the same transfer graphic. This gives a dispute story its own
+    three-beat open, and the page's best posts are all disputes.
+
+    Phase 1 (0-1.6s)  the slam: impact, club colour wash, "THE ARGUMENT"
+    Phase 2 (1.6-5s)  the two sides punch in, crest + name + what they said
+    Phase 3 (5s-end)  the verdict stamp, pulsing, asking the audience
+    """
+    from PIL import Image, ImageDraw
+    # A crest asserts which club someone belongs to. We often cannot verify
+    # that from a headline, so an unknown side gets no badge rather than a
+    # guessed one.
+    ca = _crest(side_a[1], 190) if side_a[1] else None
+    cb = _crest(side_b[1], 190) if side_b[1] else None
+    boom = icon("impact", 190)
+
+    def wrap(d, text, fnt, max_w):
+        words, line, lines = text.split(), "", []
+        for w in words:
+            t = (line + " " + w).strip()
+            if d.textlength(t, font=fnt) <= max_w:
+                line = t
+            else:
+                lines.append(line)
+                line = w
+        lines.append(line)
+        return [ln for ln in lines if ln]
+
+    def frame(t):
+        im = Image.new("RGB", (W, H), DARK)
+        d = ImageDraw.Draw(im, "RGBA")
+        _base(d)
+        d.text((46, 96), "THE ARGUMENT", font=_font(28, False),
+               fill=(235, 90, 70))
+
+        # phase 1 — slam
+        u = _ease(min(1, t / 0.5))
+        if boom and t < 2.0:
+            g = 1.0 - max(0, (t - 1.4) / 0.6)
+            s = max(1, int(190 * (2.2 - 1.2 * u) * g))
+            ic = boom.resize((s, s))
+            im.paste(ic, (W // 2 - ic.width // 2, 430 - ic.height // 2), ic)
+        if t > 0.25:
+            g = _over(min(1, (t - 0.25) / 0.4))
+            vf = _font(int(96 * g))
+            vw = d.textlength("VS", font=vf)
+            d.text(((W - vw) / 2, 900), "VS", font=vf, fill=GOLD)
+
+        # phase 2 — the two sides
+        for i, (side, crest, claim) in enumerate(
+                ((side_a, ca, claim_a), (side_b, cb, claim_b))):
+            start = 1.5 + i * 0.55
+            if t < start:
+                continue
+            g = _over(min(1, (t - start) / 0.45))
+            top = 560 if i == 0 else 1180
+            slide = int((1 - g) * (-120 if i == 0 else 120))
+            if crest:
+                cc = crest.resize((max(1, int(190 * g)),) * 2)
+                im.paste(cc, (70, top + slide - 20), cc)
+            nf = _font(int(58 * g))
+            d.text((290, top + slide), side[0].upper(), font=nf,
+                   fill=(255, 255, 255))
+            if claim:
+                qf = _font(36)
+                lines = wrap(d, '"' + claim + '"', qf, W - 340)
+                for j, ln in enumerate(lines[:3]):
+                    d.text((290, top + slide + 74 + j * 46), ln, font=qf,
+                           fill=(205, 212, 220))
+            d.rectangle([70, top + slide + 210, W - 70,
+                         top + slide + 214], fill=(*GOLD, 90))
+
+        # phase 3 — verdict stamp
+        if t > 4.9:
+            g = _over(min(1, (t - 4.9) / 0.4))
+            pulse = 0.85 + 0.15 * math.sin((t - 4.9) * 6)
+            vf = _font(int(66 * g * pulse))
+            vw = d.textlength(verdict, font=vf)
+            d.rounded_rectangle([(W - vw) / 2 - 40, 1560,
+                                 (W + vw) / 2 + 40, 1700], radius=24,
+                                fill=(235, 90, 70, 240))
+            d.text(((W - vw) / 2, 1592), verdict, font=vf,
+                   fill=(255, 255, 255))
+        return im
+    return _render(frame, out, duration)
