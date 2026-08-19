@@ -40,3 +40,6 @@ assets/clip_library/
 blog/.wrangler/
 blog/build/
 data/growth_analytics.db
+genesis-studio/node_modules/
+genesis-studio/out/
+genesis-studio/install.log
