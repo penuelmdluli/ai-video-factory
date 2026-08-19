@@ -840,7 +840,12 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
     video = video.with_audio(CompositeAudioClip(audio_tracks).with_duration(duration))
 
     out = work / "final.mp4"
+    # Unique temp audio per build. MoviePy defaults to "<name>TEMP_MPY_wvf_snd"
+    # beside the output, and with ten scheduled slots a day two builds can
+    # overlap and fight over that file (WinError 32), killing one of them.
+    _tmp_audio = str(work / f"_snd_{os.getpid()}.m4a")
     video.write_videofile(str(out), fps=30, codec="libx264", audio_codec="aac",
+                          temp_audiofile=_tmp_audio,
                           preset="medium", threads=4, logger=None)
     for c in stills:
         c.close()
@@ -939,7 +944,16 @@ async def main():
     work = Path(OUTPUT_DIR) / f"{NICHE}_short_{stamp}"
     work.mkdir(parents=True, exist_ok=True)
 
-    topic = await pick_topic()
+    if args.topic:
+        topic = args.topic
+        _log(f"topic forced by operator: {topic}")
+        try:
+            from modules.topic_generator import _record_topic
+            _record_topic(NICHE, topic)
+        except Exception:
+            pass
+    else:
+        topic = await pick_topic()
     script = await write_script(topic)
     voice = await make_voice(script, work)
     images, cc_clip = await gather_images(script, briefing, work)

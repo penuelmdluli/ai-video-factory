@@ -557,12 +557,40 @@ async def generate_viral_short_script(
 
 
 def _clean_json_response(text: str) -> str:
-    """Extract JSON from AI response, handling markdown code blocks."""
-    # Remove markdown code blocks
+    """Extract the JSON object from an AI response.
+
+    Models often append a sentence after the JSON ("Here is the script...",
+    a note, a second fenced block). json.loads then dies with "Extra data",
+    which failed a whole build. Take the FIRST balanced {...} object and
+    ignore whatever follows.
+    """
     text = re.sub(r"```json\s*", "", text)
     text = re.sub(r"```\s*", "", text)
     text = text.strip()
-    return text
+
+    start = text.find("{")
+    if start == -1:
+        return text
+    depth, in_str, esc = 0, False, False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    return text[start:]
 
 
 def _add_affiliate_links(description: str, niche: str) -> str:
