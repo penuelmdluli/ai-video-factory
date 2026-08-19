@@ -1,0 +1,52 @@
+{
+  "headline": "Chiefs Transfers: Confirmed vs 'Reports Claim'",
+  "kicker": "Kaizer Chiefs",
+  "credit": "photo: owner footage \u00b7 Genesis News",
+  "photo": "news_photo.jpg",
+  "clubColor": "#FFC107",
+  "logRows": [
+    {
+      "rank": 1,
+      "name": "Pirates",
+      "team_key": "pirates",
+      "played": 3,
+      "points": 7
+    },
+    {
+      "rank": 2,
+      "name": "Chiefs",
+      "team_key": "chiefs",
+      "played": 3,
+      "points": 7
+    },
+    {
+      "rank": 3,
+      "name": "AmaZulu",
+      "team_key": "amazulu",
+      "played": 3,
+      "points": 7
+    },
+    {
+      "rank": 4,
+      "name": "Sekhukhune",
+      "team_key": "sekhukhune",
+      "played": 3,
+      "points": 6
+    },
+    {
+      "rank": 5,
+      "name": "Milford",
+      "team_key": "milford",
+      "played": 3,
+      "points": 6
+    },
+    {
+      "rank": 6,
+      "name": "Stellenbosch",
+      "team_key": "stellenbosch",
+      "played": 3,
+      "points": 4
+    }
+  ],
+  "clubKey": "chiefs"
+}

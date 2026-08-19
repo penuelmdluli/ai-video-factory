@@ -25,6 +25,11 @@ ellipsis, wrapping — so those bugs cannot occur.
   circular vacancy. A 39-character department name wraps to three lines
   instead of being shrunk to fit or cut to "FORESTRY, FISHERIES AND".
 
+  NewsCard — the PSL card. Ported, rendering over real match footage with the
+  live log strip. Headlines are our most variable text (four words to a full
+  sentence), so the size is a clamp and the block wraps: a 96-character
+  headline sets on three lines with nothing clipped.
+
 Stills use render_still.mjs; motion uses render.mjs.
 
 Renders write to out/. First render downloads a headless Chrome shell (~113MB,

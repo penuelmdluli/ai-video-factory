@@ -2,8 +2,10 @@ import React from "react";
 import { Composition, Still } from "remotion";
 import { StatsBand } from "./StatsBand";
 import { JobCard } from "./JobCard";
+import { NewsCard } from "./NewsCard";
 import band from "../input/band.example.json";
 import card from "../input/card.example.json";
+import news from "../input/news.example.json";
 
 export const RemotionRoot: React.FC = () => (
   <>
@@ -22,6 +24,13 @@ export const RemotionRoot: React.FC = () => (
       width={1080}
       height={1350}
       defaultProps={card as any}
+    />
+    <Still
+      id="NewsCard"
+      component={NewsCard as any}
+      width={1080}
+      height={1920}
+      defaultProps={news as any}
     />
   </>
 );
