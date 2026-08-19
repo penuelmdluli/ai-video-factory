@@ -19,8 +19,13 @@ ellipsis, wrapping — so those bugs cannot occur.
 
 ## Status
 
-  StatsBand — the live league band that runs under match footage. Ported and
-  rendering from real standings data.
+  StatsBand — the live league band under match footage. Ported, rendering
+  from real standings.
+  JobCard  — the shareable careers card. Ported, rendering from a real DPSA
+  circular vacancy. A 39-character department name wraps to three lines
+  instead of being shrunk to fit or cut to "FORESTRY, FISHERIES AND".
+
+Stills use render_still.mjs; motion uses render.mjs.
 
 Renders write to out/. First render downloads a headless Chrome shell (~113MB,
 once).

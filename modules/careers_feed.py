@@ -224,9 +224,10 @@ def dpsa_opportunity():
     dept = nxt["department"] or "Public Service"
     # "DEPARTMENT OF BASIC EDUCATION" truncated to 28 chars cut mid-word;
     # drop the boilerplate prefix and keep the name itself.
+    # Keep the whole department name. Cutting at 26 characters produced
+    # "FORESTRY, FISHERIES AND" — the card renderers shrink or wrap now, so
+    # the data layer has no business truncating.
     short = re.sub(r"^Department Of\s+", "", dept, flags=re.I).strip()
-    if len(short) > 26:
-        short = " ".join(short[:26].split()[:-1]) or short[:26]
     return {
         "key": f"dpsa-{circ['number']}-{nxt['post_no'].replace('/', '-').strip()}",
         "employer": short.upper(),
