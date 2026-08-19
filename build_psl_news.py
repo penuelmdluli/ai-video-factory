@@ -98,13 +98,16 @@ def _is_fresh(topic: str, recent: list[str], min_new: int = 3,
 
 # Angle rotation — even the same club gets a different treatment each slot,
 # so three posts about one team are three different pieces of content.
+# Owner call 2026-08-19: stop re-telling the last Chiefs game. Half of these
+# angles now point FORWARD — the next fixture, the transfer window, what is
+# about to happen — so the page breaks news instead of reviewing it.
 ANGLES = [
-    "a match preview built on what actually decides the game",
-    "one player's form and what it means for the team",
-    "a tactical or formation angle",
-    "a transfer or squad-building story",
+    "LOOK AHEAD: the next fixture and what actually decides it",
+    "a transfer or rumour story — label anything unconfirmed as a report",
+    "one player's form and what it means for the games coming up",
+    "LOOK AHEAD: what this week's fixtures change in the title race",
+    "a tactical or formation angle pointed at the next opponent",
     "a league-wide story — the log race, another club, or a rival's result",
-    "a stat or record that fans will argue about",
 ]
 
 
@@ -926,6 +929,7 @@ def write_manifest(script: dict, video_path: str, work: Path, voice: dict, image
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--post", action="store_true", help="post to the Genesis News page after building")
+    ap.add_argument("--topic", default="", help="force a specific story angle")
     args = ap.parse_args()
 
     from modules.psl_news import get_psl_briefing

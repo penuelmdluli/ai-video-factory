@@ -21,6 +21,13 @@ from modules.club_brand import resolve_club, resolve_clubs
 
 # Ordered — first match wins, so the most specific patterns sit at the top.
 PATTERNS = [
+    ("rumour", re.compile(
+        r"\b(rumour|rumor|reportedly|reports? (claim|say|link)|linked (with|to)|"
+        r"in talks|hold talks|could join|set to (join|sign)|eyeing|target(ing)?|"
+        r"speculation|unlikely|denies?|not joining)\b", re.I)),
+    ("lookahead", re.compile(
+        r"\b(next (match|game|up)|upcoming|look ahead|who they face|"
+        r"fixtures? ahead|weekend fixtures|days to go|countdown)\b", re.I)),
     ("transfer", re.compile(
         r"\b(sign(s|ed|ing)?|transfer|move to|joins?|exit|departure|leaves?|"
         r"loan|deal|unveil|snap up|swoop|contract terminated|sold)\b", re.I)),
@@ -41,8 +48,8 @@ PATTERNS = [
 
 # Which templates we are willing to open a NEWS reel with. Result/goal reels
 # are built by the matchday pipeline from real event data, never guessed here.
-SUPPORTED = {"transfer", "quote", "injury", "discipline", "table", "preview",
-             "player"}
+SUPPORTED = {"rumour", "lookahead", "transfer", "quote", "injury",
+             "discipline", "table", "preview", "player"}
 
 
 def classify(title: str, extra: str = "") -> tuple[str, dict]:
@@ -67,7 +74,7 @@ def classify(title: str, extra: str = "") -> tuple[str, dict]:
                     continue
                 params["quote"] = after[1].strip(" :—-")[:110]
             params["author"] = _speaker(text)
-        if kind == "transfer":
+        if kind in ("rumour", "transfer"):
             params["player"] = _person(title)
             params["from_club"] = clubs[0] if clubs else "chiefs"
             params["to_club"] = clubs[1] if len(clubs) > 1 else ""
@@ -81,6 +88,9 @@ _STOP_NAME = {
     "Kaizer", "Chiefs", "Orlando", "Pirates", "Mamelodi", "Sundowns",
     "Amakhosi", "Buccaneers", "Masandawana", "Betway", "Premiership",
     "PSL", "The", "What", "Why", "How", "After", "Before", "This", "New",
+    # headline furniture that reads as a name to a capital-letter heuristic
+    "Reports", "Report", "Rumour", "Breaking", "Confirmed", "Official",
+    "Latest", "Exclusive", "Update", "Who", "Where", "When", "Watch",
 }
 
 
@@ -113,6 +123,55 @@ def _speaker(text: str) -> str:
     head = re.split(r"\bsays?\b|\bwarns?\b|\btells?\b|\binsists?\b", text,
                     maxsplit=1, flags=re.I)[0]
     return _person(head).title() or "Genesis News"
+
+
+def next_fixture(days: int = 8):
+    """The next real fixture, for look-ahead graphics. None if none found."""
+    import asyncio
+    from datetime import datetime, timedelta
+    from modules.psl_fixtures import fixtures_for, SAST, priority
+    try:
+        asyncio.get_running_loop()
+        return None                      # inside a loop: caller renders later
+    except RuntimeError:
+        pass
+
+    async def _scan():
+        now = datetime.now(SAST)
+        best = None
+        for dd in range(0, days):
+            for f in (await fixtures_for(now + timedelta(days=dd))) or []:
+                ko = f.get("kickoff_utc") or f.get("kickoff")
+                if best is None or priority(f) > priority(best[0]):
+                    best = (f, now + timedelta(days=dd))
+            if best and priority(best[0]) >= 2:
+                break
+        return best
+
+    try:
+        got = asyncio.run(_scan())
+    except Exception as e:
+        print(f"[StoryRouter] fixtures unavailable: {e}")
+        return None
+    if not got:
+        return None
+    f, day = got
+    # Count down to the real kickoff, not to midnight — using date-only
+    # granularity made every fixture read "00:00:55".
+    ko = f.get("kickoff_iso")
+    when = day
+    if ko:
+        try:
+            when = datetime.fromisoformat(ko)
+        except ValueError:
+            pass
+    secs = max(60, int((when - datetime.now(SAST)).total_seconds()))
+    short = lambda n: n.replace("Mamelodi ", "").replace("Orlando ", "")         .replace("Kaizer ", "").replace(" FC", "").upper()   # noqa: E731
+    return {"title": f"{short(f['home'])} v {short(f['away'])}",
+            "when": when.strftime("%A %d %B · %H:%M").upper(),
+            "clubs": (f.get("home_key") or "chiefs",
+                      f.get("away_key") or "pirates"),
+            "secs": secs}
 
 
 def _log_rows(top: int = 16) -> list:
@@ -164,6 +223,29 @@ def render_intro(kind: str, params: dict, out_path, duration: float = 6.5):
     club = params.get("club") or "chiefs"
     try:
         from modules import motion_kit as mk
+        if kind == "rumour":
+            # A rumour is NOT a signing. Same move graphic, but stamped so no
+            # viewer can read it as a done deal.
+            to_club = params.get("to_club") or ""
+            if not (params.get("player") and to_club):
+                return None
+            # Only show an origin crest when the headline itself named two
+            # clubs. Otherwise we would be asserting where he plays.
+            origin = params.get("from_club") if len(
+                params.get("clubs") or []) > 1 else None
+            return mk.transfer_move(out, player=params["player"],
+                                    from_club=origin, to_club=to_club,
+                                    fee="UNCONFIRMED REPORT",
+                                    kicker="TRANSFER RUMOUR",
+                                    player_photo=params.get("player_photo"),
+                                    duration=duration)
+        if kind == "lookahead":
+            fx = next_fixture()
+            if not fx:
+                return None
+            return mk.countdown(out, title=fx["title"], when=fx["when"],
+                                clubs=fx["clubs"], start_secs=fx["secs"],
+                                duration=duration)
         if kind == "transfer":
             to_club = params.get("to_club") or ""
             if not (params.get("player") and to_club):

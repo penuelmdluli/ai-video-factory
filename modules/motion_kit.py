@@ -478,17 +478,45 @@ def head_to_head(out, a=("CHAINE", "pirates"), b=("R. WILLIAMS", "sundowns"),
 # ── 5. TRANSFER MOVE ───────────────────────────────────────────────────────
 def transfer_move(out, player="THABO CELE", from_club="chiefs",
                   to_club="amazulu", fee="CONTRACT TERMINATED",
-                  duration=6.0):
+                  kicker="TRANSFER NEWS", player_photo=None, duration=6.0):
+    """Crest-to-crest move graphic.
+
+    from_club may be None. Showing a crest asserts the player is AT that club,
+    and on a rumour we often do not know that — so with no verified origin the
+    graphic draws a neutral marker instead of inventing a badge.
+    """
     from PIL import Image, ImageDraw
-    cfrom, cto = _crest(from_club, 260), _crest(to_club, 260)
+    cfrom = _crest(from_club, 260) if from_club else None
+    cto = _crest(to_club, 260)
+    portrait = None
+    if player_photo and Path(player_photo).exists():
+        portrait = Image.open(player_photo).convert("RGBA").resize((260, 260))
+        mask = Image.new("L", (260, 260), 0)
+        ImageDraw.Draw(mask).ellipse([0, 0, 259, 259], fill=255)
+        portrait.putalpha(mask)
 
     def frame(t):
         im = Image.new("RGB", (W, H), DARK)
         d = ImageDraw.Draw(im, "RGBA")
         _base(d)
-        d.text((46, 96), "TRANSFER NEWS", font=_font(28, False), fill=GOLD)
-        if cfrom:
+        # a rumour must not wear the same label as a confirmed deal
+        d.text((46, 96), kicker, font=_font(28, False),
+               fill=(235, 90, 70) if "RUMOUR" in kicker.upper() else GOLD)
+        if portrait is not None:
+            im.paste(portrait, (110, 640), portrait)
+        elif cfrom:
             im.paste(cfrom, (110, 640), cfrom)
+        else:
+            # unverified origin — a question mark, never a guessed badge
+            d.ellipse([110, 640, 370, 900], fill=(24, 28, 34),
+                      outline=(120, 128, 138), width=5)
+            qf = _font(120)
+            qw = d.textlength("?", font=qf)
+            d.text((240 - qw / 2, 690), "?", font=qf, fill=(150, 158, 168))
+            lf = _font(22, False)
+            lw = d.textlength("CURRENT CLUB", font=lf)
+            d.text((240 - lw / 2, 915), "CURRENT CLUB", font=lf,
+                   fill=(150, 158, 168))
         if cto:
             im.paste(cto, (W - 110 - cto.width, 640), cto)
         # token slides on an arc
@@ -512,8 +540,10 @@ def transfer_move(out, player="THABO CELE", from_club="chiefs",
             g = _over(min(1, (t - 2.4) / 0.4))
             boom = icon("impact", 150)
             if boom:
-                b2 = boom.resize((int(150 * g), int(150 * g)))
-                im.paste(b2, (W // 2 - b2.width // 2, 1080), b2)
+                # sits BESIDE the player name — pasted at 1080 it landed
+                # straight through the lettering
+                b2 = boom.resize((int(110 * g), int(110 * g)))
+                im.paste(b2, (W - b2.width - 70, 1030), b2)
             ff = _font(int(52 * g))
             fw = d.textlength(fee, font=ff)
             d.rounded_rectangle([(W - fw) / 2 - 30, 1230,
@@ -619,7 +649,10 @@ def countdown(out, title="SUNDOWNS v GALLANTS", when="WEDNESDAY 19:30",
         vf = _font(60)
         vw = d.textlength("VS", font=vf)
         d.text(((W - vw) / 2, 500), "VS", font=vf, fill=GOLD)
-        tf = _font(54)
+        tfs = 54
+        while tfs > 26 and d.textlength(title, font=_font(tfs)) > W - 90:
+            tfs -= 2
+        tf = _font(tfs)
         tw = d.textlength(title, font=tf)
         d.text(((W - tw) / 2, 780), title, font=tf, fill=(255, 255, 255))
         std = icon("stadium", 500)
