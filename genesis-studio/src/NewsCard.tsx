@@ -86,10 +86,15 @@ export const NewsCard: React.FC<NewsCardProps> = ({
 
     {/* headline block, anchored low */}
     <div style={{
-      position: "absolute", left: 0, right: 0, bottom: 0,
-      top: videoMode ? 958 : 0,
-      display: "flex", flexDirection: "column", justifyContent: "flex-end",
-      padding: "0 44px 56px", gap: 20,
+      position: "absolute", left: 0, right: 0,
+      // In video mode the karaoke captions and the subscribe strip own the
+      // bottom ~520px. The headline sits directly under the log band instead,
+      // or the two draw straight through each other.
+      top: videoMode ? 978 : 0,
+      bottom: videoMode ? 520 : 0,
+      display: "flex", flexDirection: "column",
+      justifyContent: videoMode ? "flex-start" : "flex-end",
+      padding: videoMode ? "0 44px" : "0 44px 56px", gap: 20,
     }}>
       {logRows.length && !videoMode ? (
         <div style={{
