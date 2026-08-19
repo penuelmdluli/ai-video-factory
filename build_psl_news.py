@@ -566,32 +566,6 @@ def build_cards(script: dict, images: list[dict], briefing: dict, work: Path,
         out = work / f"card_{i+1}.png"
         vm = i < video_cards        # this card carries the live window
 
-        # Genesis Studio first — headlines wrap there instead of being shrunk
-        # to fit one line. videoMode leaves the footage window clear so the
-        # live clip and the animated log band still land where they belong.
-        made = None
-        try:
-            from modules.studio import render_still, stage_asset, available
-            if available():
-                made = render_still("NewsCard", {
-                    "headline": text,
-                    "kicker": kicker,
-                    "credit": credit,
-                    "photo": None if vm else stage_asset(img["path"]),
-                    "clubColor": "#%02X%02X%02X" % CLUB_BRAND.get(
-                        club, {}).get("colors", {}).get(
-                            "primary", (255, 200, 0)),
-                    "logRows": (log_rows or []) if not vm else [],
-                    "clubKey": club,
-                    "videoMode": vm,
-                    "archiveYear": img.get("archive_year", ""),
-                }, out)
-        except Exception as e:
-            _log(f"studio card skipped: {e}")
-        if made:
-            cards.append(made)
-            continue
-
         made = make_news_card(img["path"], out, headline=text, kicker=kicker,
                               credit=credit, club=club,
                               archive_year=img.get("archive_year", ""),
