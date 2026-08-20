@@ -857,8 +857,13 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
             iv = iv.subclipped(0, min(iv.duration, duration * 0.34))
             # appended, not inserted — it must cover the live-footage window
             # and the credit strip while it plays, or they punch through it
+            # START AT 1.2s, NOT 0. TikTok picks the FIRST FRAME as the
+            # cover and we never set one, so every reel since 18 Aug was
+            # showing a dark crest card in the grid: those posts sit at
+            # 3-28 views while the ones whose cover is the news card sit at
+            # 900-1,600. Frame zero must be the card with the photo.
             overlay_layers.append(
-                iv.resized(CANVAS).with_start(0).with_position((0, 0)))
+                iv.resized(CANVAS).with_start(1.2).with_position((0, 0)))
         except Exception as e:
             _log(f"intro overlay skipped: {e}")
 
