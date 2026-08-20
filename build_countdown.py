@@ -26,7 +26,7 @@ from modules.psl_fixtures import fixtures_for, priority, SAST  # noqa: E402
 
 STATE = Path("data/countdown_posted.json")
 OUT = Path("output/countdown")
-WINDOW_HOURS = 30          # how far ahead we are willing to count down
+WINDOW_HOURS = 26          # matchday and the evening before, no further
 MIN_HOURS = 1.0            # too close to kick-off to be worth posting
 
 
@@ -62,6 +62,11 @@ async def next_fixture(force: bool = False):
             if not (MIN_HOURS <= hours <= WINDOW_HOURS):
                 continue
             if f.get("id") in done:
+                continue
+            # Extra volume belongs on OUR game days. A countdown to two clubs
+            # our audience does not follow is just another post competing
+            # with the three daily reels for the same reach.
+            if priority(f) < 1:
                 continue
             if best is None or priority(f) > priority(best[0]):
                 best = (f, when)
