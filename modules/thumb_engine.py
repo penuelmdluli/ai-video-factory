@@ -30,6 +30,9 @@ BRANDS = {
                 "name": "MZANSI CAREERS", "tag": "VERIFIED · NEVER PAY"},
     "genesis": {"accent": (255, 200, 0), "chip": (220, 50, 50),
                 "name": "GENESIS NEWS", "tag": "PSL · MZANSI FOOTBALL"},
+    # local South African subjects — places, heritage, community
+    "mzansi": {"accent": (255, 200, 0), "chip": (46, 200, 113),
+               "name": "THIS IS MZANSI", "tag": "SOUTH AFRICA, OURS"},
 }
 DARK = (10, 12, 15)
 

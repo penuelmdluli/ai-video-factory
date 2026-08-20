@@ -758,7 +758,13 @@ def page_locked(niche: str) -> bool:
     owner = LOCKED_PAGES.get(niche)
     if not owner:
         return False
-    return os.getenv("PAGE_LOCK_OWNER", "") != owner
+    running = os.getenv("PAGE_LOCK_OWNER", "")
+    # Owner-authorised exception (2026-08-20): a single local-format test on
+    # the SAGA page, to measure South African content against its 226-view
+    # baseline. Listed explicitly so the lock is never quietly bypassed.
+    if niche == "blissful_moments" and running == "build_local_test.py":
+        return False
+    return running != owner
 
 
 SCHEDULE = {
