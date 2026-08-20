@@ -55,12 +55,18 @@ def _mark(key: str, payload: dict):
 
 
 def build_caption(job: dict) -> str:
+    seats = job.get("positions") or 1
+    head = f"🚨 JOB ALERT — {job['employer'].upper()}"
+    if seats > 1:
+        head = f"🚨 {seats} POSITIONS — {job['employer'].upper()}"
     lines = [
-        f"🚨 JOB ALERT — {job['employer'].upper()}",
+        head,
         "",
         job["programme"],
         "",
     ]
+    if job.get("entry_level"):
+        lines.append("✅ NO DEGREE NEEDED — matric or less for most of these")
     for d in job["card_details"]:
         lines.append(f"✅ {d}")
     lines += [
@@ -102,8 +108,11 @@ def build_comment(job: dict) -> str:
         f"{job['apply_url']}\n\n"
         f"{deadline}Have your ID, CV and academic record ready as PDFs "
         "before you start.\n\n"
-        "🔁 SHARE this post — unemployment in Mzansi is beaten one shared "
-        "opportunity at a time. Tag someone who needs it 👇"
+        "🔁 SHARE this post — unemployment in Mzansi is beaten one "
+        "shared opportunity at a time. Tag someone who needs it 👇\n\n"
+        "💬 WHICH JOBS SHOULD WE POST NEXT? Comment your field — "
+        "teaching, nursing, driving, security, admin, trades, IT, "
+        "general work — and we post what you ask for."
     )
 
 

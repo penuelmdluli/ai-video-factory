@@ -132,3 +132,41 @@ def parse_posts(pdf_url_or_bytes, limit: int = 400) -> list[dict]:
             if len(posts) >= limit:
                 return posts
     return posts
+
+# Entry-level work is what most unemployed South Africans can actually apply
+# for: cleaners, drivers, general workers, road workers, porters. The circular
+# is full of them — 70 in one issue — and they were being skipped while the
+# page posted director posts nobody in that position can take.
+ENTRY_TITLES = re.compile(
+    r"cleaner|driver|general worker|road worker|food service|household aid|"
+    r"groundsman|gardener|messenger|porter|handyman|tradesman aid|labour|"
+    r"housekeep|security officer|kitchen|laundry|nursing assistant|"
+    r"auxiliary|data captur|receptionist|switchboard", re.I)
+ENTRY_MAX_SALARY = 260000          # rands per annum, ~level 1-5
+
+
+def salary_value(text):
+    """The annual rand figure in a salary line, or None."""
+    m = re.search(r"R" + chr(92) + "s?([" + chr(92) + "d ]{5,})", text or "")
+    if not m:
+        return None
+    try:
+        return int(m.group(1).replace(" ", ""))
+    except ValueError:
+        return None
+
+
+def positions_in(title):
+    """How many posts this advert carries: 'ROAD WORKER (X99 POSTS)' -> 99."""
+    m = re.search(r"[(]?" + chr(92) + "s*X" + chr(92) + "s*(" + chr(92) +
+                  "d{1,3})" + chr(92) + "s*POSTS?", title or "", re.I)
+    return int(m.group(1)) if m else 1
+
+
+def is_entry_level(post):
+    """True when someone without a degree could realistically apply."""
+    v = salary_value(post.get("salary", ""))
+    if v is not None and v <= ENTRY_MAX_SALARY:
+        return True
+    return bool(ENTRY_TITLES.search(post.get("title", "")) and
+                (v is None or v <= 330000))

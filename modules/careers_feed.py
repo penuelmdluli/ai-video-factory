@@ -190,19 +190,63 @@ def dpsa_opportunity():
     if not posts:
         return None
 
+    from modules.dpsa_circular import is_entry_level, positions_in
+
     state = _load()
     done = set(state.get("dpsa_done", []))
     key_of = lambda p: f"{circ['number']}:{p['post_no']}"          # noqa: E731
-    nxt = next((p for p in posts
-                if key_of(p) not in done and p["salary"] and p["centre"]
-                and p["closing"]), None)
+    usable = [p for p in posts
+              if key_of(p) not in done and p["salary"] and p["centre"]
+              and p["closing"]]
+
+    # The page has to work for everyone — the school leaver looking for a
+    # driver post AND the graduate teacher or nurse who cannot find a first
+    # job. So slots rotate through every field, and whatever people ASK for
+    # in the comments jumps the queue.
+    from modules.careers_categories import classify, rotation, label
+    try:
+        from modules.careers_requests import requested
+        wanted = requested()
+    except Exception as e:
+        print(f"[CareersFeed] requests unavailable: {e}")
+        wanted = []
+
+    n = int(state.get("slot_no", 0))
+    state["slot_no"] = n + 1
+    by_cat = {}
+    for p in usable:
+        by_cat.setdefault(classify(p), []).append(p)
+
+    nxt, chosen_cat = None, ""
+    # A requested field takes one slot in three — enough that people see
+    # their request answered, not so much that it crowds everyone else out.
+    honour = wanted if (n % 3 == 0) else []
+    for cat in rotation(n, honour):
+        pool = by_cat.get(cat)
+        if not pool:
+            continue
+        # inside a field, the advert that helps the most people goes first
+        # inside a field: work people can actually get first, then the
+        # advert that helps the most people
+        pool.sort(key=lambda p: (0 if is_entry_level(p) else 1,
+                                 -positions_in(p["title"])))
+        nxt, chosen_cat = pool[0], cat
+        break
+    if nxt is None and usable:
+        nxt, chosen_cat = usable[0], classify(usable[0])
+    if nxt is not None:
+        why = " (requested)" if chosen_cat in wanted else ""
+        print(f"[CareersFeed] field: {label(chosen_cat)}{why}")
     if not nxt:
         print("[CareersFeed] DPSA: every post in this circular already used")
         return None
 
     # the official document's own words — the gate checks these against it
     tidy = lambda v: v.strip().rstrip(":").strip()          # noqa: E731
-    details = [
+    details = []
+    if positions_in(nxt["title"]) > 1:
+        details.append(f"{positions_in(nxt['title'])} positions available")
+    details += [
         f"Salary: {tidy(nxt['salary'])}",
         f"Centre: {tidy(nxt['centre'])}",
         f"Closing date: {tidy(nxt['closing'])}",
@@ -229,6 +273,13 @@ def dpsa_opportunity():
         print(f"[CareersFeed] backdrop unavailable: {e}")
         bg, bg_credit = None, ""
 
+    seats = positions_in(nxt["title"])
+    # "ROAD WORKER ( X99 POSTS)" reads badly as a job title when the count is
+    # already its own line — strip it back to the role.
+    role = re.sub(r"[(]?" + chr(92) + "s*X" + chr(92) + "s*" + chr(92) +
+                  "d{1,3}" + chr(92) + "s*POSTS?" + chr(92) + "s*[)]?", "",
+                  nxt["title"], flags=re.I).strip(" .-()")
+    entry_level = is_entry_level(nxt)
     dept = nxt["department"] or "Public Service"
     # "DEPARTMENT OF BASIC EDUCATION" truncated to 28 chars cut mid-word;
     # drop the boilerplate prefix and keep the name itself.
@@ -239,7 +290,7 @@ def dpsa_opportunity():
     return {
         "key": f"dpsa-{circ['number']}-{nxt['post_no'].replace('/', '-').strip()}",
         "employer": short.upper(),
-        "programme": nxt["title"].title()[:60],
+        "programme": role.title()[:60],
         "card_details": details,
         "reel_details": tuple(details[:3]),
         # verify only the short factual strings, which appear verbatim
@@ -248,13 +299,17 @@ def dpsa_opportunity():
         "apply_url": circ["page"],
         "closes": nxt["closing"], "closes_full": nxt["closing"],
         "closes_card": f"CLOSES {nxt['closing'].upper()}", "days_left": None,
-        "hook": nxt["title"].title()[:44],
+        "hook": role.title()[:44],
         "kicker": dept.title(),
         "source": f"Public Service Vacancy Circular {circ['number']} of "
                   f"{circ['year']}",
         # generic wording turned into "official Forestry, Fisheries And The
         # Environment source", which wraps badly and reads like filler
         "apply_line": "Apply FREE via the official DPSA circular",
+        "positions": seats,
+        "entry_level": entry_level,
+        "category": chosen_cat,
+        "category_label": label(chosen_cat),
         "bg_photo": bg,
         "photo_credit": bg_credit,
         "apply_steps": [
@@ -263,6 +318,6 @@ def dpsa_opportunity():
             "Apply with a fully completed Z83 form and your CV",
             "Send it to the address given in the circular before the closing date",
         ],
-        "yt_title": f"{nxt['title'].title()[:60]} — {nxt['centre'][:24]}",
+        "yt_title": f"{role.title()[:60]} — {nxt['centre'][:24]}",
         "yt_tags": ["government jobs", "DPSA", "public service", "SA jobs"],
     }
