@@ -792,6 +792,8 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
             # Full-bleed window on a dark stage (card draws the stage +
             # horizontal log strip below) — no photo slivers, log visible.
             WIN_Y, WIN_H = 190, 620
+            # everything starts at 0: the footage window used to fade in at 0.3s, which left a black
+            # rectangle on frame zero — the frame TikTok takes as the cover
             vc = VideoFileClip(cc_clip["path"]).without_audio()
             # owner footage fills BOTH cards' windows; other sources card 1 only
             emb_dur = float(duration - 0.6) if cc_clip.get("owner")                 else float(per - 0.3)
@@ -803,11 +805,11 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
             x1 = max(0, int((emb.w - CANVAS[0]) / 2))
             y1 = max(0, int((emb.h - WIN_H) / 2))
             emb = (emb.cropped(x1=x1, y1=y1, width=CANVAS[0], height=WIN_H)
-                   .with_start(0.3).with_position((0, WIN_Y)))
+                   .with_start(0).with_position((0, WIN_Y)))
             overlay_layers.append(emb)
             overlay_layers.append(
                 ImageClip(_credit_strip(cc_clip["credit"], work))
-                .with_start(0.3).with_duration(emb_dur)
+                .with_start(0).with_duration(emb_dur)
                 .with_position((28, WIN_Y + WIN_H - 62)))
             # crest VS crest rides ON the footage — small, top-right corner,
             # never blocking the action
@@ -815,7 +817,7 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
             if vs:
                 vsc = ImageClip(vs).resized(0.55)
                 overlay_layers.append(
-                    vsc.with_start(0.3).with_duration(emb_dur)
+                    vsc.with_start(0).with_duration(emb_dur)
                     .with_position((CANVAS[0] - int(vsc.w) - 20, WIN_Y + 10)))
             _log(f"live window: {emb_dur:.1f}s full-bleed on dark stage")
 
@@ -829,7 +831,7 @@ async def assemble(script: dict, voice: dict, cards: list[str], work: Path,
                 band = stats_band(log_rows, emb_dur, club=club)
                 if band:
                     overlay_layers.append(
-                        band.with_start(0.3).with_position(BAND_XY))
+                        band.with_start(0).with_position(BAND_XY))
                     _log(f"stats band: live log, {len(log_rows)} rows")
             except Exception as e:
                 _log(f"stats band skipped: {e}")
