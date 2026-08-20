@@ -65,8 +65,8 @@ def build_caption(job: dict) -> str:
         job["programme"],
         "",
     ]
-    if job.get("entry_level"):
-        lines.append("✅ NO DEGREE NEEDED — matric or less for most of these")
+    if job.get("no_degree"):
+        lines.append("✅ NO DEGREE NEEDED for this one")
     for d in job["card_details"]:
         lines.append(f"✅ {d}")
     lines += [

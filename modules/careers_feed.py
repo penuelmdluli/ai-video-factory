@@ -190,7 +190,8 @@ def dpsa_opportunity():
     if not posts:
         return None
 
-    from modules.dpsa_circular import is_entry_level, positions_in
+    from modules.dpsa_circular import (is_entry_level, positions_in,
+                                       no_degree_needed)
 
     state = _load()
     done = set(state.get("dpsa_done", []))
@@ -221,7 +222,17 @@ def dpsa_opportunity():
     # A requested field takes one slot in three — enough that people see
     # their request answered, not so much that it crowds everyone else out.
     honour = wanted if (n % 3 == 0) else []
-    for cat in rotation(n, honour):
+    # Coverage must not cost the people who need us most their slots.
+    # Two of three go to low-barrier work whatever the field rotation
+    # says; the third rotates freely so every profession still appears.
+    if n % 3 != 2:
+        low = [q for q in usable if is_entry_level(q)]
+        if low:
+            low.sort(key=lambda q: (0 if no_degree_needed(q) else 1,
+                                    -positions_in(q["title"])))
+            nxt, chosen_cat = low[0], classify(low[0])
+            print("[CareersFeed] low-barrier slot")
+    for cat in ([] if nxt is not None else rotation(n, honour)):
         pool = by_cat.get(cat)
         if not pool:
             continue
@@ -280,6 +291,7 @@ def dpsa_opportunity():
                   "d{1,3}" + chr(92) + "s*POSTS?" + chr(92) + "s*[)]?", "",
                   nxt["title"], flags=re.I).strip(" .-()")
     entry_level = is_entry_level(nxt)
+    no_degree = no_degree_needed(nxt)
     dept = nxt["department"] or "Public Service"
     # "DEPARTMENT OF BASIC EDUCATION" truncated to 28 chars cut mid-word;
     # drop the boilerplate prefix and keep the name itself.
@@ -288,7 +300,8 @@ def dpsa_opportunity():
     # the data layer has no business truncating.
     short = re.sub(r"^Department Of\s+", "", dept, flags=re.I).strip()
     return {
-        "key": f"dpsa-{circ['number']}-{nxt['post_no'].replace('/', '-').strip()}",
+        "key": "dpsa-" + str(circ["number"]) + "-" + re.sub(
+            r"[^0-9]+", "-", nxt["post_no"]).strip("-"),
         "employer": short.upper(),
         "programme": role.title()[:60],
         "card_details": details,
@@ -308,6 +321,7 @@ def dpsa_opportunity():
         "apply_line": "Apply FREE via the official DPSA circular",
         "positions": seats,
         "entry_level": entry_level,
+        "no_degree": no_degree,
         "category": chosen_cat,
         "category_label": label(chosen_cat),
         "bg_photo": bg,

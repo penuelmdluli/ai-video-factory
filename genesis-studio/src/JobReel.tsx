@@ -47,9 +47,14 @@ export const JobReel: React.FC<JobReelProps> = ({
     }}>
       {photo ? (
         <>
-          <Img src={staticFile(photo)} style={{
-            width: "100%", height: "100%", objectFit: "cover", opacity: 0.34,
-          }} />
+          {/* absolutely positioned: as a flow child it consumed the full
+              column and pushed the masthead off the bottom of the frame */}
+          <AbsoluteFill>
+            <Img src={staticFile(photo)} style={{
+              width: "100%", height: "100%", objectFit: "cover",
+              opacity: 0.34,
+            }} />
+          </AbsoluteFill>
           <AbsoluteFill style={{
             background: `linear-gradient(to bottom, ${INK}CC, ${INK}F2)`,
           }} />

@@ -61,11 +61,38 @@ async def make_reel(op) -> str | None:
     dur = AudioFileClip(str(audio)).duration
     # The circular publishes a real closing date, so show the countdown.
     closes, days = _closing(op)
-    silent = job_alert(work / "alert.mp4", employer=op["employer"],
-                       programme=op["programme"],
-                       details=op["reel_details"], closes=closes,
-                       days_left=days,
-                       source=op["source"], duration=dur + 1.4)
+
+    # Genesis Studio reel first: the position count is the hook and the type
+    # cannot overflow. PIL job_alert stays as the fallback so a renderer
+    # problem never stops a verified opportunity going out.
+    silent = None
+    try:
+        from modules.studio import render_video, stage_asset, available
+        if available():
+            silent = render_video("JobReel", {
+                "employer": op["employer"],
+                "role": op["programme"],
+                "positions": op.get("positions", 1),
+                "details": op["card_details"],
+                "closes": (f"CLOSES {closes}" if closes else ""),
+                "entryLevel": bool(op.get("no_degree")),
+                "source": op.get("source", ""),
+                "photo": (stage_asset(op["bg_photo"])
+                          if op.get("bg_photo") else None),
+                "durationInSeconds": round(dur + 1.4, 2),
+            }, work / "alert_studio.mp4")
+            if silent:
+                print(f"[Careers] reel: Genesis Studio ({dur + 1.4:.1f}s)")
+    except Exception as e:
+        print(f"[Careers] studio reel skipped: {e}")
+
+    if not silent:
+        silent = job_alert(work / "alert.mp4", employer=op["employer"],
+                           programme=op["programme"],
+                           details=op["reel_details"], closes=closes,
+                           days_left=days,
+                           source=op["source"], duration=dur + 1.4)
+        print("[Careers] reel: PIL fallback")
     out = work / "reel.mp4"
     (VideoFileClip(str(silent))
      .with_audio(CompositeAudioClip([AudioFileClip(str(audio))]))

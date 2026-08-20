@@ -164,9 +164,24 @@ def positions_in(title):
 
 
 def is_entry_level(post):
-    """True when someone without a degree could realistically apply."""
+    """Low-barrier work: prioritised in the rotation, not a public claim."""
     v = salary_value(post.get("salary", ""))
     if v is not None and v <= ENTRY_MAX_SALARY:
         return True
     return bool(ENTRY_TITLES.search(post.get("title", "")) and
                 (v is None or v <= 330000))
+
+
+# Saying "no degree needed" is a factual claim about the requirements, and a
+# salary band does not prove it — an HR Officer on R237k normally needs a
+# diploma. Only the manual roles, where it is true, may carry the badge.
+NO_DEGREE_TITLES = re.compile(
+    r"cleaner|general worker|road worker|groundsman|gardener|porter|"
+    r"food service|household aid|laundry|kitchen|housekeep|labour|"
+    r"messenger|driver|tradesman aid|handyman|security guard", re.I)
+
+
+def no_degree_needed(post) -> bool:
+    v = salary_value(post.get("salary", ""))
+    return bool(NO_DEGREE_TITLES.search(post.get("title", ""))
+                and (v is None or v <= 220000))
