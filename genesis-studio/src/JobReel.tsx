@@ -67,9 +67,25 @@ export const JobReel: React.FC<JobReelProps> = ({
         opacity: 0.35 + 0.25 * Math.sin(t * 3),
       }} />
 
-      <div style={{ padding: "44px 48px 0" }}>
-        <div style={{ fontSize: 46 }}>MZANSI CAREERS</div>
-        <div style={{ fontSize: 26, color: GREEN, fontWeight: 400 }}>
+      {/* Solid bar behind the masthead. Over a photo the wordmark was
+          reading as a faint grey smudge — the brand has to be the one thing
+          that is always legible. */}
+      <div style={{
+        // positioned + z-index: as a plain in-flow block it painted BELOW
+        // the absolutely positioned photo and gradient, whatever the DOM
+        // order said, so the wordmark came out as a grey smudge
+        position: "relative", zIndex: 10,
+        background: `${INK}F2`, padding: "40px 48px 24px",
+        borderBottom: `4px solid ${GREEN}`,
+      }}>
+        <div style={{
+          fontSize: 46, color: "#FFFFFF", letterSpacing: 0.5,
+          textShadow: "0 2px 12px rgba(0,0,0,.6)",
+        }}>
+          MZANSI CAREERS
+        </div>
+        <div style={{ fontSize: 26, color: GREEN, fontWeight: 400,
+                      marginTop: 4 }}>
           VERIFIED · NEVER PAY TO APPLY
         </div>
       </div>
