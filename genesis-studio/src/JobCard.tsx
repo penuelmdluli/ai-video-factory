@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Img } from "remotion";
+import { AbsoluteFill, Img, staticFile } from "remotion";
 
 export type JobCardProps = {
   employer: string;
@@ -48,7 +48,10 @@ export const JobCard: React.FC<JobCardProps> = ({
 
     {photo ? (
       <div style={{ height: 430, overflow: "hidden", position: "relative" }}>
-        <Img src={photo} style={{
+        {/* staticFile: a bare filename is not a URL Remotion can load, and
+            the failed image cancelled the whole render — which is why every
+            card with a photo silently fell back to PIL */}
+        <Img src={staticFile(photo)} style={{
           width: "100%", height: "100%", objectFit: "cover",
         }} />
         <AbsoluteFill style={{
