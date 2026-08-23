@@ -294,15 +294,35 @@ async def _red_card_post(f, ev, club: str):
         print(f"[Auto] red card reel skipped: {str(e)[:110]}")
 
 
-async def _live_details(fixture_id: str) -> dict:
-    """Everything live from the scoreboard: scorers, red cards, per-event keys."""
+def _match_day(f: dict) -> str:
+    """A fixture's SAST match date as YYYYMMDD, for pinning ESPN's scoreboard."""
+    iso = f.get("kickoff_iso") or ""
+    return iso[:10].replace("-", "") if len(iso) >= 10 else ""
+
+
+async def _live_details(fixture_id: str, day: str = "") -> dict:
+    """Everything live from the scoreboard: scorers, red cards, per-event keys.
+
+    `day` is the fixture's match date (YYYYMMDD). ESPN's undated scoreboard
+    advances to the NEXT matchday, so relying on it can starve a match that is
+    still in play of its goals, and lose the result card at full time. Asking
+    for the match date pins the feed; the undated call remains a fallback for
+    when the dated one does not carry the fixture.
+    """
     import httpx
+    SB = "https://site.api.espn.com/apis/site/v2/sports/soccer/rsa.1/scoreboard"
     out = {"sh": [], "sa": [], "events": [], "ych": [], "yca": []}
+
+    def _has(evs):
+        return any(str(e.get("id")) == str(fixture_id) for e in evs)
+
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            r = await client.get(
-                "https://site.api.espn.com/apis/site/v2/sports/soccer/rsa.1/scoreboard")
-            events = r.json().get("events", [])
+            events = []
+            if day:
+                events = (await client.get(SB, params={"dates": day})).json().get("events", [])
+            if not _has(events):
+                events = (await client.get(SB)).json().get("events", [])
     except Exception:
         return out
     for e in events:
@@ -312,6 +332,7 @@ async def _live_details(fixture_id: str) -> dict:
         sides = {c.get("homeAway"): str(c.get("team", {}).get("id", ""))
                  for c in comp.get("competitors", [])}
         home_id = sides.get("home", "")
+        seq: dict[tuple[str, str, str], int] = {}
         for det in comp.get("details", []):
             kind = det.get("type", {}).get("text", "") or ""
             is_goal = kind.lower().startswith("goal") or det.get("scoringPlay")
@@ -340,8 +361,15 @@ async def _live_details(fixture_id: str) -> dict:
             if is_yellow:
                 (out["ych"] if side == "home" else out["yca"]).append(entry)
                 continue          # yellows ride on cards, never their own post
+            # Nth event of this kind by this player on this side. ESPN
+            # revises the clock on a goal minutes after the fact; the ordinal
+            # does not move, so a correction can no longer masquerade as a
+            # second goal. A genuine brace still increments and still posts.
+            ev_kind = "GOAL" if is_goal else "RED"
+            seq_id = (ev_kind, side, who)
+            seq[seq_id] = seq.get(seq_id, 0) + 1
             out["events"].append({
-                "key": f"{'GOAL' if is_goal else 'RED'}|{side}|{who}|{clock}",
+                "key": f"{ev_kind}|{side}|{who}|{seq[seq_id]}",
                 "kind": "GOAL" if is_goal else "RED CARD",
                 "side": side, "who": who, "clock": clock,
                 "assist": assist, "how": how,
@@ -350,8 +378,8 @@ async def _live_details(fixture_id: str) -> dict:
     return out
 
 
-async def _scorers(fixture_id: str) -> tuple[list[str], list[str], str, str]:
-    d = await _live_details(fixture_id)
+async def _scorers(fixture_id: str, day: str = "") -> tuple[list[str], list[str], str, str]:
+    d = await _live_details(fixture_id, day)
     return d["sh"], d["sa"], "", ""
 
 
@@ -563,7 +591,7 @@ async def cmd_auto(a):
 
         # 2b) LIVE updates — a card for every new goal / red card while in play
         if f["status"] == "in" and f["home_key"] and f["away_key"]:
-            live = await _live_details(f["id"])
+            live = await _live_details(f["id"], _match_day(f))
             # score derived from the SAME payload as the events — the fixtures
             # snapshot lags a fresh goal ("GOAL by Xulu" on a 0-0 card)
             hs = max(int(f["home_score"] or 0), len(live["sh"]))
@@ -607,7 +635,7 @@ async def cmd_auto(a):
         # 3) result card, once, after full-time
         if f["completed"] and not st.get("result") and f["home_key"] and f["away_key"]:
             print(f"[Auto] full-time: {label} {f['home_score']}-{f['away_score']}")
-            sh, sa, *_ = await _scorers(f["id"])
+            sh, sa, *_ = await _scorers(f["id"], _match_day(f))
             ns = argparse.Namespace(
                 home=f["home_key"], away=f["away_key"],
                 score=f"{f['home_score']}-{f['away_score']}",
