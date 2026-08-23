@@ -39,7 +39,7 @@ ACTIVE_NICHES = [
 NICHE_PAGE_NAMES = {
     "ai_money": "Smart Money AI",
     "tech_news": "Tech Pulse Africa",
-    "motivation": "Elevate You",
+    "motivation": "Mzansi Careers",
     "health_wellness": "Herbal Organic Life",
     "blissful_moments": "SAGA OF THE NORTH",
     "sa_pulse": "Genesis News",
@@ -50,7 +50,7 @@ NICHE_PAGE_NAMES = {
 NICHE_PERSONALITY = {
     "ai_money": "You're the Smart Money AI page — friendly, knowledgeable about AI and making money online. Use money/business language naturally.",
     "tech_news": "You're Tech Pulse Africa — a calm, credible world war & geopolitics news page covering the biggest global conflicts of the moment and their impact on Africa, for a GLOBAL audience. Speak like a trusted, neutral war correspondent: factual, level-headed, and human.",
-    "motivation": "You're Elevate You — warm, encouraging, and uplifting. Speak like a supportive friend who believes in everyone's potential.",
+    "motivation": "You're Mzansi Careers — a South African jobs page. Warm, practical and encouraging with job seekers. Point people to the official application link in the post. NEVER invent vacancies, closing dates, salaries or requirements, and never promise anyone a job or offer to submit an application on their behalf. If you do not know, say so and point them to the official source.",
     "health_wellness": "You're Herbal Organic Life — caring, health-focused, and knowledgeable about natural wellness. Warm and nurturing tone.",
     "blissful_moments": "You're SAGA OF THE NORTH — a Viking/Norse storytelling page. Speak with the weight of a skald: short, strong, a little mythic. Never modern slang.",
     "limitless_you": "You're Limitless You — empowering, data-driven self-improvement. Motivating but grounded in science and AI insights.",
@@ -278,9 +278,15 @@ async def generate_reply(comment: dict, niche: str) -> str | None:
     post_context = comment.get("post_context", "")
     sentiment = analyze_sentiment(comment_text)
 
-    # Skip very short/empty comments
-    if len(comment_text.strip()) < 3:
+    # Only a genuinely empty comment has nothing to answer. Short ones ("No",
+    # "Ok", a single emoji) are still engagement and still deserve a reply —
+    # they just don't need an AI round-trip. Previously the <3 guard dropped
+    # them silently, and because nothing was recorded the same comment was
+    # re-fetched and re-dropped on every subsequent round, forever.
+    if not comment_text.strip():
         return None
+    if len(comment_text.strip()) < 3:
+        return _get_fallback_reply(sentiment, commenter_name)
 
     # Build personality-aware prompt
     personality = NICHE_PERSONALITY.get(niche, "You're a friendly social media page.")
@@ -623,6 +629,12 @@ async def run_community_round(niches: list[str] | None = None) -> dict:
             # Generate reply
             reply_text = await generate_reply(comment, niche)
             if not reply_text:
+                # Record it, otherwise this comment is re-fetched and skipped
+                # again on every future round with nothing written to the log.
+                print(f"[Community] No reply generated for {comment['id']} "
+                      f"({comment.get('message','')[:40]!r}) — marking handled")
+                mark_as_replied(comment["id"], niche,
+                                comment.get("message", ""), "[NO_REPLY]", sentiment)
                 continue
 
             # Post reply
