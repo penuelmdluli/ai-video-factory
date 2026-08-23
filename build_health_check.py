@@ -86,11 +86,23 @@ def check_data_feeds():
             pass
 
 
+def check_email_alerts():
+    """The inbox is a monitoring channel too — RunPod, Meta, TikTok, YouTube
+    and billing all warn by email before anything visibly breaks."""
+    try:
+        from modules.gmail_alerts import find_alerts
+    except Exception:
+        return
+    for tag, msg in find_alerts():
+        PROBLEMS.append((tag, msg))
+
+
 def main():
     check_pm2()
     check_whatsapp_logout()
     check_posting()
     check_data_feeds()
+    check_email_alerts()
     if not PROBLEMS:
         print(f"[Health] {datetime.now():%H:%M} all green")
         return

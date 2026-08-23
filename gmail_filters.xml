@@ -1,0 +1,205 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns='http://www.w3.org/2005/Atom' xmlns:apps='http://schemas.google.com/apps/2006'>
+  <title>AI Video Factory — inbox routing</title>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000001</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='from' value='runpod.io'/>
+    <apps:property name='label' value='Ops/Infra'/>
+    <apps:property name='shouldStar' value='true'/>
+    <apps:property name='shouldAlwaysMarkAsImportant' value='true'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000002</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='from' value='elevenlabs.io OR huggingface.co OR openai.com OR anthropic.com OR replicate.com OR modal.com'/>
+    <apps:property name='label' value='Ops/Infra'/>
+    <apps:property name='shouldAlwaysMarkAsImportant' value='true'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000003</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='from' value='facebookmail.com OR facebook.com OR meta.com'/>
+    <apps:property name='label' value='Ops/Platforms'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000004</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='from' value='tiktok.com'/>
+    <apps:property name='label' value='Ops/Platforms'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000005</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='from' value='youtube.com'/>
+    <apps:property name='label' value='Ops/Platforms'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000006</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='subject' value='"payment declined" OR "payment failed" OR "past due" OR "will be cancelled" OR "insufficient funds" OR "low balance"'/>
+    <apps:property name='label' value='Ops/Billing'/>
+    <apps:property name='shouldStar' value='true'/>
+    <apps:property name='shouldAlwaysMarkAsImportant' value='true'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000007</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='from' value='fnb.co.za'/>
+    <apps:property name='hasTheWord' value='declined OR insufficient OR fraud OR unusual'/>
+    <apps:property name='label' value='Money/Bank'/>
+    <apps:property name='shouldStar' value='true'/>
+    <apps:property name='shouldAlwaysMarkAsImportant' value='true'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000008</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='from' value='fnb.co.za'/>
+    <apps:property name='doesNotHaveTheWord' value='declined OR insufficient OR fraud OR unusual'/>
+    <apps:property name='label' value='Money/Bank'/>
+    <apps:property name='shouldArchive' value='true'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000009</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='from' value='saporeg.co.za OR aarto.gov.za OR aarto.co.za'/>
+    <apps:property name='label' value='Money/Fines'/>
+    <apps:property name='shouldStar' value='true'/>
+    <apps:property name='shouldAlwaysMarkAsImportant' value='true'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000010</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='from' value='googleplay-noreply@google.com'/>
+    <apps:property name='doesNotHaveTheWord' value='declined OR "will be cancelled"'/>
+    <apps:property name='label' value='Money/Subscriptions'/>
+    <apps:property name='shouldArchive' value='true'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000011</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='from' value='firebase-noreply@google.com'/>
+    <apps:property name='label' value='Work/Absa-Builds'/>
+    <apps:property name='shouldArchive' value='true'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000012</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='from' value='pnet.co.za OR indeed.com OR careers24.com OR careerjunction.co.za OR jobmail.co.za OR jobalerts-noreply@linkedin.com'/>
+    <apps:property name='label' value='Careers/Leads'/>
+    <apps:property name='shouldArchive' value='true'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000013</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='from' value='linkedin.com'/>
+    <apps:property name='doesNotHaveTheWord' value='jobalerts'/>
+    <apps:property name='label' value='Bulk/Social'/>
+    <apps:property name='shouldArchive' value='true'/>
+    <apps:property name='shouldMarkAsRead' value='true'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000014</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='from' value='shein.com OR temuemail.com OR temu.com OR takealot.com OR superbalist.com OR aliexpress.com OR wish.com'/>
+    <apps:property name='label' value='Bulk/Shopping'/>
+    <apps:property name='shouldArchive' value='true'/>
+    <apps:property name='shouldMarkAsRead' value='true'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000015</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='from' value='mybroadband.co.za OR et.oreilly.com OR docker.com OR linuxfoundation.org OR streamlabs.com OR vidiq.com OR capcut.com OR binance.com OR mail-nationaleczema.org OR x.ai'/>
+    <apps:property name='label' value='Bulk/Newsletters'/>
+    <apps:property name='shouldArchive' value='true'/>
+    <apps:property name='shouldMarkAsRead' value='true'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:z0000016</id>
+    <updated>2026-08-21T00:00:00Z</updated>
+    <content></content>
+    <apps:property name='from' value='gobid.co.za'/>
+    <apps:property name='label' value='Bulk/Auctions'/>
+    <apps:property name='shouldArchive' value='true'/>
+    <apps:property name='shouldMarkAsRead' value='true'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+</feed>
