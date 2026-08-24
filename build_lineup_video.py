@@ -129,7 +129,8 @@ def analysis_lines(club: str, opponent: str, formation: str, xi: list[str],
 
 def build_frames(work: Path, club: str, opponent: str, formation: str,
                  xi: list[str], kickoff: str,
-                 bench: list[str] | None = None) -> list[Path]:
+                 bench: list[str] | None = None,
+                 highlight: list[int] | None = None) -> list[Path]:
     """One card per revealed player — the build-up animation."""
     from modules.lineup_card import make_lineup_card
     cards = []
@@ -144,7 +145,7 @@ def build_frames(work: Path, club: str, opponent: str, formation: str,
                              # bench on EVERY frame: it shortens the pitch, so
                              # adding it only at the end would move all eleven
                              # markers on the last card and smear the crossfade
-                             bench=bench)
+                             bench=bench, highlight=highlight)
         if p:
             cards.append(Path(p))
     return cards
@@ -271,17 +272,37 @@ async def main():
         else:
             _log(f"INJURY: {dropped} out ({why}) — no cover on the bench")
     bench = [b for b in bench if b not in xi]
+
+    # TWO BIG CALLS. Owner call 2026-08-24 — every XI should carry a couple of
+    # selections worth arguing about. They are real changes from the side that
+    # started last time, same position for same position, marked in red on the
+    # card and named out loud, so the argument is about our opinion and never
+    # about whether we know the team.
+    from modules.bold_calls import pick as pick_calls, apply as apply_calls
+    calls = pick_calls(a.club, xi, bench, n=2)
+    marks = []
+    if calls:
+        xi, marks = apply_calls(xi, calls)
+        for c in calls:
+            _log(f"BIG CALL: {c['in']} in for {c['out']} ({c['reason']})")
+        bench = [b for b in bench if b not in xi]
     _log(f"XI: {', '.join(xi)}")
 
     cards = build_frames(work, a.club, a.opponent, a.formation, xi, a.kickoff,
-                         bench=bench)
+                         bench=bench, highlight=marks)
     _log(f"reveal frames: {len(cards)}")
     if not cards:
         _log("no cards rendered — aborting")
         return 1
 
+    from modules.club_brand import CLUB_BRAND as _CBn
+    club_label = _CBn.get(a.club, {}).get("name", a.club.title())
     lines = analysis_lines(a.club, a.opponent, a.formation, xi,
                            provenance=provenance, bench=bench)
+    if calls:
+        from modules.bold_calls import narration as call_narration
+        # slot the calls in before the sign-off, not after it
+        lines = lines[:-2] + call_narration(club_label, calls) + lines[-2:]
     narration = " ".join(lines)
     _log(f"narration: {len(narration)} chars")
 
@@ -322,13 +343,20 @@ async def main():
     when = f" — {a.kickoff}" if a.kickoff else ""
     title = (f"{club_name} Predicted XI vs {opp_name}" if opp_name
              else f"{club_name} Predicted XI")
+    calls_line = ""
+    if calls:
+        bits = " and ".join(
+            f"{c['in'].split(None, 1)[-1]} in for {c['out'].split(None, 1)[-1]}"
+            for c in calls)
+        calls_line = ((chr(10) * 2) + "TWO BIG CALLS: " + bits +
+                      ". Disagree? Tell us who you'd start.")
     src_line = ((chr(10) * 2) + "Based on the XI that started "
                 + provenance + ".") if provenance else ""
     caption = (f"GENESIS NEWS PREDICTION — the {club_name} eleven we expect"
                f"{' vs ' + opp_name if opp_name else ''}{when} "
                f"({a.formation}). Our call as a page, not the official team "
                f"sheet, and not us speaking for you. "
-               f"Who would you drop? 👇" + src_line +
+               f"Who would you drop? 👇" + calls_line + src_line +
                f"\n\n#PSL #BetwayPremiership #KaizerChiefs "
                f"#Amakhosi #PredictedXI")
 

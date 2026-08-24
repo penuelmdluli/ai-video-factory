@@ -82,6 +82,7 @@ def make_lineup_card(
     predicted: bool = False,
     heads: dict | None = None,
     bench: list[str] | None = None,
+    highlight: list[int] | None = None,
 ) -> str | None:
     """Render the XI on a pitch. Returns the path, or None on failure."""
     try:
@@ -197,6 +198,10 @@ def make_lineup_card(
                 if not str(p).strip():
                     continue
                 num, name = _parse_player(p)
+                # A "big call" is marked so nobody has to guess which two
+                # selections are the page's opinion rather than the last XI.
+                is_call = bool(highlight) and (
+                    sum(len(rr) for rr in row_players[:r]) + c) in set(highlight)
                 rr = 37
                 head = heads.get(p)
                 if head:
@@ -221,9 +226,14 @@ def make_lineup_card(
                     except Exception:
                         head = None
                 if not head:
-                    # jersey dot
+                    # jersey dot — a big call gets a red ring so the two
+                    # opinions on the card cannot be mistaken for the team sheet
+                    ring = (214, 40, 48) if is_call else (255, 255, 255)
+                    if is_call:
+                        d.ellipse([x - rr - 7, y - rr - 33, x + rr + 7, y + rr - 19],
+                                  outline=ring, width=4)
                     d.ellipse([x - rr, y - rr - 26, x + rr, y + rr - 26],
-                              fill=accent, outline=(255, 255, 255), width=3)
+                              fill=accent, outline=ring, width=3)
                     if num:
                         nw = d.textlength(num, font=pf_num)
                         numc = (255, 255, 255) if sum(accent) < 380 else (10, 10, 10)
@@ -248,6 +258,16 @@ def make_lineup_card(
         ff = _font(24, bold=False)
         d.text((W // 2 - d.textlength(foot, font=ff) / 2, H - 82), foot,
                font=ff, fill=(200, 40, 40) if predicted else (170, 175, 180))
+        # Say what the red rings mean. Two marked players and no legend is just
+        # a graphic nobody can read.
+        if highlight:
+            leg = "OUR TWO BIG CALLS"
+            lf = _font(21)
+            lw = d.textlength(leg, font=lf)
+            cx = W // 2 - (lw + 34) / 2
+            ly = H - 112
+            d.ellipse([cx, ly + 2, cx + 18, ly + 20], outline=(214, 40, 48), width=3)
+            d.text((cx + 28, ly), leg, font=lf, fill=(214, 40, 48))
         if head_credits:
             # CC licences require visible attribution for every face used
             cf = _font(16, bold=False)

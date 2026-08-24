@@ -88,9 +88,23 @@ def news_out(club: str, squad_surnames: list[str]) -> dict:
                 walk(v)
 
     walk(cache.get(club, cache))
+
+    # Surnames collide across clubs. On 2026-08-24 "Miguel" matched a headline
+    # about MIGUEL CARDOSO — the Sundowns coach — not Inacio Miguel of Chiefs.
+    # Left alone, an injury headline about another club's staff would drop one
+    # of our own players out of the XI. An injury report only counts if the
+    # headline is also about THIS club.
+    club_words = {
+        "chiefs": ("chiefs", "amakhosi"),
+        "pirates": ("pirates", "buccaneers", "bucs"),
+        "sundowns": ("sundowns", "masandawana", "downs"),
+    }.get(club, (club,))
+
     found = {}
     for h in heads:
         if not INJURY_WORDS.search(h) or CLEARED_WORDS.search(h):
+            continue
+        if not any(w in h.lower() for w in club_words):
             continue
         for s in squad_surnames:
             if len(s) > 3 and re.search(rf"\b{re.escape(s)}\b", h, re.IGNORECASE):
@@ -99,12 +113,26 @@ def news_out(club: str, squad_surnames: list[str]) -> dict:
 
 
 def unavailable(club: str, squad_surnames: list[str] | None = None) -> dict:
-    """{surname: reason} — everyone who should not be named in an XI."""
-    out = manual_out(club)
-    if squad_surnames:
-        for k, v in news_out(club, squad_surnames).items():
-            out.setdefault(k, f"news: {v}")
-    return out
+    """{surname: reason} — everyone who must NOT be named in an XI.
+
+    Manual list only. The news sweep is deliberately excluded: headline
+    matching cannot be trusted with an action this consequential. Club-scoping
+    is not enough either — "Sundowns coach Miguel Cardoso injury blow ahead of
+    CHIEFS clash" names the right club and the wrong Miguel, and would have
+    pulled a fit centre-half out of a published XI. Dropping a player is a
+    decision; a headline is a hint. See news_suspicions() for the hint.
+    """
+    return manual_out(club)
+
+
+def news_suspicions(club: str, squad_surnames: list[str]) -> dict:
+    """{surname: headline} — ADVISORY ONLY. Never drops anyone.
+
+    Surfaced so the owner can check a name and add it to injury_list.json if
+    it is real. Expect false positives: shared surnames across clubs are
+    common and this is matching text, not identity.
+    """
+    return news_out(club, squad_surnames)
 
 
 def filter_xi(club: str, xi: list[str], bench: list[str] | None = None):
