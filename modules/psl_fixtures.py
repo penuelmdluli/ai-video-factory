@@ -100,6 +100,37 @@ async def next_fixture(club_key: str, days_ahead: int = 21) -> dict | None:
 SUMMARY = "https://site.api.espn.com/apis/site/v2/sports/soccer/rsa.1/summary"
 
 
+async def last_lineup(club_key: str, lookback_days: int = 45) -> dict | None:
+    """The club's most recent REAL starting XI, straight off the team sheet.
+
+    Owner call 2026-08-24: "I think we gave them a weak team, give them the
+    best, one no one can deny". The predicted XI was being assembled by taking
+    the first players of each position out of the squad cache — squad-list
+    order, which is not merit and is not form. It left out Phili, Monyane,
+    Mmodi, Moloisane and Mthethwa, every one of whom had STARTED the previous
+    match, and it guessed 4-3-3 when Chiefs had lined up 5-3-2.
+
+    A predicted XI that starts from who actually played is one nobody can argue
+    is invented. Returns {formation, players, date, match} or None when ESPN
+    has published no team sheet inside the window.
+    """
+    now = datetime.now(SAST)
+    for i in range(1, lookback_days + 1):
+        day = now - timedelta(days=i)
+        for f in await fixtures_for(day):
+            if club_key not in (f.get("home_key"), f.get("away_key")):
+                continue
+            sheets = await official_lineups(f["id"])
+            sheet = sheets.get(club_key)
+            if sheet and len(sheet.get("players", [])) >= 11:
+                return {"formation": sheet.get("formation") or "4-3-3",
+                        "players": sheet["players"][:11],
+                        "bench": sheet.get("bench", [])[:9],
+                        "date": day.strftime("%Y-%m-%d"),
+                        "match": f"{f.get('home')} v {f.get('away')}"}
+    return None
+
+
 async def official_lineups(event_id: str) -> dict:
     """
     The CONFIRMED starting XI from the match summary feed, once the clubs
@@ -123,10 +154,35 @@ async def official_lineups(event_id: str) -> dict:
         starters = [p for p in entries if p.get("starter")]
         if not key or len(starters) < 11:
             continue
-        # order: GK first, then by ESPN's formation place when present
+
+        # Order each line LEFT TO RIGHT by the position ESPN publishes, not by
+        # formationPlace. Owner caught this on 2026-08-24: place-ordering put
+        # Monyane (RB) on the left of the back five and Mmodi (LB) second, and
+        # pushed Zitha Macheke — a centre-back, CD-R — out to the touchline.
+        # The abbreviations carry the side explicitly: LB, CD-L, CD, CD-R, RB.
         def _ord(p):
+            pos = ((p.get("position") or {}).get("abbreviation")
+                   or (p.get("athlete") or {}).get("position", {}).get("abbreviation")
+                   or "").upper()
+            depth = (0 if pos.startswith("G") else
+                     1 if pos.startswith(("D", "CD", "LB", "RB", "LWB", "RWB")) else
+                     3 if pos.startswith(("F", "CF", "ST", "LW", "RW")) else 2)
+            # A full-back (LB/RB) stands WIDER than a shaded centre-back
+            # (CD-L/CD-R), so they cannot share a rank or Monyane ends up
+            # inside Macheke. Order across the pitch:
+            #   LB -3 | CD-L -1 | CD 0 | CD-R +1 | RB +3
+            if pos.startswith(("LB", "LWB", "LM", "LW")):
+                side = -3
+            elif pos.startswith(("RB", "RWB", "RM", "RW")):
+                side = 3
+            elif pos.endswith("-L"):
+                side = -1
+            elif pos.endswith("-R"):
+                side = 1
+            else:
+                side = 0
             fp = p.get("formationPlace")
-            return int(fp) if str(fp).isdigit() else 99
+            return (depth, side, int(fp) if str(fp).isdigit() else 99)
         starters.sort(key=_ord)
         players = []
         for p in starters[:11]:
@@ -137,8 +193,22 @@ async def official_lineups(event_id: str) -> dict:
             surname = " ".join(nm[-2:]) if len(nm) > 1 and nm[-2].lower() in \
                 ("du", "de", "van", "von", "le", "da", "dos") else (nm[-1] if nm else "")
             players.append(f"{no} {surname}".strip())
+        # The bench is published too and was simply never read. Fans argue
+        # about the subs as much as the XI.
+        bench = []
+        for p in entries:
+            if p.get("starter"):
+                continue
+            ath = p.get("athlete") or {}
+            from modules.psl_squads import fix_name
+            nm = fix_name((ath.get("displayName") or "").strip()).split()
+            if not nm:
+                continue
+            no = str(p.get("jersey") or ath.get("jersey") or "").strip()
+            bench.append(f"{no} {nm[-1]}".strip())
+
         out[key] = {"formation": side.get("formation") or "4-3-3",
-                    "players": players}
+                    "players": players, "bench": bench}
     return out
 
 

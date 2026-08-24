@@ -39,6 +39,23 @@ def _log(m):
     print(f"[Lineup] {m}", flush=True)
 
 
+async def pick_xi_real(club: str) -> tuple[list[str], str, str, list[str]]:
+    """(XI, formation, provenance) from the club's most recent REAL team sheet.
+
+    Squad-list order is not a team. Basing the side on who actually started
+    last time is the only version a fan cannot call invented — and it is what
+    put Phili, Monyane, Mmodi, Moloisane and Mthethwa back in the XI after the
+    first cut dropped all five despite every one of them having started.
+    """
+    from modules.psl_fixtures import last_lineup
+    sheet = await last_lineup(club)
+    if sheet:
+        return (sheet["players"], sheet["formation"],
+                f"last XI v {sheet['match'].split(' v ')[-1]} ({sheet['date']})",
+                sheet.get("bench", []))
+    return [], "", "", []
+
+
 def pick_xi(club: str, formation: str = "4-3-3") -> list[str]:
     """A plausible XI from the real cached squad — real names, real numbers.
 
@@ -72,7 +89,8 @@ def pick_xi(club: str, formation: str = "4-3-3") -> list[str]:
     return xi[:11]
 
 
-def analysis_lines(club: str, opponent: str, formation: str, xi: list[str]) -> list[str]:
+def analysis_lines(club: str, opponent: str, formation: str, xi: list[str],
+                   provenance: str = "", bench: list[str] | None = None) -> list[str]:
     """Narration. Built from what is actually on the card, so it can never
     describe a player who is not in the XI."""
     from modules.club_brand import CLUB_BRAND
@@ -83,10 +101,15 @@ def analysis_lines(club: str, opponent: str, formation: str, xi: list[str]) -> l
     back = [p.split(" ", 1)[-1] for p in xi[1:1 + int(parts[0])]] if len(parts) > 1 else []
     front = [p.split(" ", 1)[-1] for p in xi[-int(parts[-1]):]] if len(parts) > 1 else []
 
+    bench = bench or []
     lines = [
         f"Here is our predicted {name} eleven" + (f" against {opp}." if opp else "."),
-        f"The shape is {formation.replace('-', ' ')}.",
     ]
+    # Saying WHERE the side comes from is what makes it undeniable. An XI
+    # nobody can argue with is one built on the last team sheet, not on a guess.
+    if provenance:
+        lines.append(f"This is the side that started {provenance}.")
+    lines.append(f"The shape is {formation.replace('-', ' ')}.")
     if keeper:
         lines.append(f"{keeper} starts in goal.")
     if back:
@@ -94,15 +117,18 @@ def analysis_lines(club: str, opponent: str, formation: str, xi: list[str]) -> l
     if front:
         lines.append("Up top, " + " and ".join(front) + " carry the goals.")
     lines += [
+        (("On the bench: " + ", ".join(b.split(" ", 1)[-1] for b in bench[:5]) + ".")
+         if bench else ""),
         "This is our call, not the official team sheet.",
         "Tell us who you would drop in the comments.",
         "Subscribe to Genesis News — we post the team sheets the moment they land.",
     ]
-    return lines
+    return [l for l in lines if l]
 
 
 def build_frames(work: Path, club: str, opponent: str, formation: str,
-                 xi: list[str], kickoff: str) -> list[Path]:
+                 xi: list[str], kickoff: str,
+                 bench: list[str] | None = None) -> list[Path]:
     """One card per revealed player — the build-up animation."""
     from modules.lineup_card import make_lineup_card
     cards = []
@@ -113,14 +139,20 @@ def build_frames(work: Path, club: str, opponent: str, formation: str,
         revealed = xi[:n] + [""] * (len(xi) - n)
         p = make_lineup_card(out, club=club, players=revealed, opponent=opponent,
                              formation=formation, kickoff=kickoff,
-                             competition="Betway Premiership", predicted=True)
+                             competition="Betway Premiership", predicted=True,
+                             # bench on EVERY frame: it shortens the pitch, so
+                             # adding it only at the end would move all eleven
+                             # markers on the last card and smear the crossfade
+                             bench=bench)
         if p:
             cards.append(Path(p))
     return cards
 
 
 def render_video(cards: list[Path], out: Path, total: float,
-                 reveal_frac: float = 0.62) -> str:
+                 reveal_frac: float = 0.62, formation: str = "4-3-3",
+                 players: list[str] | None = None, bg: Path | None = None,
+                 bench: bool = False, accent=(255, 193, 7)) -> str:
     """Reveal the XI one man at a time, then hold the full card.
 
     Owner note 2026-08-24: the first cut fired all eleven in about four
@@ -135,20 +167,40 @@ def render_video(cards: list[Path], out: Path, total: float,
     frames = [Image.open(c).convert("RGB") for c in cards]
     n = len(frames)
     canvas_y = (H - frames[0].height) // 2
-    per = (total * reveal_frac) / n          # seconds per player
+    reveal_t = total * reveal_frac
+    per = reveal_t / n                       # seconds per player
     fade = min(0.28, per * 0.35)             # tail of each slot spent blending
 
+    # Phase two: once the side is named, animate the SHAPE. Owner call — the
+    # reveal ends around 16s and the rest of the runtime should show the block
+    # moving as one, forward into an attacking shape and back into a defensive
+    # one, so it reads like a team rather than eleven dots.
+    motion_t = max(0.0, total - reveal_t)
+    bg_img = Image.open(bg).convert("RGB") if bg and Path(bg).exists() else None
+    if motion_t > 4 and bg_img is not None and players:
+        u = motion_t / 5.0
+        plan = [("base", u * 0.7), ("attack", u * 1.4), ("base", u * 0.9),
+                ("defend", u * 1.4), ("base", u * 0.6)]
+    else:
+        plan = None
+
     def frame_fn(t):
-        pos = t / per
-        idx = min(n - 1, int(pos))
         base = Image.new("RGB", (W, H), DARK)
-        into = (pos - idx) * per             # seconds into this player's slot
-        if idx < n - 1 and into > per - fade:
-            # cross-fade into the next card so the reveal reads as motion
-            u = (into - (per - fade)) / fade
-            img = Image.blend(frames[idx], frames[idx + 1], min(1.0, max(0.0, u)))
+        if plan and t >= reveal_t:
+            from modules.tactics_motion import frame as tframe
+            img = tframe(bg_img, formation, players, t - reveal_t, plan,
+                         accent=accent, bench=bench)
         else:
-            img = frames[idx]
+            pos = t / per
+            idx = min(n - 1, int(pos))
+            into = (pos - idx) * per         # seconds into this player's slot
+            if idx < n - 1 and into > per - fade:
+                # cross-fade into the next card so the reveal reads as motion
+                u2 = (into - (per - fade)) / fade
+                img = Image.blend(frames[idx], frames[idx + 1],
+                                  min(1.0, max(0.0, u2)))
+            else:
+                img = frames[idx]
         base.paste(img, (0, canvas_y))
         return base
 
@@ -193,27 +245,46 @@ async def main():
     work = ROOT / "output" / f"lineup_{a.club}_{stamp}"
     work.mkdir(parents=True, exist_ok=True)
 
-    xi = pick_xi(a.club, a.formation)
+    # Prefer the real team sheet; fall back to the squad only if ESPN has none.
+    xi, real_formation, provenance, bench = await pick_xi_real(a.club)
+    if xi:
+        a.formation = real_formation or a.formation
+        _log(f"using REAL {provenance} — formation {a.formation}")
+    else:
+        _log("no published team sheet found — falling back to squad order")
+        xi = pick_xi(a.club, a.formation)
     if len(xi) < 11:
         _log(f"only {len(xi)} players resolved — squad cache is thin, aborting")
         return 1
     _log(f"XI: {', '.join(xi)}")
 
-    cards = build_frames(work, a.club, a.opponent, a.formation, xi, a.kickoff)
+    cards = build_frames(work, a.club, a.opponent, a.formation, xi, a.kickoff,
+                         bench=bench)
     _log(f"reveal frames: {len(cards)}")
     if not cards:
         _log("no cards rendered — aborting")
         return 1
 
-    lines = analysis_lines(a.club, a.opponent, a.formation, xi)
+    lines = analysis_lines(a.club, a.opponent, a.formation, xi,
+                           provenance=provenance, bench=bench)
     narration = " ".join(lines)
     _log(f"narration: {len(narration)} chars")
 
     # Kokoro runs ~2.8 words/sec; the estimate matched the real 25.1s narration
     # to within a second on the first build, so pace the whole video off it.
     total = max(14.0, len(narration) / 15.0 + 5.0)
+    # empty pitch for the motion phase to draw markers onto
+    from modules.lineup_card import make_lineup_card as _mk
+    bg = work / "pitch_bg.png"
+    _mk(bg, club=a.club, players=[""] * len(xi), opponent=a.opponent,
+        formation=a.formation, kickoff=a.kickoff,
+        competition="Betway Premiership", predicted=True, bench=bench)
+    from modules.club_brand import CLUB_BRAND as _CB
+    accent = tuple(_CB.get(a.club, {}).get("colors", {}).get("primary", (255, 193, 7)))
+
     silent = work / "lineup_silent.mp4"
-    render_video(cards, silent, total=total)
+    render_video(cards, silent, total=total, formation=a.formation,
+                 players=xi, bg=bg, bench=bool(bench), accent=accent)
     _log(f"video: {silent.name} — {total:.1f}s, "
          f"{(total * 0.62) / max(1, len(cards)):.1f}s per player")
 
@@ -236,10 +307,13 @@ async def main():
     when = f" — {a.kickoff}" if a.kickoff else ""
     title = (f"{club_name} Predicted XI vs {opp_name}" if opp_name
              else f"{club_name} Predicted XI")
+    src_line = ((chr(10) * 2) + "Based on the XI that started "
+                + provenance + ".") if provenance else ""
     caption = (f"Our predicted {club_name} eleven"
                f"{' vs ' + opp_name if opp_name else ''}{when} "
                f"({a.formation}). Our call, not the official team sheet. "
-               f"Who would you drop? 👇\n\n#PSL #BetwayPremiership #KaizerChiefs "
+               f"Who would you drop? 👇" + src_line +
+               f"\n\n#PSL #BetwayPremiership #KaizerChiefs "
                f"#Amakhosi #PredictedXI")
 
     manifest = {"niche": NICHE, "format_type": "short", "is_short": True,

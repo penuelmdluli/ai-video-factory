@@ -81,6 +81,7 @@ def make_lineup_card(
     competition: str = "Betway Premiership",
     predicted: bool = False,
     heads: dict | None = None,
+    bench: list[str] | None = None,
 ) -> str | None:
     """Render the XI on a pitch. Returns the path, or None on failure."""
     try:
@@ -142,7 +143,12 @@ def make_lineup_card(
                    font=inf, fill=(210, 215, 220))
 
         # ── Pitch ──
-        px1, py1, px2, py2 = 60, 420, W - 60, H - 120
+        # Owner call 2026-08-24: show the subs. ESPN publishes the bench on the
+        # same team sheet and it was simply never read. When there is one, give
+        # up a strip of pitch rather than crowding the footer.
+        bench = [b for b in (bench or []) if str(b).strip()]
+        bench_h = 132 if bench else 0
+        px1, py1, px2, py2 = 60, 420, W - 60, H - 120 - bench_h
         d.rounded_rectangle([px1, py1, px2, py2], radius=28, fill=(18, 92, 48))
         # stripes
         for i, y in enumerate(range(py1, py2, 93)):
@@ -252,7 +258,25 @@ def make_lineup_card(
 
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
+        if bench:
+            by = py2 + 26
+            d.text((px1 + 6, by), "SUBS", font=_font(26), fill=accent)
+            row, x, y = 0, px1 + 6, by + 34
+            for b in bench[:9]:
+                txt = str(b).upper()
+                w = d.textlength(txt, font=_font(23)) + 26
+                if x + w > px2 - 6:
+                    row += 1
+                    if row > 1:
+                        break
+                    x, y = px1 + 6, y + 38
+                d.rounded_rectangle([x, y, x + w, y + 32], radius=10,
+                                    fill=(28, 32, 38))
+                d.text((x + 13, y + 5), txt, font=_font(23), fill=(226, 230, 235))
+                x += w + 10
+
         card.convert("RGB").save(output_path, quality=95)
+
         print(f"[LineupCard] {output_path.name} ({label}, {formation})")
         return str(output_path)
     except Exception as e:
