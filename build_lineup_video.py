@@ -108,7 +108,10 @@ def build_frames(work: Path, club: str, opponent: str, formation: str,
     cards = []
     for n in range(1, len(xi) + 1):
         out = work / f"reveal_{n:02d}.png"
-        p = make_lineup_card(out, club=club, players=xi[:n], opponent=opponent,
+        # pad to a full XI so row widths — and therefore x positions — never
+        # change between frames; blank entries render nothing
+        revealed = xi[:n] + [""] * (len(xi) - n)
+        p = make_lineup_card(out, club=club, players=revealed, opponent=opponent,
                              formation=formation, kickoff=kickoff,
                              competition="Betway Premiership", predicted=True)
         if p:
@@ -116,20 +119,37 @@ def build_frames(work: Path, club: str, opponent: str, formation: str,
     return cards
 
 
-def render_video(cards: list[Path], out: Path, hold: float, per: float = 0.45) -> str:
-    """Reveal the XI one man at a time, then hold the full card."""
+def render_video(cards: list[Path], out: Path, total: float,
+                 reveal_frac: float = 0.62) -> str:
+    """Reveal the XI one man at a time, then hold the full card.
+
+    Owner note 2026-08-24: the first cut fired all eleven in about four
+    seconds and then sat on a static card for the remaining twenty-five —
+    the reveal was over before the narration had named anyone. The build now
+    spans most of the video so each man lands roughly as he is talked about,
+    and consecutive cards cross-fade instead of hard-cutting.
+    """
     from PIL import Image
     from modules.motion_kit import _render, DARK
 
     frames = [Image.open(c).convert("RGB") for c in cards]
+    n = len(frames)
     canvas_y = (H - frames[0].height) // 2
-    build_t = per * len(frames)
-    total = build_t + hold
+    per = (total * reveal_frac) / n          # seconds per player
+    fade = min(0.28, per * 0.35)             # tail of each slot spent blending
 
     def frame_fn(t):
-        idx = min(len(frames) - 1, int(t / per)) if t < build_t else len(frames) - 1
+        pos = t / per
+        idx = min(n - 1, int(pos))
         base = Image.new("RGB", (W, H), DARK)
-        base.paste(frames[idx], (0, canvas_y))
+        into = (pos - idx) * per             # seconds into this player's slot
+        if idx < n - 1 and into > per - fade:
+            # cross-fade into the next card so the reveal reads as motion
+            u = (into - (per - fade)) / fade
+            img = Image.blend(frames[idx], frames[idx + 1], min(1.0, max(0.0, u)))
+        else:
+            img = frames[idx]
+        base.paste(img, (0, canvas_y))
         return base
 
     return _render(frame_fn, out, duration=total, fps=24)
@@ -138,7 +158,8 @@ def render_video(cards: list[Path], out: Path, hold: float, per: float = 0.45) -
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--club", default="chiefs")
-    ap.add_argument("--opponent", default="sundowns")
+    ap.add_argument("--opponent", default="",
+                    help="override; normally resolved from the next fixture")
     ap.add_argument("--formation", default="4-3-3")
     ap.add_argument("--kickoff", default="")
     ap.add_argument("--post", action="store_true")
@@ -149,6 +170,24 @@ async def main():
         preflight("build_lineup_video.py")
     except Exception as e:
         print(f"[GPUGuard] skipped: {e}")
+
+    # ALWAYS the upcoming game. A predicted XI against a match already played
+    # tells the reader we are not watching — on 24 Aug this shipped "Chiefs vs
+    # Sundowns", a fixture from the 15th.
+    competition = "Betway Premiership"
+    if not a.opponent:
+        from modules.psl_fixtures import next_fixture
+        fx = await next_fixture(a.club)
+        if not fx:
+            _log(f"no upcoming fixture for {a.club} — refusing to build against "
+                 f"a past game. Pass --opponent to override.")
+            return 1
+        a.opponent = fx["away_key"] if fx["home_key"] == a.club else fx["home_key"]
+        home = fx["home_key"] == a.club
+        a.kickoff = a.kickoff or " · ".join(
+            x for x in (fx.get("kickoff_sast", ""), fx.get("venue", "")) if x)
+        _log(f"next fixture: {fx.get('home')} v {fx.get('away')} — "
+             f"{fx.get('kickoff_sast')} ({'home' if home else 'away'})")
 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     work = ROOT / "output" / f"lineup_{a.club}_{stamp}"
@@ -170,9 +209,13 @@ async def main():
     narration = " ".join(lines)
     _log(f"narration: {len(narration)} chars")
 
+    # Kokoro runs ~2.8 words/sec; the estimate matched the real 25.1s narration
+    # to within a second on the first build, so pace the whole video off it.
+    total = max(14.0, len(narration) / 15.0 + 5.0)
     silent = work / "lineup_silent.mp4"
-    render_video(cards, silent, hold=max(8.0, len(narration) / 15.0))
-    _log(f"video: {silent.name}")
+    render_video(cards, silent, total=total)
+    _log(f"video: {silent.name} — {total:.1f}s, "
+         f"{(total * 0.62) / max(1, len(cards)):.1f}s per player")
 
     from modules.motion_kit import attach_voice
     final = await attach_voice(silent, narration, work / "final.mp4")
@@ -183,10 +226,19 @@ async def main():
     from PIL import Image
     Image.open(cards[-1]).convert("RGB").save(cover, quality=94)
 
-    title = f"{a.club.title()} Predicted XI vs {a.opponent.title()}"
-    caption = (f"Our predicted {a.club.title()} eleven"
-               f"{' vs ' + a.opponent.title() if a.opponent else ''} "
-               f"({a.formation}). Our call — not the official team sheet. "
+    # Proper club names, never the internal keys: a reel went out on 24 Aug
+    # captioned "vs Richards_Bay" because .title() was applied to the key.
+    from modules.club_brand import CLUB_BRAND
+    club_name = CLUB_BRAND.get(a.club, {}).get(
+        "name", a.club.replace("_", " ").title())
+    opp_name = CLUB_BRAND.get(a.opponent, {}).get(
+        "name", a.opponent.replace("_", " ").title()) if a.opponent else ""
+    when = f" — {a.kickoff}" if a.kickoff else ""
+    title = (f"{club_name} Predicted XI vs {opp_name}" if opp_name
+             else f"{club_name} Predicted XI")
+    caption = (f"Our predicted {club_name} eleven"
+               f"{' vs ' + opp_name if opp_name else ''}{when} "
+               f"({a.formation}). Our call, not the official team sheet. "
                f"Who would you drop? 👇\n\n#PSL #BetwayPremiership #KaizerChiefs "
                f"#Amakhosi #PredictedXI")
 

@@ -71,6 +71,32 @@ async def todays_fixtures() -> list[dict]:
     return await fixtures_for(datetime.now(SAST))
 
 
+async def next_fixture(club_key: str, days_ahead: int = 21) -> dict | None:
+    """The club's NEXT fixture — never one already played.
+
+    Owner rule 2026-08-24: "we must always use the upcoming game not past
+    games". A predicted XI or preview built against a finished match is worse
+    than no post: it tells the reader we are not watching. Callers that need a
+    fixture must resolve it here rather than carrying a hard-coded opponent,
+    which is how a line-up video went out on 24 Aug advertising Chiefs vs
+    Sundowns — a game played on the 15th.
+
+    Returns the fixture dict from fixtures_for(), or None when the club has
+    nothing scheduled inside the window.
+    """
+    now = datetime.now(SAST)
+    for i in range(days_ahead + 1):
+        day = now + timedelta(days=i)
+        for f in await fixtures_for(day):
+            if club_key not in (f.get("home_key"), f.get("away_key")):
+                continue
+            # today's list can still hold a finished match
+            if f.get("completed") or f.get("status") == "post":
+                continue
+            return f
+    return None
+
+
 SUMMARY = "https://site.api.espn.com/apis/site/v2/sports/soccer/rsa.1/summary"
 
 

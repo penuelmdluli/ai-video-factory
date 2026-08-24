@@ -183,6 +183,13 @@ def make_lineup_card(
                 else (py1 + py2) // 2
             for c, p in enumerate(row):
                 x = int(W * (c + 1) / (len(row) + 1))
+                # A blank slot holds its place but draws nothing. The reveal
+                # animation in build_lineup_video pads the XI to eleven so that
+                # x — which is derived from len(row) — stays fixed while the
+                # side fills up. Without this, every man already on the pitch
+                # slid sideways each time another was added.
+                if not str(p).strip():
+                    continue
                 num, name = _parse_player(p)
                 rr = 37
                 head = heads.get(p)
