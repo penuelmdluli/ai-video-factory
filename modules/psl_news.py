@@ -62,11 +62,35 @@ KEEP_LIMITS = {"chiefs": 8, "pirates": 6, "sundowns": 6,
                "premiership": 7, "cups": 4, "continental": 3,
                "transfers": 6, "bafana": 4, "weekend": 6, "others": 6}
 
-# Extra Chiefs-only angles so Amakhosi coverage never runs dry on a quiet day.
-CHIEFS_EXTRA_QUERIES = [
-    "Kaizer Chiefs transfer news",
-    "Kaizer Chiefs coach team news",
+# Extra Chiefs-only sweeps. Amakhosi stay the priority club — the owner wants
+# MORE Chiefs, just not the same story twice. Two queries only ever surfaced
+# the one running storyline, so these widen the angles Chiefs news can arrive
+# from: squad, youth, individual players, the next opponent, the club off the
+# pitch. Three are used per run, rotating, so the Chiefs section is deep AND
+# varied.
+CHIEFS_ANGLE_QUERIES = [
+    "Kaizer Chiefs transfer news signing",
+    "Kaizer Chiefs coach Fernando Da Cruz team news",
+    "Kaizer Chiefs next match preview fixture",
+    "Kaizer Chiefs player interview reaction",
+    "Kaizer Chiefs youth academy development player",
+    "Kaizer Chiefs injury return fitness update",
+    "Kaizer Chiefs fans supporters Amakhosi reaction",
+    "Kaizer Chiefs log position table Betway Premiership",
+    "Kaizer Chiefs Nedbank Cup MTN8 Carling Knockout",
+    "Kaizer Chiefs contract renewal squad depth",
 ]
+
+
+def rotating_chiefs_queries(day_index: int, n: int = 4) -> list[str]:
+    """Walk the Chiefs angle list so every run pulls a different mix."""
+    start = (day_index * n) % len(CHIEFS_ANGLE_QUERIES)
+    return [CHIEFS_ANGLE_QUERIES[(start + i) % len(CHIEFS_ANGLE_QUERIES)]
+            for i in range(n)]
+
+
+# kept for callers/back-compat
+CHIEFS_EXTRA_QUERIES = CHIEFS_ANGLE_QUERIES[:2]
 
 COMPETITION_QUERIES = {
     "premiership": "Betway Premiership PSL",
@@ -250,10 +274,12 @@ async def get_psl_briefing(force_refresh: bool = False) -> dict:
     # never only the big three.
     from datetime import date as _date
     others_q = rotating_other_clubs(_date.today().toordinal())
+    _ = others_q
     async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        chiefs_qs = rotating_chiefs_queries(_date.today().toordinal())
         extra, other_res = await asyncio.gather(
             asyncio.gather(*[_fetch_feed(client, q, limit=6)
-                             for q in CHIEFS_EXTRA_QUERIES],
+                             for q in chiefs_qs],
                            return_exceptions=True),
             asyncio.gather(*[_fetch_feed(client, f"{c} football news", limit=6)
                              for c in others_q],
