@@ -97,12 +97,58 @@ def check_email_alerts():
         PROBLEMS.append((tag, msg))
 
 
+def check_orphaned_builds():
+    """A batch build that outlives its scheduled window and keeps the GPU.
+
+    2026-08-23: the music task hit its 3h Task Scheduler limit at 18:00, the
+    scheduler killed the wrapper but not the python child, and the orphan held
+    10.9GB of an 11GB card until 20:50. The 19:00 PSL evening build reached TTS,
+    found no VRAM, and sat frozen for 1h49m — nothing posted, and check_posting
+    stayed quiet because its log was only two hours stale.
+
+    Long-lived pm2 services (matchday live, vault, agent) are excluded: they are
+    supposed to run for days. One-shot builds are not.
+    """
+    LIMIT_H = {"make_music.py": 3.5, "build_psl_news.py": 1.5,
+               "build_careers_daily.py": 1.5, "main.py": 2.0}
+    try:
+        out = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "Get-CimInstance Win32_Process -Filter \"Name like '%python%'\" | "
+             "ForEach-Object { \"$($_.ProcessId)|$($_.CreationDate.ToString('o'))|$($_.CommandLine)\" }"],
+            capture_output=True, text=True, timeout=60).stdout
+    except Exception:
+        return
+
+    now = datetime.now()
+    for line in out.splitlines():
+        parts = line.strip().split("|", 2)
+        if len(parts) != 3:
+            continue
+        pid, started, cmd = parts
+        if "matchday.py" in cmd or "vault-bot" in cmd or "shopmo" in cmd:
+            continue          # pm2 services, legitimately long-lived
+        script = next((k for k in LIMIT_H if k in cmd), "")
+        if not script:
+            continue
+        try:
+            age_h = (now - datetime.fromisoformat(started).replace(tzinfo=None)).total_seconds() / 3600
+        except Exception:
+            continue
+        if age_h > LIMIT_H[script]:
+            PROBLEMS.append((f"orphan-{script.replace('.py','')}",
+                             f"{script} (pid {pid}) has run {age_h:.1f}h, past its "
+                             f"{LIMIT_H[script]}h ceiling — likely orphaned and "
+                             f"holding the GPU. Kill it or the next build starves."))
+
+
 def main():
     check_pm2()
     check_whatsapp_logout()
     check_posting()
     check_data_feeds()
     check_email_alerts()
+    check_orphaned_builds()
     if not PROBLEMS:
         print(f"[Health] {datetime.now():%H:%M} all green")
         return
