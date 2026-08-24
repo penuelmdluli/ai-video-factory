@@ -252,10 +252,11 @@ async def main():
     _log(f"BUILD COMPLETE: {final}")
 
     if a.post:
-        from modules.uploader_facebook import upload_to_facebook
-        r = await upload_to_facebook(str(final), title, caption, NICHE,
-                                     is_reel=True, thumbnail_path=str(cover))
-        _log(f"Facebook: {r}")
+        from modules.publish_reel import publish
+        r = await publish(final, title, caption, cover, niche=NICHE,
+                          tags=["PSL", "KaizerChiefs", "Amakhosi",
+                                "PredictedXI", "BetwayPremiership"])
+        _log(f"published: { {k: (v or {}).get('status') for k, v in r.items()} }")
     return 0
 
 
