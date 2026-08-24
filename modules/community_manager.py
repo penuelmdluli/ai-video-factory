@@ -140,7 +140,16 @@ _init_tables()
 
 # ── Comment Fetching ─────────────────────────────────────────
 
-async def fetch_recent_comments(niche: str, limit: int = 10) -> list[dict]:
+# How many recent posts to sweep for comments. This was 10, which sounds like
+# plenty until you count posts rather than days: the page publishes three to six
+# times a day, so a post fell out of the window after about two days — while it
+# was still collecting comments. On 2026-08-24 three fan comments sat unanswered
+# on post #22, all of them posted that same morning, invisible to every round.
+# A comment ages out on the 48h rule below; it must not age out on post count.
+POST_SWEEP = 40
+
+
+async def fetch_recent_comments(niche: str, limit: int = POST_SWEEP) -> list[dict]:
     """
     Fetch recent comments from a Facebook page's posts.
 
