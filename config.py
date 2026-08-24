@@ -454,8 +454,12 @@ NICHES = {
         # instead of the fixture Mzansi is actually arguing about. This forces
         # every topic onto the pinned fixture until it is cleared.
         # Set SA_PULSE_TOPIC_PIN="" in .env to unpin and follow the feed freely.
-        "topic_pin": os.getenv("SA_PULSE_TOPIC_PIN",
-                               "Kaizer Chiefs vs Mamelodi Sundowns"),
+        # CLEARED 2026-08-24. The pin was set for the 15 Aug fixture and never
+        # lifted, so nine days later every topic still had to be about that one
+        # match — eleven straight reels opening "Chiefs vs Sundowns:". A pin is
+        # for a live story, not a season. Set SA_PULSE_TOPIC_PIN in .env to pin
+        # a genuine breaking story, and CLEAR IT once the story is done.
+        "topic_pin": os.getenv("SA_PULSE_TOPIC_PIN", ""),
         # A generated topic must mention at least one of these or it is rejected.
         "topic_pin_terms": ["chiefs", "amakhosi", "sundowns", "masandawana"],
         "topic_focus": (

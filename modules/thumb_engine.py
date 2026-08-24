@@ -124,8 +124,39 @@ def _brand_bug(d, brand, x, y, small=False):
            fill=b["accent"])
 
 
+def _crest_stamp(im, club, w, h, vertical):
+    """Club badge on the cover. Owner call 2026-08-24: this is a Chiefs
+    audience — the crest is the single fastest signal in a feed that a post is
+    about their club, and it was missing from every reel cover."""
+    if not club:
+        return im
+    try:
+        from modules.club_brand import official_badge
+        from PIL import Image
+        bp = official_badge(club)
+        if not bp:
+            return im
+        badge = Image.open(bp).convert("RGBA")
+        box = int(w * (0.30 if vertical else 0.20))
+        r = min(box / badge.width, box / badge.height)
+        badge = badge.resize((max(1, int(badge.width * r)),
+                              max(1, int(badge.height * r))))
+        # top-right, clear of the hook block on the left and the bottom safe strip
+        x = w - badge.width - int(w * 0.055)
+        y = int(h * (0.055 if vertical else 0.07))
+        glow = Image.new("RGBA", (badge.width + 26, badge.height + 26), (0, 0, 0, 0))
+        from PIL import ImageDraw, ImageFilter
+        ImageDraw.Draw(glow).ellipse([0, 0, glow.width, glow.height], fill=(0, 0, 0, 130))
+        glow = glow.filter(ImageFilter.GaussianBlur(9))
+        im.paste(glow, (x - 13, y - 13), glow)
+        im.paste(badge, (x, y), badge)
+    except Exception:
+        pass
+    return im
+
+
 def _render(w, h, hook, kicker, chip, photo, brand, focus, vertical=False,
-            bottom_safe=0.0, focus_y=0.35):
+            bottom_safe=0.0, focus_y=0.35, club=""):
     b = BRANDS[brand]
     if photo and Path(photo).exists():
         im = _fill(photo, w, h, focus=focus, focus_y=focus_y)
@@ -194,6 +225,7 @@ def _render(w, h, hook, kicker, chip, photo, brand, focus, vertical=False,
 
     _brand_bug(d, brand, pad, brand_y, small=vertical)
     d.rectangle([0, h - 10, w, h], fill=b["accent"])
+    im = _crest_stamp(im, club, w, h, vertical)
     return im
 
 
@@ -218,7 +250,7 @@ def make_cover(out, hook, kicker="", chip="", photo=None, brand="careers",
 
 
 def make_reel_cover(out, hook, kicker="", chip="", photo=None,
-                    brand="careers", focus=0.5, focus_y=0.35):
+                    brand="careers", focus=0.5, focus_y=0.35, club=""):
     """1080x1920 (9:16) cover for a REEL — Facebook, Instagram, TikTok.
 
     A reel cover MUST match the video's 9:16 or the platform crops it, which
@@ -226,7 +258,7 @@ def make_reel_cover(out, hook, kicker="", chip="", photo=None,
     because the caption, profile row and action buttons sit over it.
     """
     im = _render(1080, 1920, hook, kicker, chip, photo, brand, focus,
-                 vertical=True, bottom_safe=0.26, focus_y=focus_y)
+                 vertical=True, bottom_safe=0.26, focus_y=focus_y, club=club)
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     im.save(out, quality=94)
     return str(out)

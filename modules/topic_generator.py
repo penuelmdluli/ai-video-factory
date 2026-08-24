@@ -56,15 +56,23 @@ def _get_recent_topic_titles(niche: str, days: int = 14) -> list[str]:
     history = _load_history()
     niche_history = history.get(niche, {})
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
-    titles = []
+    dated = []
     for h, info in niche_history.items():
         if isinstance(info, dict):
             date = info.get("date", "")
             title = info.get("title", "")
             if date > cutoff and title:
-                titles.append(title)
+                dated.append((date, title))
         # Legacy format (hash -> date string) has no title, skip
-    return titles
+    # NEWEST FIRST. This walked the history dict in insertion order and so
+    # returned the OLDEST titles first, which every caller then sliced as if it
+    # were the most recent: _is_fresh compared each new topic against articles
+    # from a fortnight ago instead of the last two. That is why the page ran
+    # eleven straight "Chiefs vs Sundowns:" reels while the guard reported
+    # everything as fresh — it was checking them against mining-charter pieces
+    # written before this page covered football at all.
+    dated.sort(key=lambda t: t[0], reverse=True)
+    return [t for _, t in dated]
 
 
 def _is_too_similar(new_topic: str, recent_titles: list[str], threshold: int = 3,
@@ -181,8 +189,8 @@ def _pin_ok(topic: str, niche_config: dict) -> bool:
     Prompt instructions alone have not held in this pipeline — the model produced
     real-but-off-fixture topics repeatedly — so the pin is validated, not trusted.
     """
-    if not niche_config.get("topic_pin"):
-        return True
+    # No pin is normal — a pin is for a live story. The club terms still apply,
+    # otherwise clearing a pin would let the page wander off football.
     terms = [t.lower() for t in niche_config.get("topic_pin_terms", [])]
     if not terms:
         return True

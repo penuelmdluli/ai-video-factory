@@ -82,6 +82,20 @@ def _is_fresh(topic: str, recent: list[str], min_new: int = 3,
         return {_stem(w) for w in ws - stop if len(w) > 3}
 
     mine = words(topic)
+
+    # Guard 0 — framing repetition. On 2026-08-24 eleven of the last twelve
+    # topics opened "Chiefs vs Sundowns:", and every one passed the word tests
+    # below because club names are stopped out. The subject matter was new each
+    # time; the packaging never was, so the page read like one story on loop.
+    def frame(s):
+        head = s.split(":")[0] if ":" in s else " ".join(s.split()[:4])
+        return " ".join(sorted(
+            w.lower().strip(".,!?:;'\"()—-") for w in head.split() if w.strip()))
+
+    mine_frame = frame(topic)
+    if mine_frame and sum(1 for t in recent[:6] if frame(t) == mine_frame) >= 1:
+        return False
+
     # Guard 1 — no immediate re-tread. Sharing two content words with either
     # of the last two topics means it is the same story wearing new words
     # ('five defenders' -> 'lost five defenders and still held').
@@ -166,9 +180,30 @@ async def pick_topic() -> str:
         _log(f"attempt {attempt + 1} repeats recent coverage: {cand[:60]}")
         recent = [cand] + recent
     if not topic:
-        pin = NICHES[NICHE].get("topic_pin") or "Kaizer Chiefs latest news"
-        topic = f"{pin}: {angle}"
-        _log("no fresh topic after 4 tries — falling back to the slot angle")
+        # The old fallback pasted the ANGLE — a prompt instruction — straight
+        # into the headline, so a quiet news day shipped a reel titled
+        # "Kaizer Chiefs vs Mamelodi Sundowns: a DISAGREEMENT between two named
+        # people...". A slow feed is normal; a broken headline is not.
+        # These are evergreen formats that stand on their own, weighted to what
+        # the audience actually watches: line-ups and Chiefs analysis.
+        import random as _r
+        club = {"chiefs": "Kaizer Chiefs", "pirates": "Orlando Pirates",
+                "sundowns": "Mamelodi Sundowns"}.get(lead, "Kaizer Chiefs")
+        nick = {"chiefs": "Amakhosi", "pirates": "the Buccaneers",
+                "sundowns": "Masandawana"}.get(lead, "Amakhosi")
+        evergreen = [
+            f"{club} Predicted XI: The Eleven That Should Start The Next Game",
+            f"{club} Player Ratings: Every {nick} Man Out Of Ten",
+            f"{club} Injury List: Who Is Fit, Who Is Doubtful, Who Is Out",
+            f"Inside {club}: The Tactical Shift {nick} Fans Keep Arguing About",
+            f"{club} Form Guide: What The Last Five Games Actually Show",
+            f"{club} Squad Depth: The Position {nick} Still Have Not Fixed",
+            f"{club} Transfer Watch: Every Name Linked And How Real It Is",
+            f"{club} In The Log: What {nick} Need To Reach The Top Three",
+        ]
+        fresh = [e for e in evergreen if _is_fresh(e, recent)]
+        topic = _r.choice(fresh or evergreen)
+        _log(f"no fresh news topic after 4 tries — evergreen format: {topic}")
     _record_topic(NICHE, topic)
     _log(f"topic: {topic}")
     return topic
@@ -945,7 +980,9 @@ def write_manifest(script: dict, video_path: str, work: Path, voice: dict, image
             thumb = make_reel_cover(
                 work / "cover.jpg",
                 hook=hook_from_title(script.get("title", "")),
-                kicker=kicker, photo=bg, brand="genesis", focus=0.5)
+                kicker=kicker, photo=bg, brand="genesis", focus=0.5,
+                # the crest is what a Chiefs fan sees first in a feed
+                club=clubs[0] if clubs else "chiefs")
     except Exception as e:
         _log(f"thumb_engine cover skipped: {e}")
     if thumb == str(work / "card_1.png") and bg:
@@ -1241,6 +1278,14 @@ async def post_to_page(work: Path) -> dict | None:
 
 
 if __name__ == "__main__":
+    # Never start behind a dead build: a music orphan held the GPU on
+    # 23 and 24 Aug and froze this script at TTS both times, costing two
+    # posting slots. Reap first, then wait for VRAM.
+    try:
+        from modules.gpu_guard import preflight
+        preflight("build_psl_news.py")
+    except Exception as _e:
+        print(f"[GPUGuard] skipped: {_e}")
     os.environ.setdefault("FORCE_STILLS_ONLY", "true")
     os.environ.setdefault("DISABLE_RUNPOD_WAN", "true")
     try:

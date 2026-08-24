@@ -117,6 +117,14 @@ async def run(dry=False):
 
 
 if __name__ == "__main__":
+    # Never start behind a dead build: a music orphan held the GPU on
+    # 23 and 24 Aug and froze this script at TTS both times, costing two
+    # posting slots. Reap first, then wait for VRAM.
+    try:
+        from modules.gpu_guard import preflight
+        preflight("build_careers_daily.py")
+    except Exception as _e:
+        print(f"[GPUGuard] skipped: {_e}")
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
     sys.exit(asyncio.run(run(ap.parse_args().dry_run)))
