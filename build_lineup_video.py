@@ -103,7 +103,8 @@ def analysis_lines(club: str, opponent: str, formation: str, xi: list[str],
 
     bench = bench or []
     lines = [
-        f"Here is our predicted {name} eleven" + (f" against {opp}." if opp else "."),
+        f"This is the {name} eleven Genesis News expects"
+        + (f" against {opp}." if opp else "."),
     ]
     # Saying WHERE the side comes from is what makes it undeniable. An XI
     # nobody can argue with is one built on the last team sheet, not on a guess.
@@ -119,7 +120,7 @@ def analysis_lines(club: str, opponent: str, formation: str, xi: list[str],
     lines += [
         (("On the bench: " + ", ".join(b.split(" ", 1)[-1] for b in bench[:5]) + ".")
          if bench else ""),
-        "This is our call, not the official team sheet.",
+        "That is the Genesis News call, not the official team sheet.",
         "Tell us who you would drop in the comments.",
         "Subscribe to Genesis News — we post the team sheets the moment they land.",
     ]
@@ -256,6 +257,20 @@ async def main():
     if len(xi) < 11:
         _log(f"only {len(xi)} players resolved — squad cache is thin, aborting")
         return 1
+
+    # Never name a man who cannot play. Building from the last team sheet makes
+    # this failure likely: someone who started the previous match and has been
+    # injured since is still, to the sheet, a starter. A fan spotted exactly
+    # that on 24 Aug — "fielding injured players like Frosler" — and it is the
+    # comment that costs credibility, because it proves we are not watching.
+    from modules.injuries import filter_xi
+    xi, swaps = filter_xi(a.club, xi, bench)
+    for dropped, came_in, why in swaps:
+        if came_in:
+            _log(f"INJURY: {dropped} out ({why}) — {came_in} in")
+        else:
+            _log(f"INJURY: {dropped} out ({why}) — no cover on the bench")
+    bench = [b for b in bench if b not in xi]
     _log(f"XI: {', '.join(xi)}")
 
     cards = build_frames(work, a.club, a.opponent, a.formation, xi, a.kickoff,
@@ -309,9 +324,10 @@ async def main():
              else f"{club_name} Predicted XI")
     src_line = ((chr(10) * 2) + "Based on the XI that started "
                 + provenance + ".") if provenance else ""
-    caption = (f"Our predicted {club_name} eleven"
+    caption = (f"GENESIS NEWS PREDICTION — the {club_name} eleven we expect"
                f"{' vs ' + opp_name if opp_name else ''}{when} "
-               f"({a.formation}). Our call, not the official team sheet. "
+               f"({a.formation}). Our call as a page, not the official team "
+               f"sheet, and not us speaking for you. "
                f"Who would you drop? 👇" + src_line +
                f"\n\n#PSL #BetwayPremiership #KaizerChiefs "
                f"#Amakhosi #PredictedXI")

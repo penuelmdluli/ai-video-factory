@@ -1,0 +1,14 @@
+{
+  "_README": "Owner-maintained injury/suspension list. ESPN has no injury feed for the PSL, so this file is the reliable source. Key by SURNAME. 'until' is optional; once the date passes the entry stops applying.",
+  "_EXAMPLE": {
+    "chiefs": {
+      "frosler": {
+        "reason": "injured",
+        "until": "2026-09-30"
+      }
+    }
+  },
+  "chiefs": {},
+  "pirates": {},
+  "sundowns": {}
+}
