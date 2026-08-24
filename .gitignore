@@ -43,3 +43,6 @@ data/growth_analytics.db
 genesis-studio/node_modules/
 genesis-studio/out/
 genesis-studio/install.log
+
+# stray .env files from mistyped redirects (any colon variant)
+*ai-video-factory.env
