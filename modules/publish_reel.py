@@ -16,11 +16,49 @@ channel instead of as one pass/fail.
     await publish(video, title, caption, cover, niche="sa_pulse",
                   tags=["PSL", "KaizerChiefs"])
 """
+import os
 from pathlib import Path
+
+# First comment on every reel. The news builder has always seeded one; the
+# line-up, debate and versus formats added on 2026-08-24 did not, so the three
+# best-performing posts on the page — 16k and 9.5k views, fifty fan comments
+# between them — carried no follow prompt and no channel link at all.
+# It is PINNED so it stays at the top as the fan replies stack up underneath.
+FOLLOW_COMMENT = (
+    "📲 Follow GENESIS NEWS for the team sheets before kickoff, full-time "
+    "results and every big Amakhosi call." + chr(10) +
+    "▶️ More on YouTube: https://www.youtube.com/@GenesisNewsPSL")
+
+
+async def _seed_and_pin(video_id: str, niche: str, message: str) -> str:
+    """Post the first comment as the page and pin it. Returns the comment id.
+
+    Must be the VIDEO id, not the post id — commenting on a reel's post id
+    returns "(#12) singular statuses API is deprecated".
+    """
+    try:
+        import requests
+        from modules.uploader_facebook import post_comment
+        res = await post_comment(video_id, message, niche)
+        cid = (res or {}).get("comment_id") or (res or {}).get("id", "")
+        if not cid:
+            print(f"[Publish] first comment failed: {(res or {}).get('error', '')[:100]}")
+            return ""
+        tok = os.getenv(f"FB_PAGE_TOKEN_{niche}", "")
+        r = requests.post(f"https://graph.facebook.com/v21.0/{cid}",
+                          data={"is_pinned": "true", "access_token": tok},
+                          timeout=30)
+        pinned = r.status_code == 200 and (r.json() or {}).get("success") is True
+        print(f"[Publish] first comment {'pinned' if pinned else 'posted (pin failed)'}")
+        return cid
+    except Exception as e:
+        print(f"[Publish] first comment skipped: {str(e)[:110]}")
+        return ""
 
 
 async def publish(video_path, title: str, caption: str, cover_path=None,
-                  niche: str = "sa_pulse", tags=None) -> dict:
+                  niche: str = "sa_pulse", tags=None,
+                  first_comment: str = "") -> dict:
     """Post one vertical reel to Facebook, YouTube and TikTok. Returns a
     per-channel result; callers should log it rather than assume success."""
     tags = tags or []
@@ -35,6 +73,9 @@ async def publish(video_path, title: str, caption: str, cover_path=None,
         out["facebook"] = fb
         print(f"[Publish] Facebook: {(fb or {}).get('status')} "
               f"{(fb or {}).get('post_id', '')}")
+        vid = (fb or {}).get("video_id", "")
+        if vid:
+            await _seed_and_pin(vid, niche, first_comment or FOLLOW_COMMENT)
     except Exception as e:
         out["facebook"] = {"status": "failed", "error": str(e)[:120]}
         print(f"[Publish] Facebook failed: {str(e)[:120]}")
