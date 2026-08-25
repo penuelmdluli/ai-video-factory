@@ -80,6 +80,16 @@ def standings(club: str):
     return None
 
 
+def table_top(n=6):
+    """Top n league rows — real arithmetic, not a talking point we invented."""
+    try:
+        rows = json.loads((ROOT / "data" / "psl_standings_cache.json")
+                          .read_text(encoding="utf-8")).get("rows", [])
+    except Exception:
+        return []
+    return rows[:n]
+
+
 def pitch_positions(formation: str, phase: str):
     """Player coords inside the LEFT column, mirroring tactics_motion."""
     from modules.tactics_motion import shape
@@ -281,7 +291,21 @@ def segments(ctx):
     if bench:
         segs.append({"phase": "base", "dur": 20, "panel_title": "THE BENCH",
                      "panel_lines": [("head", "NAMED AS COVER")]
-                     + [b.upper() for b in bench[:7]]})
+                     + [b.upper() for b in bench[:8]]})
+
+    rows = table_top(6)
+    if rows and st:
+        level = [r for r in rows if r.get("points") == st[1]]
+        tl = [("head", "BETWAY PREMIERSHIP")]
+        for r in rows:
+            mark = "   <" if r.get("team_key") == ctx["club_key"] else ""
+            tl.append(f"{r.get('rank')}. {r.get('name')} — {r.get('points')} pts{mark}")
+        tl.append("")
+        if len(level) > 1:
+            tl.append(f"{len(level)} clubs level on {st[1]} points.")
+        tl.append(f"A win here takes {ctx['club_name']} to {st[1] + 3}.")
+        segs.append({"phase": "base", "dur": 24, "panel_title": "THE TABLE",
+                     "panel_lines": tl})
 
     segs.append({"phase": "base", "dur": 14, "panel_title": "OVER TO YOU",
                  "panel_lines": [("head", "GENESIS NEWS"),
@@ -306,24 +330,70 @@ def narration(ctx):
     L.append(f"Here is the eleven Genesis News expects.")
     if ctx["provenance"]:
         L.append(f"It starts from the side that started {ctx['provenance']}.")
-    for p in xi:
-        L.append(p.split(None, 1)[-1] + ".")
-    L += ["Without the ball this is a back five.",
+    rows = [1] + [int(v) for v in ctx["formation"].split("-") if v.strip().isdigit()]
+    role_of, idx = [], 0
+    for r, n in enumerate(rows):
+        for c in range(n):
+            if r == 0:
+                role = "in goal"
+            elif r == 1:
+                role = ("at left wing-back" if c == 0 else
+                        "at right wing-back" if c == n - 1 else
+                        "in the middle of the back line" if n >= 5 and c == n // 2
+                        else "in central defence")
+            elif r == len(rows) - 1:
+                role = ("through the middle" if n == 1 else
+                        "on the left of the front line" if c == 0 else
+                        "on the right of the front line" if c == n - 1 else
+                        "up front")
+            else:
+                role = ("on the left of midfield" if c == 0 else
+                        "on the right of midfield" if c == n - 1 else
+                        "in central midfield")
+            role_of.append(role)
+            idx += 1
+    for i, p in enumerate(xi):
+        nm = p.split(None, 1)[-1]
+        no = p.split(None, 1)[0] if p.split(None, 1)[0].isdigit() else ""
+        role = role_of[i] if i < len(role_of) else ""
+        L.append(f"Number {no}, {nm}, {role}." if no else f"{nm}, {role}.")
+    L += ["That is the eleven. Now the shape.",
+          "Without the ball this is a back five.",
           "Two compact banks, the wing-backs tucked in, very little space "
           "between the lines.",
           "With the ball it becomes a three at the back.",
           "Both wing-backs push high and wide, and one centre-half steps into "
           "midfield to screen behind them.",
-          "That is the shape this side lives in."]
+          "That is the shape this side lives in, and it is why the wing-backs "
+          "matter more than the shirt numbers suggest.",
+          "When they push, the whole side changes character."]
     if calls:
         L.append("And we are making two big calls.")
         for c in calls:
             L.append(f"{c['in'].split(None,1)[-1]} comes in for "
                      f"{c['out'].split(None,1)[-1]}.")
-        L.append("They are marked in red. Disagree with us in the comments.")
+        L.append("Both are marked in red on the pitch.")
+        L.append("They are our opinion, not the team sheet, and we would "
+                 "rather be argued with than ignored.")
     if bench:
-        L.append("On the bench: "
-                 + ", ".join(b.split(None, 1)[-1] for b in bench[:6]) + ".")
+        L.append("There is real cover on the bench too.")
+        for b in bench[:6]:
+            bn = b.split(None, 1)[-1]
+            bno = b.split(None, 1)[0] if b.split(None, 1)[0].isdigit() else ""
+            L.append(f"Number {bno}, {bn}." if bno else f"{bn}.")
+        L.append("Any of them changes the game if the coach needs it.")
+    trows = table_top(6)
+    if trows and st:
+        level = [r for r in trows if r.get("points") == st[1]]
+        if len(level) > 1:
+            names = [r.get("name") for r in level]
+            L.append("And look at how tight the top of this table is.")
+            L.append(f"{len(level)} clubs are level on {st[1]} points — "
+                     + ", ".join(names[:-1]) + f" and {names[-1]}.")
+            L.append("Goal difference is all that separates them.")
+        L.append(f"A win here would take {ctx['club_name']} to {st[1] + 3} points.")
+        L.append("At this stage of a season that is the difference between "
+                 "leading the league and chasing it.")
     L += ["We do not have shot counts or ratings, so we are not going to "
           "pretend we do.",
           "That is the team sheet, the shape and our call.",
@@ -331,6 +401,24 @@ def narration(ctx):
           "Subscribe to Genesis News — we post the team sheets the moment "
           "they land."]
     return " ".join(L)
+
+
+WORDS_PER_SEC = 2.8          # measured from Kokoro: 70 words in 25.1s
+
+
+def fit_to_narration(segs, text):
+    """Scale every segment so the visuals last exactly as long as the voice.
+
+    The first cut hard-coded 165s of video against a 200-word script, so the
+    narration finished at 1:15 and the last ninety seconds played in silence.
+    Segment lengths are now proportions, not durations.
+    """
+    want = len(text.split()) / WORDS_PER_SEC + 3.0      # +3 to breathe at the end
+    have = sum(s["dur"] for s in segs)
+    k = want / max(1.0, have)
+    for s in segs:
+        s["dur"] = s["dur"] * k
+    return want
 
 
 def render(segs, ctx, out):
@@ -405,7 +493,7 @@ async def main():
         "fixture_line": f"{fx.get('home')} v {fx.get('away')}",
         "provenance": f"v {sheet['match'].split(' v ')[-1]} ({sheet['date']})",
         "standings": standings(a.club), "opp_standings": standings(opp_key),
-        "club": a.club,
+        "club": a.club, "club_key": a.club,
         "row_max": max([1] + [int(v) for v in sheet["formation"].split("-")
                               if v.strip().isdigit()]),
     }
@@ -413,6 +501,9 @@ async def main():
          f"bench {len(bench)} | calls {len(calls)}")
 
     segs = segments(ctx)
+    text = narration(ctx)
+    want = fit_to_narration(segs, text)
+    _log(f"narration: {len(text.split())} words -> pacing video to {want:.0f}s")
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     work = ROOT / "output" / f"longform_{a.club}_{stamp}"
     work.mkdir(parents=True, exist_ok=True)
@@ -421,8 +512,6 @@ async def main():
     total = render(segs, ctx, silent)
     _log(f"video: {total:.0f}s across {len(segs)} segments (16:9 {W}x{H})")
 
-    text = narration(ctx)
-    _log(f"narration: {len(text.split())} words")
     from modules.motion_kit import attach_voice
     final = await attach_voice(silent, text, work / "final.mp4")
 
