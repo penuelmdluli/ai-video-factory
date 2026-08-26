@@ -56,10 +56,16 @@ async def season_form(tid: str, club_name: str) -> tuple[list[str], str]:
                     f"{a}-{b}", them["team"]["shortDisplayName"]))
     out.reverse()
     letters = [o[0] for o in out]
-    return letters, ", ".join(f"{o[0]} {o[1]} v {o[2]}" for o in out[:3])
+    # SPOKEN form must be words. "W 3-1 v Kruger" was read out as the letter
+    # "W", which sounds like a typo being narrated.
+    say = {"W": "won", "D": "drew", "L": "lost"}
+    summary = ", ".join(
+        f"{say.get(o[0], o[0])} {o[1].replace('-', ' ')} against {o[2]}"
+        for o in out[:3])
+    return letters, summary, out
 
 
-async def main(post: bool):
+async def main(post: bool, club: str = ""):
     from modules.motion_kit import attach_voice, countdown, head_to_head
     from modules.music_bed import add_bed
     from modules.psl_fixtures import SAST, fixtures_for, priority
@@ -70,6 +76,8 @@ async def main(post: bool):
     fixture = None
     for dd in range(0, 9):
         for f in (await fixtures_for(now + timedelta(days=dd))) or []:
+            if club and club not in (f.get("home_key"), f.get("away_key")):
+                continue
             if priority(f) >= 1 and not f.get("completed"):
                 when = datetime.fromisoformat(f["kickoff_iso"])
                 if when > now:
@@ -92,8 +100,10 @@ async def main(post: bool):
         return 1
 
     hid, aid = await team_id(f["home"]), await team_id(f["away"])
-    hform, hsum = await season_form(hid, f["home"]) if hid else ([], "")
-    aform, asum = await season_form(aid, f["away"]) if aid else ([], "")
+    hform, hsum, hres = (await season_form(hid, f["home"]) if hid
+                         else ([], "", []))
+    aform, asum, ares = (await season_form(aid, f["away"]) if aid
+                         else ([], "", []))
     print(f"[Prematch] {f['home']}: {''.join(hform) or '-'} | "
           f"{f['away']}: {''.join(aform) or '-'}")
 
@@ -116,8 +126,20 @@ async def main(post: bool):
                          a=(short(f["home"]), hk), b=(short(f["away"]), ak),
                          stats=stats, duration=7.5)
 
+    from modules.motion_kit import form_compare
+    unbeaten = [c for c in (h, a) if c]
+    note = ""
+    if hres and all(x[0] != "L" for x in hres):
+        note = f"{h['name'].upper()} UNBEATEN THIS SEASON"
+    elif ares and all(x[0] != "L" for x in ares):
+        note = f"{a['name'].upper()} UNBEATEN THIS SEASON"
+    part3 = form_compare(OUT / "p3.mp4",
+                         club_a=(short(f["home"]), hk),
+                         club_b=(short(f["away"]), ak),
+                         form_a=hres, form_b=ares, note=note, duration=8.0)
+
     silent = OUT / "prematch_silent.mp4"
-    clips = [VideoFileClip(part1), VideoFileClip(part2)]
+    clips = [VideoFileClip(part1), VideoFileClip(part2), VideoFileClip(part3)]
     concatenate_videoclips(clips, method="compose").write_videofile(
         str(silent), fps=30, codec="libx264", audio=False, logger=None)
     for c in clips:
@@ -164,5 +186,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--post", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--club", default="", help="only this club's fixture")
     a = ap.parse_args()
-    sys.exit(asyncio.run(main(a.post and not a.dry_run)))
+    sys.exit(asyncio.run(main(a.post and not a.dry_run, a.club)))

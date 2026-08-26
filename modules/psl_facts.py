@@ -26,7 +26,15 @@ async def facts_pack() -> str:
     except Exception:
         pass
 
-    lines = []
+    lines = [
+        # A comment claimed Nabi was the Chiefs coach. He is not — the model
+        # filled the gap from memory because nothing here named a coach, and
+        # our feed does not publish one. Never let it guess again.
+        "NAME RULE: do NOT name any coach, manager or club official unless "
+        "that exact name appears in the headlines you were given. If no name "
+        "is supplied, say 'the coach' or 'Chiefs' instead. Getting a coach "
+        "wrong is the fastest way to lose a football audience.",
+    ]
     try:
         from modules.psl_standings import get_log
         rows = await get_log(6)

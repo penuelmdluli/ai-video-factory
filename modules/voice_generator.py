@@ -24,6 +24,17 @@ import asyncio
 import re
 from pathlib import Path
 
+def _say_versus(text: str) -> str:
+    """Spoken text says "versus", not the letter v.
+
+    Narration built from fixtures reads "Chiefs v Richards Bay", and the
+    voice said "vee" — it sounds like a mistake being read aloud.
+    """
+    import re as _re
+    text = _re.sub(r"(?<=\s)vs?\.?(?=\s)", "versus", text, flags=_re.I)
+    return text
+
+
 from config import (
     ELEVENLABS_API_KEY,
     ELEVENLABS_VOICE_ID,
@@ -538,6 +549,8 @@ async def generate_voice(
     Returns:
         dict with audio_path, subtitle_path, duration, engine info
     """
+    # Every engine gets the spoken form: "v" reads as "versus", not "vee".
+    text = _say_versus(text)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     audio_path = output_dir / f"{filename_base}.mp3"

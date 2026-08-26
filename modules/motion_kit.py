@@ -114,6 +114,29 @@ async def attach_voice(video_path, text: str, out_path=None) -> str:
             clip = concatenate_videoclips([clip, freeze], method="compose")
         clip = clip.with_audio(
             CompositeAudioClip([voice]).with_duration(clip.duration))
+
+        # SUBTITLES. Most reels are watched muted; without captions the whole
+        # script was lost on those viewers. Same karaoke renderer the news
+        # reels use, driven by the SRT the voice step already produces.
+        try:
+            srt = (v or {}).get("subtitle_path")
+            if srt and Path(srt).exists():
+                from moviepy import CompositeVideoClip
+                from modules.caption_generator import (
+                    group_words_into_phrases, parse_subtitle_to_segments)
+                import sys as _sys
+                _sys.path.insert(0, str(Path(__file__).parent.parent))
+                from build_psl_news import _caption_clips
+                segs = parse_subtitle_to_segments(srt)
+                phrases = group_words_into_phrases(segs, max_words=4)
+                caps = _caption_clips(phrases, clip.w, vwork)
+                if caps:
+                    clip = CompositeVideoClip([clip] + caps,
+                                              size=(clip.w, clip.h))
+                    print(f"[MotionKit] {len(caps)} caption phrases burned in")
+        except Exception as e:
+            print(f"[MotionKit] captions skipped: {str(e)[:90]}")
+
         clip.write_videofile(str(out_path), fps=30, codec="libx264",
                              audio_codec="aac", logger=None,
                              preset="medium")
@@ -794,5 +817,70 @@ def clash(out, side_a=("KEKANA", "sundowns"), side_b=("MAJORO", "chiefs"),
                                 fill=(235, 90, 70, 240))
             d.text(((W - vw) / 2, 1592), verdict, font=vf,
                    fill=(255, 255, 255))
+        return im
+    return _render(frame, out, duration)
+
+
+# ── 10. FORM COMPARE ───────────────────────────────────────────────────────
+def form_compare(out, club_a=("CHIEFS", "chiefs"), club_b=("RICHARDS BAY",
+                 "richards_bay"), form_a=(), form_b=(), note="",
+                 duration=7.0):
+    """Two clubs' actual results this season, side by side.
+
+    form_x: [(letter, "3-1", "Kruger"), ...] oldest first — real results only,
+    never a projection. W/D/L colour is the whole read: a column of green
+    against a column of grey says more than any adjective we could write.
+    """
+    from PIL import Image, ImageDraw
+    ca, cb = _crest(club_a[1], 150), _crest(club_b[1], 150)
+    COL = {"W": (60, 200, 120), "D": (190, 190, 190), "L": (220, 70, 60)}
+
+    def frame(t):
+        im = Image.new("RGB", (W, H), DARK)
+        d = ImageDraw.Draw(im, "RGBA")
+        _base(d)
+        d.text((46, 96), "FORM THIS SEASON", font=_font(28, False), fill=GOLD)
+
+        for side, (club, crest, form) in enumerate(
+                ((club_a, ca, form_a), (club_b, cb, form_b))):
+            x = 90 if side == 0 else W // 2 + 50
+            u = _over(min(1, (t - side * 0.25) / 0.5))
+            if crest:
+                c = crest.resize((max(1, int(150 * u)),) * 2)
+                im.paste(c, (x + 60, 330), c)
+            nf = _font(int(40 * u))
+            name = club[0][:12]
+            d.text((x + 135 - d.textlength(name, font=nf) / 2, 510), name,
+                   font=nf, fill=(255, 255, 255))
+
+            y = 640
+            for i, item in enumerate(form[-4:]):
+                letter, score, opp = item
+                g = _over(min(1, (t - 1.0 - side * 0.2 - i * 0.3) / 0.35))
+                if g <= 0:
+                    continue
+                col = COL.get(letter, (170, 170, 170))
+                r = int(46 * g)
+                d.ellipse([x + 20, y, x + 20 + r * 2, y + r * 2],
+                          fill=(*col, 240))
+                lf = _font(int(40 * g))
+                lw = d.textlength(letter, font=lf)
+                d.text((x + 20 + r - lw / 2, y + r - int(26 * g)), letter,
+                       font=lf, fill=(10, 12, 14))
+                sf = _font(int(32 * g))
+                d.text((x + 40 + r * 2, y + 10), score, font=sf,
+                       fill=(255, 255, 255))
+                of = _font(int(24 * g), False)
+                d.text((x + 40 + r * 2, y + 52), f"v {opp[:12]}", font=of,
+                       fill=(170, 176, 184))
+                y += 118
+
+        if note and t > 3.4:
+            g = _over(min(1, (t - 3.4) / 0.4))
+            nf2 = _font(int(38 * g))
+            for i, line in enumerate(note.split("\n")[:2]):
+                nw = d.textlength(line, font=nf2)
+                d.text(((W - nw) / 2, 1560 + i * 56), line, font=nf2,
+                       fill=GOLD)
         return im
     return _render(frame, out, duration)
