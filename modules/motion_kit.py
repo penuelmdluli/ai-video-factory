@@ -128,6 +128,21 @@ async def attach_voice(video_path, text: str, out_path=None) -> str:
                 _sys.path.insert(0, str(Path(__file__).parent.parent))
                 from build_psl_news import _caption_clips
                 segs = parse_subtitle_to_segments(srt)
+                # Whisper sometimes times only part of the audio — one run
+                # produced captions that started 16.6s into a 25s reel, so
+                # two thirds of the script had none. We have the exact script,
+                # so when coverage is poor, lay the words out evenly instead.
+                covered = (max((x.get("end", 0) for x in segs), default=0)
+                           - min((x.get("start", 0) for x in segs), default=0))
+                if covered < voice.duration * 0.6:
+                    words = text.split()
+                    per = voice.duration / max(1, len(words))
+                    segs = [{"text": w, "start": i * per,
+                             "end": (i + 1) * per}
+                            for i, w in enumerate(words)]
+                    print(f"[MotionKit] caption sync covered only "
+                          f"{covered:.1f}s of {voice.duration:.1f}s — "
+                          f"timing {len(words)} words from the script")
                 phrases = group_words_into_phrases(segs, max_words=4)
                 caps = _caption_clips(phrases, clip.w, vwork)
                 if caps:
