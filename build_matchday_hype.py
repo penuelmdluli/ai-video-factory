@@ -245,28 +245,9 @@ async def main():
     # a licensed song cannot be sourced or embedded from here, and Content ID
     # would mute or claim the post. ACE-Step generates the bed locally, so it
     # is ours to use and costs nothing.
-    final = Path(voiced)
-    try:
-        from modules.ace_music import get_ace_music_sync
-        bed = get_ace_music_sync(NICHE, duration=dur)
-        if bed and Path(bed).exists():
-            from moviepy import (VideoFileClip, AudioFileClip,
-                                 CompositeAudioClip, afx)
-            v = VideoFileClip(str(voiced))
-            m = AudioFileClip(str(bed)).with_effects(
-                [afx.MultiplyVolume(0.18)])          # well under the voice
-            if m.duration > v.duration:
-                m = m.subclipped(0, v.duration)
-            mixed = work / "final.mp4"
-            v.with_audio(CompositeAudioClip([v.audio, m])).write_videofile(
-                str(mixed), codec="libx264", audio_codec="aac", logger=None)
-            v.close(); m.close()
-            final = mixed
-            _log("music bed added under the voice")
-        else:
-            _log("no music bed available — voice only")
-    except Exception as e:
-        _log(f"music bed skipped: {str(e)[:110]}")
+    # One implementation of this, shared with the line-up reel.
+    from modules.music_bed import add_bed
+    final = add_bed(voiced, work / "final.mp4", NICHE, dur, log=_log)
 
     cover = work / "cover.jpg"
     frame(4.2, ctx).save(cover, quality=95)

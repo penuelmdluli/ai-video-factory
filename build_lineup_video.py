@@ -585,6 +585,12 @@ async def main():
             _log(f"reveal ticks mixed under {len(times)} names")
         except Exception as e:
             _log(f"tick mix skipped: {str(e)[:100]}")
+
+    # Instrumental bed. Owner asked for "Love and Peace"; a commercial track
+    # would be caught by Content ID and the reel muted or claimed, so this is
+    # ours, generated on this machine.
+    from modules.music_bed import add_bed
+    final = add_bed(final, work / "scored.mp4", NICHE, total, log=_log)
     _log(f"voiced: {Path(final).name}")
 
     # Cover: the finished card, crest and all
