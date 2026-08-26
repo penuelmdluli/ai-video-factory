@@ -1,3 +1,68 @@
 {
-  "401902070": {}
+  "401902085": {
+    "predicted": "2026-08-19T15:31:02.367961+02:00",
+    "hype": "2026-08-19T18:16:04.450773+02:00",
+    "lineup": "2026-08-19T18:51:03.225778+02:00",
+    "events": [
+      "GOAL|home|Khoza|21'",
+      "GOAL|home|Khoza|22'",
+      "GOAL|home|Mailula|67'"
+    ],
+    "result": "2026-08-19T21:23:01.338132+02:00",
+    "motm": "2026-08-19T21:23:01.338132+02:00"
+  },
+  "401902064": {
+    "events": [
+      "GOAL|away|Lwamba|1",
+      "GOAL|away|Lwamba|7'",
+      "GOAL|away|Sirino|1",
+      "GOAL|away|Sirino|50'"
+    ],
+    "result": "2026-08-25T21:26:12.976011+02:00"
+  },
+  "401902063": {
+    "events": [
+      "GOAL|away|George|1",
+      "GOAL|away|George|49'",
+      "GOAL|away|Letsoalo|1",
+      "GOAL|away|Letsoalo|2",
+      "GOAL|away|Letsoalo|21'",
+      "GOAL|away|Letsoalo|60'",
+      "GOAL|home|Moletshe|1",
+      "GOAL|home|Moletshe|74'",
+      "GOAL|home|Ndlovu|1",
+      "GOAL|home|Ndlovu|4'"
+    ],
+    "result": "2026-08-25T21:29:55.059518+02:00"
+  },
+  "401902062": {
+    "predicted": "2026-08-25T15:31:03.099250+02:00",
+    "hype": "2026-08-25T18:16:03.203187+02:00",
+    "lineup": "2026-08-25T19:01:03.351563+02:00",
+    "events": [
+      "GOAL|home|Appollis|1",
+      "GOAL|home|Appollis|62'",
+      "GOAL|home|Radiopane|1",
+      "GOAL|home|Radiopane|36'",
+      "RED|away|Red Card|1",
+      "RED|away|Red Card|82'"
+    ],
+    "result": "2026-08-25T21:28:44.790643+02:00",
+    "motm": "2026-08-25T21:28:44.790643+02:00"
+  },
+  "401902061": {
+    "events": [
+      "GOAL|away|Matrose|1",
+      "GOAL|away|Matrose|52'",
+      "GOAL|home|Mfolozi|1",
+      "GOAL|home|Mfolozi|75'"
+    ],
+    "result": "2026-08-25T21:24:26.793151+02:00"
+  },
+  "401902059": {},
+  "401902060": {},
+  "401902058": {},
+  "401902057": {
+    "longform": "2026-08-26T09:23:07.628532"
+  }
 }

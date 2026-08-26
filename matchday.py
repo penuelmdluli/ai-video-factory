@@ -671,6 +671,39 @@ async def cmd_auto(a):
                     print(f"[Auto] confirmed XI reel failed (rc={rc}) — "
                           f"not recorded, next tick retries")
 
+        # 2a-ii) LONG-FORM PREVIEW. Owner call 2026-08-26: "we need to always
+        # post the long". Hung off this watcher rather than a new scheduled
+        # task — the watcher already runs every five minutes and already knows
+        # when it is matchday, and a new task would need admin.
+        #
+        # It waits for the predicted XI to exist for this fixture, because the
+        # long-form follows that side rather than picking its own; running it
+        # first would put a different eleven on YouTube from the one on the
+        # page.
+        if (pri_ok and ko and not st.get("longform") and not f["completed"]
+                and _td(hours=0) <= ko - now <= _td(hours=14)):
+            try:
+                _pp = Path(__file__).parent / "data" / "xi_predictions.json"
+                _have = (_json.loads(_pp.read_text(encoding="utf-8"))
+                         .get(str(f["id"]))) if _pp.exists() else None
+            except Exception:
+                _have = None
+            if _have:
+                import subprocess as _sp2
+                cmd = [sys.executable, "-X", "utf8",
+                       str(Path(__file__).parent / "build_longform_preview.py"),
+                       "--club", club]
+                if a.post:
+                    cmd.append("--post")
+                rc = _sp2.run(cmd, cwd=str(Path(__file__).parent)).returncode
+                if rc == 0:
+                    st["longform"] = now.isoformat()
+                    print("[Auto] long-form preview posted")
+                else:
+                    print(f"[Auto] long-form rc={rc} — not recorded, will retry")
+            else:
+                print("[Auto] long-form waiting on the predicted XI")
+
         # 2b) LIVE updates — a card for every new goal / red card while in play
         if f["status"] == "in" and f["home_key"] and f["away_key"]:
             live = await _live_details(f["id"], _match_day(f))
