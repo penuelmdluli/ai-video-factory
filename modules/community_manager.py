@@ -146,85 +146,129 @@ _init_tables()
 # was still collecting comments. On 2026-08-24 three fan comments sat unanswered
 # on post #22, all of them posted that same morning, invisible to every round.
 # A comment ages out on the 48h rule below; it must not age out on post count.
-POST_SWEEP = 40
+POST_SWEEP = int(os.getenv("COMMUNITY_POST_SWEEP", "300"))
+POST_PAGES_MAX = 12               # posts pages to walk before stopping
+COMMENT_PAGES_MAX = 6             # comment pages per post
+COMMENTS_PER_POST_MAX = 400
+# 48 hours meant a comment left on a Friday reel was ignored by Monday. The
+# owner wants old threads answered too, so this is months rather than days —
+# still bounded, because a reply to a comment from last season reads as a bot.
+COMMENT_MAX_AGE_DAYS = int(os.getenv("COMMUNITY_MAX_AGE_DAYS", "120"))
+
+
+async def _get(url: str, params: dict) -> dict:
+    try:
+        r = requests.get(url, params=params, timeout=25)
+        if r.status_code != 200:
+            print(f"[Community] {r.status_code} on {url.rsplit('/', 1)[-1]}")
+            return {}
+        return r.json() or {}
+    except Exception as e:
+        print(f"[Community] fetch failed: {str(e)[:110]}")
+        return {}
+
+
+async def _all_comments_on(post_id: str, token: str) -> list[dict]:
+    """Every top-level comment on one post, following the comment pages.
+
+    The comments edge returns about twenty-five by default. The predicted XI
+    on 24 Aug drew a hundred and twenty-two, so replying only to what came
+    back in the first page meant four fifths of that thread was never even
+    looked at.
+    """
+    out, url = [], f"{GRAPH_API_BASE}/{post_id}/comments"
+    params = {"fields": "id,message,from,created_time,parent",
+              "limit": 100, "filter": "toplevel", "order": "reverse_chronological",
+              "access_token": token}
+    for _ in range(COMMENT_PAGES_MAX):
+        data = await _get(url, params)
+        out.extend(data.get("data") or [])
+        nxt = ((data.get("paging") or {}).get("next") or "")
+        if not nxt or len(out) >= COMMENTS_PER_POST_MAX:
+            break
+        url, params = nxt, {}
+    return out
 
 
 async def fetch_recent_comments(niche: str, limit: int = POST_SWEEP) -> list[dict]:
     """
-    Fetch recent comments from a Facebook page's posts.
+    Every unanswered top-level comment on the page, old posts included.
 
-    GET /{page_id}/posts?fields=id,message,comments{id,message,from,created_time}
-    Filters out:
-    - Comments already replied to
-    - Comments from the page itself
-    - Comments older than 48 hours
+    Owner call 2026-08-26: "always comment to all post old or new, always
+    engage with the followers". Three separate ceilings stopped that, and
+    lifting one without the others would not have helped:
+
+      · posts were capped at one page of forty, with no pagination
+      · comments were capped at the first page the edge happened to return,
+        so a hundred-and-twenty-two-comment thread was mostly invisible
+      · anything older than 48 hours was skipped outright
+
+    All three are now walked, bounded by explicit caps so a page with years of
+    history cannot turn one sweep into an unbounded crawl. The reply rate
+    limiter is untouched — engaging with everyone is the goal, but tripping
+    Facebook's spam detection would end the engagement altogether.
     """
     page_id = os.getenv(f"FB_PAGE_ID_{niche}", "")
     page_token = os.getenv(f"FB_PAGE_TOKEN_{niche}", "")
-
     if not page_id or not page_token:
         return []
 
     comments = []
+    seen_posts = 0
+    cutoff = datetime.utcnow() - timedelta(days=COMMENT_MAX_AGE_DAYS)
+
+    url = f"{GRAPH_API_BASE}/{page_id}/posts"
+    params = {"fields": "id,message,created_time", "limit": 50,
+              "access_token": page_token}
     try:
-        resp = requests.get(
-            f"{GRAPH_API_BASE}/{page_id}/posts",
-            params={
-                "fields": "id,message,comments{id,message,from,created_time,parent}",
-                "limit": limit,
-                "access_token": page_token,
-            },
-            timeout=20,
-        )
+        for _ in range(POST_PAGES_MAX):
+            data = await _get(url, params)
+            posts = data.get("data") or []
+            if not posts:
+                break
 
-        if resp.status_code != 200:
-            print(f"[Community] Failed to fetch posts for {niche}: {resp.status_code}")
-            return []
+            for post in posts:
+                if seen_posts >= limit:
+                    break
+                seen_posts += 1
+                post_message = (post.get("message", "") or "")[:200]
 
-        posts = resp.json().get("data", [])
-        cutoff = datetime.utcnow() - timedelta(hours=48)
-
-        for post in posts:
-            post_comments = post.get("comments", {}).get("data", [])
-            post_message = (post.get("message", "") or "")[:200]
-
-            for comment in post_comments:
-                # Skip if already replied
-                if is_already_replied(comment["id"]):
-                    continue
-
-                # Skip comments from the page itself
-                commenter_id = comment.get("from", {}).get("id", "")
-                if commenter_id == page_id:
-                    continue
-
-                # Skip old comments (>48h)
-                try:
-                    comment_time = datetime.strptime(
-                        comment["created_time"][:19], "%Y-%m-%dT%H:%M:%S"
-                    )
-                    if comment_time < cutoff:
+                for comment in await _all_comments_on(post["id"], page_token):
+                    if is_already_replied(comment["id"]):
                         continue
-                except (ValueError, KeyError):
-                    pass
+                    commenter_id = comment.get("from", {}).get("id", "")
+                    if commenter_id == page_id:
+                        continue
+                    if comment.get("parent"):
+                        continue
+                    try:
+                        ct = datetime.strptime(comment["created_time"][:19],
+                                               "%Y-%m-%dT%H:%M:%S")
+                        if ct < cutoff:
+                            continue
+                    except (ValueError, KeyError):
+                        pass
+                    comments.append({
+                        "id": comment["id"],
+                        "message": comment.get("message", ""),
+                        "from_name": comment.get("from", {}).get("name", "Someone"),
+                        "from_id": commenter_id,
+                        "created_time": comment.get("created_time", ""),
+                        "post_id": post["id"],
+                        "post_context": post_message,
+                    })
 
-                # Skip sub-replies (only reply to top-level comments)
-                if comment.get("parent"):
-                    continue
-
-                comments.append({
-                    "id": comment["id"],
-                    "message": comment.get("message", ""),
-                    "from_name": comment.get("from", {}).get("name", "Someone"),
-                    "from_id": commenter_id,
-                    "created_time": comment.get("created_time", ""),
-                    "post_id": post["id"],
-                    "post_context": post_message,
-                })
-
+            if seen_posts >= limit:
+                break
+            nxt = ((data.get("paging") or {}).get("next") or "")
+            if not nxt:
+                break
+            url, params = nxt, {}
     except Exception as e:
         print(f"[Community] Error fetching comments for {niche}: {e}")
 
+    print(f"[Community] {niche}: swept {seen_posts} posts, "
+          f"{len(comments)} unanswered comment(s)")
     return comments
 
 
