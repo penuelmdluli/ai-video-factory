@@ -111,7 +111,7 @@ async def build_and_post(dry=False, force=False):
     print(f"[Countdown] narration {vdur:.1f}s — timer runs the full length")
 
     clip = countdown(out,
-                     title=f"{short(f['home'])} v {short(f['away'])}",
+                     title=f"{short(f['home'])} VS {short(f['away'])}",
                      when=when.strftime("%A %d %B · %H:%M").upper(),
                      clubs=(f.get("home_key") or "chiefs",
                             f.get("away_key") or "pirates"),
@@ -131,14 +131,14 @@ async def build_and_post(dry=False, force=False):
         return 0
 
     from modules.uploader_facebook import upload_to_facebook, post_comment
-    cap = (f"⏳ COUNTDOWN — {f['home']} v {f['away']}\n"
+    cap = (f"⏳ COUNTDOWN — {f['home']} VS {f['away']}\n"
            f"{when:%A %d %B} · {when:%H:%M}"
            + (f" · {venue}" if venue else "")
            + "\n\nYour score prediction 👇⚽\n"
              "#PSL #BetwayPremiership #KaizerChiefs #OrlandoPirates "
              "#MamelodiSundowns")
     fb = await upload_to_facebook(video_path=voiced,
-                                  title=f"Countdown: {f['home']} v {f['away']}",
+                                  title=f"Countdown: {f['home']} VS {f['away']}",
                                   description=cap, niche="sa_pulse",
                                   is_reel=True)
     vid = fb.get("video_id") or fb.get("post_id")
@@ -150,7 +150,7 @@ async def build_and_post(dry=False, force=False):
         from modules.uploader_youtube import upload_to_youtube
         yt = await upload_to_youtube(
             video_path=voiced,
-            title=f"Countdown: {f['home']} v {f['away']} #Shorts"[:95],
+            title=f"Countdown: {f['home']} VS {f['away']} #Shorts"[:95],
             description=cap, tags=["PSL", "countdown", f["home"], f["away"]],
             niche="sa_pulse", is_short=True, privacy="public")
         print(f"[Countdown] YouTube: {yt.get('video_id')}")

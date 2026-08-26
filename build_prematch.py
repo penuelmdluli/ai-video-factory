@@ -113,7 +113,7 @@ async def main(post: bool, club: str = ""):
              .replace("Kaizer ", "").replace(" FC", "").upper())
 
     part1 = countdown(OUT / "p1.mp4",
-                      title=f"{short(f['home'])} v {short(f['away'])}",
+                      title=f"{short(f['home'])} VS {short(f['away'])}",
                       when=when.strftime("%A %d %B · %H:%M").upper(),
                       clubs=(hk, ak), start_secs=secs, duration=6.5)
 
@@ -162,7 +162,7 @@ async def main(post: bool, club: str = ""):
         print("[Prematch] built only — not posted")
         return 0
 
-    cap = (f"⏳ {f['home'].upper()} v {f['away'].upper()}\n"
+    cap = (f"⏳ {f['home'].upper()} VS {f['away'].upper()}\n"
            f"{when:%A %d %B} · {when:%H:%M}"
            + (f" · {f['venue']}" if f.get("venue") else "") + "\n\n"
            f"{h['name']} — {h['rank']} on {h['points']} pts\n"
@@ -172,7 +172,7 @@ async def main(post: bool, club: str = ""):
              "#PSL #BetwayPremiership #KaizerChiefs")
     from modules.uploader_facebook import post_comment, upload_to_facebook
     fb = await upload_to_facebook(video_path=str(final),
-                                  title=f"{f['home']} v {f['away']} — preview",
+                                  title=f"{f['home']} VS {f['away']} — preview",
                                   description=cap, niche=NICHE, is_reel=True)
     print(f"[Prematch] Facebook: {fb.get('status')} {fb.get('post_id')}")
     vid = fb.get("video_id") or fb.get("post_id")

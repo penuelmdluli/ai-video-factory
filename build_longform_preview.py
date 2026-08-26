@@ -533,7 +533,7 @@ async def main():
         "calls": calls, "marks": marks,
         "kickoff": " · ".join(x for x in (fx.get("kickoff_sast", ""),
                                           fx.get("venue", "")) if x),
-        "fixture_line": f"{fx.get('home')} v {fx.get('away')}",
+        "fixture_line": f"{fx.get('home')} VS {fx.get('away')}",
         "provenance": f"v {sheet['match'].split(' v ')[-1]} ({sheet['date']})",
         "standings": standings(a.club), "opp_standings": standings(opp_key),
         "club": a.club, "club_key": a.club,
