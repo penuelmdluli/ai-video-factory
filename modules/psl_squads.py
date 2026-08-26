@@ -35,7 +35,18 @@ NAME_FIX = {
     "Inácio Miguel dos Santos": "Inácio Miguel",
     "Inacio Miguel dos Santos": "Inácio Miguel",
     "Brandon Peterson": "Brandon Petersen",
+    # ESPN lists him as Macheke; every Chiefs fan knows him as Kwinika, and a
+    # graphic that uses the name the crowd does not use reads as an outsider's
+    # feed (owner, 2026-08-26).
+    "Macheke": "Kwinika",
+    "Given Macheke": "Given Kwinika",
+    "Sibongiseni Macheke": "Sibongiseni Kwinika",
 }
+
+
+def fix_surname(token: str) -> str:
+    """Fix a bare surname as it appears on a team sheet or a board chip."""
+    return NAME_FIX.get(token, token)
 
 
 def fix_name(name: str) -> str:

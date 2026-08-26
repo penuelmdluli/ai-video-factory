@@ -131,6 +131,18 @@ async def last_lineup(club_key: str, lookback_days: int = 45) -> dict | None:
     return None
 
 
+def _display(player_line: str) -> str:
+    """Apply owner name fixes to a "7 Surname" team-sheet entry."""
+    try:
+        from modules.psl_squads import fix_name, fix_surname
+    except Exception:
+        return player_line
+    no, _, nm = player_line.partition(" ")
+    if not nm:
+        return fix_name(player_line)
+    return f"{no} {fix_surname(nm.strip()) if ' ' not in nm.strip() else fix_name(nm.strip())}"
+
+
 async def official_lineups(event_id: str) -> dict:
     """
     The CONFIRMED starting XI from the match summary feed, once the clubs
@@ -192,7 +204,9 @@ async def official_lineups(event_id: str) -> dict:
             nm = fix_name((ath.get("displayName") or "").strip()).split()
             surname = " ".join(nm[-2:]) if len(nm) > 1 and nm[-2].lower() in \
                 ("du", "de", "van", "von", "le", "da", "dos") else (nm[-1] if nm else "")
-            players.append(f"{no} {surname}".strip())
+            # owner name fixes apply here so every board, card and reel
+            # shows the name the fans actually use
+            players.append(_display(f"{no} {surname}".strip()))
         # The bench is published too and was simply never read. Fans argue
         # about the subs as much as the XI.
         bench = []
