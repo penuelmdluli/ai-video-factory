@@ -77,8 +77,18 @@ def pick_gaps(xi: list[str], formation: str, n: int = 3) -> list[int]:
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--club", default="chiefs")
-    ap.add_argument("--gaps", type=int, default=3)
-    ap.add_argument("--post", action="store_true")
+    ap.add_argument("--gaps", type=int, default=0,
+                    help="0 = let the mode decide")
+    ap.add_argument("--mode", default="auto",
+                    choices=["auto", "fill", "replace", "start"],
+                    help="which question to ask; auto rotates by day")
+    ap.add_argument("--post", action="store_true",
+                    help="post the card to Facebook")
+    ap.add_argument("--skip-facebook", dest="skip_facebook",
+                    action="store_true",
+                    help="the card is already on the page — video surfaces only")
+    ap.add_argument("--video", action="store_true",
+                    help="also render a vertical short for YouTube and TikTok")
     a = ap.parse_args()
 
     from modules.psl_fixtures import next_fixture
@@ -98,7 +108,7 @@ async def main():
     # Build the holes into the side we have ALREADY published for this
     # fixture, so the page is asking about one team rather than inventing a
     # second one an hour after the first.
-    xi, formation = [], "4-3-3"
+    xi, formation, pred = [], "4-3-3", {}
     try:
         pp = ROOT / "data" / "xi_predictions.json"
         pred = (json.loads(pp.read_text(encoding="utf-8")).get(fid) or {}) \
@@ -114,8 +124,39 @@ async def main():
         _log("no usable XI")
         return 1
 
-    gaps = pick_gaps(xi, formation, a.gaps)
+    # WHICH QUESTION. Owner call 2026-08-26: ask consistently, and vary it —
+    # who fills, who replaces, who starts. One format asked the same way every
+    # time stops being a question and becomes wallpaper, and the three are not
+    # interchangeable: "who fills three empty shirts" is a team-building
+    # question, "who replaces him" is about one man, and "who starts here" is
+    # a straight two-way argument, which is the one that historically draws
+    # the most comments on this page.
+    MODES = ["fill", "replace", "start"]
+    mode = a.mode
+    if mode == "auto":
+        mode = MODES[datetime.now().timetuple().tm_yday % len(MODES)]
+    n_gaps = a.gaps or (3 if mode == "fill" else 1)
+
+    gaps = pick_gaps(xi, formation, n_gaps)
     missing = [_surname(xi[g]) for g in gaps]
+    _log(f"mode: {mode.upper()} ({n_gaps} shirt{'s' if n_gaps != 1 else ''})")
+
+    # two names to argue between, for the straight two-way question
+    rivals = []
+    if mode == "start":
+        try:
+            from modules.rotation import coldness
+            cold = await coldness(a.club)
+        except Exception:
+            cold = {}
+        pool = [b for b in (pred.get("bench") or []) if str(b).strip()]
+        if not pool:
+            from build_lineup_video import pick_xi_real
+            _x, _f, _p, _b = await pick_xi_real(a.club)
+            pool = _b or []
+        pool.sort(key=lambda b: -cold.get(_surname(b).lower(), 0))
+        rivals = [missing[0]] + [_surname(b) for b in pool[:1]]
+        rivals = [r for r in rivals if r]
     holed = [("" if i in gaps else p) for i, p in enumerate(xi)]
     _log(f"gaps at {gaps} — holding out {', '.join(missing)}")
 
@@ -131,28 +172,94 @@ async def main():
                          formation=formation, kickoff=kickoff,
                          competition="Betway Premiership", predicted=True,
                          pending=True,   # the empty shirts must be VISIBLE
-                         badge="YOU PICK THE REST")
+                         badge={"fill": "YOU PICK THE REST",
+                                "replace": "WHO REPLACES HIM?",
+                                "start": "WHO STARTS HERE?"}[mode])
     if not p:
         _log("card failed")
         return 1
     _log(f"card: {card}")
 
-    caption = (
-        f"YOU PICK THE REST. 👇{chr(10)}{chr(10)}"
-        f"{len(gaps)} shirts are empty in our {club_name} side "
-        f"{'vs' if home else 'away to'} {opp_name} tonight — "
-        f"{formation}, {kickoff}.{chr(10)}{chr(10)}"
-        f"Who fills them? Drop the names in the comments and we will read the "
-        f"most-backed eleven back to you before kickoff.{chr(10)}{chr(10)}"
-        f"#KaizerChiefs #Amakhosi #Khosi4Life #PSL #BetwayPremiership")
+    where = f"{'vs' if home else 'away to'} {opp_name}"
+    tail = (f"{chr(10)}{chr(10)}#KaizerChiefs #Amakhosi #Khosi4Life #PSL "
+            f"#BetwayPremiership")
+    if mode == "fill":
+        caption = (
+            f"YOU PICK THE REST. 👇{chr(10)}{chr(10)}"
+            f"{len(gaps)} shirts are empty in our {club_name} side {where} — "
+            f"{formation}, {kickoff}.{chr(10)}{chr(10)}"
+            f"Who fills them? Drop the names in the comments and we will read "
+            f"the most-backed eleven back to you before kickoff." + tail)
+        say = (f"{len(gaps)} shirts are empty in our {club_name} eleven "
+               f"{where} tonight. Who fills them? Tell us in the comments, "
+               f"and we will read the most backed eleven back to you before "
+               f"kick off.")
+    elif mode == "replace":
+        who = missing[0]
+        caption = (
+            f"WHO REPLACES {who.upper()}? 👇{chr(10)}{chr(10)}"
+            f"Take him out of our {club_name} side {where} — "
+            f"{formation}, {kickoff} — and the shirt is yours to fill."
+            f"{chr(10)}{chr(10)}"
+            f"One name in the comments. We will count them." + tail)
+        say = (f"Take {who} out of our {club_name} eleven {where} tonight. "
+               f"Who replaces him? One name in the comments. We will count "
+               f"them.")
+    else:
+        pair = " or ".join(r.upper() for r in rivals) if len(rivals) > 1             else missing[0].upper()
+        caption = (
+            f"WHO STARTS HERE? {pair} 👇{chr(10)}{chr(10)}"
+            f"One shirt, two names, {club_name} {where} — "
+            f"{formation}, {kickoff}.{chr(10)}{chr(10)}"
+            f"Pick one and say why. No fence-sitting." + tail)
+        say = (f"One shirt, two names. "
+               + (f"{rivals[0]}, or {rivals[1]}? " if len(rivals) > 1
+                  else f"Who starts in this shirt? ")
+               + f"For {club_name} {where} tonight. Pick one in the comments, "
+                 f"and say why.")
 
     (work / "post_manifest.json").write_text(json.dumps(
         {"niche": NICHE, "card": str(card), "caption": caption,
          "gaps": gaps, "withheld": missing, "formation": formation,
+         "mode": mode, "rivals": rivals,
          "fixture": fid, "built_at": datetime.now().isoformat()},
         indent=2, ensure_ascii=False), encoding="utf-8")
 
-    if a.post:
+    # ── the short, for the surfaces that cannot take a still ────────────
+    # Facebook gets the card, because the question is read in the half second
+    # it takes to scroll past. YouTube and TikTok have no photo surface worth
+    # posting to, so the same question becomes a short — the empty shirts
+    # carrying the live loader they already use in the reveal, which is
+    # exactly the "we are waiting on you" the caption is asking for.
+    video = None
+    if a.video:
+        from build_lineup_video import _live_loader
+        from modules.motion_kit import _render, DARK, attach_voice
+        from modules.club_brand import CLUB_BRAND as _CB
+        from PIL import Image
+        accent = tuple(_CB.get(a.club, {}).get("colors", {})
+                       .get("primary", (255, 193, 7)))
+        base_card = Image.open(card).convert("RGB")
+        W, H = 1080, 1920
+        cy = (H - base_card.height) // 2
+
+        dur = max(13.0, len(say.split()) / 2.8 + 3.0)
+
+        def _f(t):
+            base = Image.new("RGB", (W, H), DARK)
+            img = _live_loader(base_card.copy(), t, formation, False,
+                               0, accent, indices=gaps)
+            base.paste(img, (0, cy))
+            return base
+
+        silent = work / "gaps_silent.mp4"
+        _render(_f, silent, duration=dur, fps=24)
+        voiced = await attach_voice(silent, say, work / "gaps_voiced.mp4")
+        from modules.music_bed import add_bed
+        video = add_bed(voiced, work / "gaps_final.mp4", NICHE, dur, log=_log)
+        _log(f"short: {video} ({dur:.0f}s)")
+
+    if a.post and not a.skip_facebook:
         from modules.uploader_facebook import upload_photo, post_comment
         r = await upload_photo(str(card), caption, NICHE)
         _log(f"posted: {(r or {}).get('status')} {(r or {}).get('post_id', '')}")
@@ -170,6 +277,38 @@ async def main():
                 _log("first comment seeded")
             except Exception as e:
                 _log(f"first comment failed: {str(e)[:90]}")
+
+    if a.post and video and Path(video).exists():
+        title = (f"YOU PICK THE REST — {club_name} XI "
+                 f"{'vs' if home else 'away to'} {opp_name}")
+        tags = ["KaizerChiefs", "Amakhosi", "PSL", "TeamNews",
+                "BetwayPremiership"]
+        # Facebook already has the card. Posting the short there too would
+        # be the same question twice on one feed.
+        if (ROOT / "tokens" / f"youtube_token_{NICHE}.json").exists():
+            try:
+                from modules.uploader_youtube import upload_to_youtube
+                yt = await upload_to_youtube(
+                    video_path=str(video), title=title[:95],
+                    description=caption, tags=tags, niche=NICHE,
+                    thumbnail_path=str(card), is_short=True)
+                vid = (yt or {}).get("video_id", "")
+                _log(f"YouTube: {(yt or {}).get('status')} {vid}")
+                if vid:
+                    from modules.playlists import add_youtube
+                    add_youtube(vid, shorts=True)
+            except Exception as e:
+                _log(f"YouTube failed: {str(e)[:120]}")
+        else:
+            _log("YouTube skipped — no channel token")
+        try:
+            from modules.uploader_tiktok import upload_to_tiktok
+            tt = await upload_to_tiktok(video_path=str(video),
+                                        description=caption[:150],
+                                        hashtags=tags[:5], niche=NICHE)
+            _log(f"TikTok: {(tt or {}).get('status')}")
+        except Exception as e:
+            _log(f"TikTok failed: {str(e)[:120]}")
     return 0
 
 

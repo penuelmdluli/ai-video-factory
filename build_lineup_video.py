@@ -218,7 +218,7 @@ def build_frames(work: Path, club: str, opponent: str, formation: str,
 
 
 def _live_loader(img, t: float, formation: str, bench: bool,
-                 revealed: int, accent):
+                 revealed: int, accent, indices=None):
     """Animated "waiting on this name" markers, drawn per frame.
 
     The first version baked a static "TO COME" chip into each card PNG, so it
@@ -234,7 +234,12 @@ def _live_loader(img, t: float, formation: str, bench: bool,
     except Exception:
         return img
     d = ImageDraw.Draw(img, "RGBA")
-    for i in range(revealed, len(spots)):
+    # The reveal wants "everyone from here on"; the fill-the-gaps card wants
+    # three specific shirts. Same loader either way.
+    want = indices if indices is not None else range(revealed, len(spots))
+    for i in want:
+        if i >= len(spots):
+            continue
         x, y = spots[i]
         y -= 26
         r = 33

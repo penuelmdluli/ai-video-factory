@@ -117,9 +117,17 @@ async def decide() -> tuple[str, dict]:
                                   "md": "md_debate"}
             return fmt, {"fid": fid, "fx": fx, "slot": "xi_matchday",
                          "md": f"md_{fmt}"}
-        _log("matchday formats all posted — repeating the XI rather than "
-             "leaving the game for a general news reel")
-        return "xi", {"fid": fid, "fx": fx, "slot": "xi_matchday"}
+        # Once the crest, the team sheet and the argument are all out, a
+        # fourth slot must NOT repeat the XI — the page would carry the same
+        # eleven three times in a day, which is the automated look every other
+        # fix today has been removing. Ask the fans about tonight instead.
+        today = datetime.now().strftime("%Y%m%d")
+        if not st.get("fancall", {}).get(today):
+            _log("matchday formats all posted — asking the fans rather than "
+                 "posting the same eleven again")
+            return "fancall", {"fid": fid, "day": today}
+        _log("matchday formats and the fan call all posted — news reel")
+        return "news", {"fid": fid}
 
     if 0 <= hours <= XI_WINDOW_H and not done.get("xi_matchday"):
         return "xi", {"fid": fid, "fx": fx, "slot": "xi_matchday"}
@@ -133,6 +141,18 @@ async def decide() -> tuple[str, dict]:
         nxt = next((g for g in DEBATE_GROUPS if g not in used), "")
         if nxt:
             return "debate", {"fid": fid, "fx": fx, "group": nxt}
+
+    # FAN CALL. Owner call 2026-08-26: ask the supporters consistently — who
+    # fills the empty shirts, who replaces him, who should start. It sits in
+    # the between-games slots rather than on matchday, because matchday is
+    # already full (crest, team sheet, argument) and these are the days the
+    # page most needs a reason for someone to comment. The mode rotates by
+    # day inside the builder, so the same question is never asked twice
+    # running.
+    today = datetime.now().strftime("%Y%m%d")
+    if not _state().get("fancall", {}).get(today):
+        return "fancall", {"fid": fid, "day": today}
+
     return "news", {"fid": fid}
 
 
@@ -157,6 +177,9 @@ async def main():
         rc = _run(["py", "build_matchday_hype.py", "--club", CLUB] + post)
     elif fmt == "xi":
         rc = _run(["py", "build_lineup_video.py", "--club", CLUB] + post)
+    elif fmt == "fancall":
+        rc = _run(["py", "build_fill_the_gaps.py", "--club", CLUB, "--video"]
+                  + post)
     elif fmt == "debate":
         rc = _run(["py", "build_debate_video.py", "--club", CLUB,
                    "--group", ctx["group"]] + post)
@@ -165,7 +188,12 @@ async def main():
 
     # Only record success. A failed XI build must be retried at the next slot,
     # not silently marked done and skipped for the rest of the fixture week.
-    if rc == 0 and a.post and ctx.get("fid") and fmt in ("hype", "xi", "debate"):
+    if rc == 0 and a.post and fmt == "fancall" and ctx.get("day"):
+        st = _state()
+        st.setdefault("fancall", {})[ctx["day"]] = datetime.now().isoformat()
+        _save(st)
+        _log(f"recorded fancall for {ctx['day']}")
+    elif rc == 0 and a.post and ctx.get("fid") and fmt in ("hype", "xi", "debate"):
         st = _state()
         rec = st.setdefault(ctx["fid"], {})
         if ctx.get("md"):
