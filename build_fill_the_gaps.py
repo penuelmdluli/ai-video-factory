@@ -87,6 +87,9 @@ async def main():
     ap.add_argument("--skip-facebook", dest="skip_facebook",
                     action="store_true",
                     help="the card is already on the page — video surfaces only")
+    ap.add_argument("--as-reel", dest="as_reel", action="store_true",
+                    help="post the video to Facebook as a reel instead of "
+                         "posting the still card")
     ap.add_argument("--video", action="store_true",
                     help="also render a vertical short for YouTube and TikTok")
     a = ap.parse_args()
@@ -245,10 +248,60 @@ async def main():
 
         dur = max(13.0, len(say.split()) / 2.8 + 3.0)
 
+        def _candidates(img, t):
+            """The contested shirt flicks between the two names.
+
+            A spinning loader says "a name is coming". For a straight two-way
+            argument the name is NOT coming — both are already on the table,
+            and the shirt belongs to whichever one the viewer picks. So it
+            alternates, with the one currently showing lit and the other
+            ghosted underneath.
+            """
+            from PIL import ImageDraw
+            from modules.tactics_motion import base_positions, _font
+            try:
+                spots, _ = base_positions(formation, False)
+            except Exception:
+                return img
+            d = ImageDraw.Draw(img, "RGBA")
+            for i in gaps:
+                if i >= len(spots):
+                    continue
+                x, y = spots[i]
+                y -= 26
+                turn = int(t * 1.15) % 2          # ~0.9s each
+                shown = rivals[turn % len(rivals)].upper()
+                other = rivals[(turn + 1) % len(rivals)].upper()
+                r = 37
+                from modules.lineup_card import _jersey
+                from modules.club_brand import CLUB_BRAND as _CB2
+                trim = tuple(_CB2.get(a.club, {}).get("colors", {})
+                             .get("secondary", (10, 10, 10)))
+                # the contested shirt is a SHIRT, same as every other one on
+                # the card — with a question mark where the number goes
+                _jersey(d, x, y, r, accent, trim, "?", _font(34),
+                        ring=(214, 40, 48))
+                nf = _font(27)
+                nw = d.textlength(shown, font=nf)
+                d.rounded_rectangle([x - nw / 2 - 14, y + r + 6,
+                                     x + nw / 2 + 14, y + r + 44],
+                                    radius=10, fill=(16, 18, 22))
+                d.text((x - nw / 2, y + r + 11), shown, font=nf,
+                       fill=(255, 255, 255))
+                gf = _font(21)
+                gw = d.textlength(other, font=gf)
+                d.text((x - gw / 2, y + r + 52), other, font=gf,
+                       fill=(120, 126, 136, 190))
+            return img
+
         def _f(t):
             base = Image.new("RGB", (W, H), DARK)
-            img = _live_loader(base_card.copy(), t, formation, False,
-                               0, accent, indices=gaps)
+            img = base_card.copy()
+            if mode == "start" and len(rivals) > 1:
+                img = _candidates(img, t)
+            else:
+                img = _live_loader(img, t, formation, False, 0, accent,
+                                   indices=gaps)
             base.paste(img, (0, cy))
             return base
 
@@ -259,7 +312,7 @@ async def main():
         video = add_bed(voiced, work / "gaps_final.mp4", NICHE, dur, log=_log)
         _log(f"short: {video} ({dur:.0f}s)")
 
-    if a.post and not a.skip_facebook:
+    if a.post and not a.skip_facebook and not a.as_reel:
         from modules.uploader_facebook import upload_photo, post_comment
         r = await upload_photo(str(card), caption, NICHE)
         _log(f"posted: {(r or {}).get('status')} {(r or {}).get('post_id', '')}")
@@ -277,6 +330,21 @@ async def main():
                 _log("first comment seeded")
             except Exception as e:
                 _log(f"first comment failed: {str(e)[:90]}")
+
+    if a.post and a.as_reel and video and Path(video).exists():
+        # One question, one piece of media, everywhere. Used when the ask is
+        # better watched than read — a two-way argument wants the shirt to
+        # flick between the names, which a still cannot do.
+        from modules.publish_reel import publish
+        r = await publish(video, ({"fill": f"YOU PICK THE REST — {club_name} XI",
+                                   "replace": f"WHO REPLACES {missing[0].upper()}?",
+                                   "start": f"WHO STARTS HERE? {club_name}"}[mode]
+                                  + f" {where}")[:95],
+                          caption, str(card), niche=NICHE,
+                          tags=["KaizerChiefs", "Amakhosi", "PSL", "TeamNews",
+                                "BetwayPremiership"])
+        _log(f"published: { {k: (v or {}).get('status') for k, v in r.items()} }")
+        return 0
 
     if a.post and video and Path(video).exists():
         title = (f"YOU PICK THE REST — {club_name} XI "

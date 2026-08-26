@@ -71,6 +71,51 @@ def _parse_player(s: str) -> tuple[str, str]:
     return "", str(s).strip()
 
 
+
+def _jersey(d, x, y, r, body, trim, number, num_font, ring=None):
+    """A shirt in the club's own colours instead of a plain dot.
+
+    Owner call 2026-08-26: "can we use the real jersey team at least". We
+    cannot use a licensed kit image and there are no licensed player photos
+    for this squad — but a shirt SHAPE in the club's registered colours is our
+    own drawing, and it is the difference between a tactics diagram and
+    something a supporter recognises as their team.
+
+    Drawn rather than loaded so it works for any club in CLUB_BRAND: body,
+    two sleeves, a collar, and the number across the chest.
+    """
+    w = r * 1.9
+    h = r * 2.0
+    x0, y0 = x - w / 2, y - h / 2
+    sl = w * 0.42                     # sleeve width
+    # sleeves first, so the body overlaps them
+    d.polygon([(x0 - sl * 0.55, y0 + h * 0.10), (x0 + sl * 0.30, y0),
+               (x0 + sl * 0.30, y0 + h * 0.48),
+               (x0 - sl * 0.55, y0 + h * 0.46)], fill=trim)
+    d.polygon([(x0 + w + sl * 0.55, y0 + h * 0.10), (x0 + w - sl * 0.30, y0),
+               (x0 + w - sl * 0.30, y0 + h * 0.48),
+               (x0 + w + sl * 0.55, y0 + h * 0.46)], fill=trim)
+    # body, slightly tapered to the waist
+    d.polygon([(x0 + sl * 0.22, y0 + h * 0.02),
+               (x0 + w - sl * 0.22, y0 + h * 0.02),
+               (x0 + w - sl * 0.10, y0 + h),
+               (x0 + sl * 0.10, y0 + h)], fill=body)
+    # collar
+    d.polygon([(x - w * 0.20, y0 + h * 0.02), (x + w * 0.20, y0 + h * 0.02),
+               (x + w * 0.10, y0 + h * 0.17), (x - w * 0.10, y0 + h * 0.17)],
+              fill=trim)
+    if ring:
+        d.line([(x0 + sl * 0.22, y0 + h * 0.02),
+                (x0 + w - sl * 0.22, y0 + h * 0.02),
+                (x0 + w - sl * 0.10, y0 + h),
+                (x0 + sl * 0.10, y0 + h),
+                (x0 + sl * 0.22, y0 + h * 0.02)], fill=ring, width=5)
+    if number:
+        nw = d.textlength(number, font=num_font)
+        nc = (255, 255, 255) if sum(body) < 380 else (16, 16, 16)
+        d.text((x - nw / 2, y - h * 0.10), number, font=num_font, fill=nc)
+
+
 def make_lineup_card(
     output_path: str | Path,
     club: str,
@@ -261,16 +306,14 @@ def make_lineup_card(
                 if not head:
                     # jersey dot — a big call gets a red ring so the two
                     # opinions on the card cannot be mistaken for the team sheet
-                    ring = (214, 40, 48) if is_call else (255, 255, 255)
-                    if is_call:
-                        d.ellipse([x - rr - 7, y - rr - 33, x + rr + 7, y + rr - 19],
-                                  outline=ring, width=4)
-                    d.ellipse([x - rr, y - rr - 26, x + rr, y + rr - 26],
-                              fill=accent, outline=ring, width=3)
-                    if num:
-                        nw = d.textlength(num, font=pf_num)
-                        numc = (255, 255, 255) if sum(accent) < 380 else (10, 10, 10)
-                        d.text((x - nw / 2, y - 46), num, font=pf_num, fill=numc)
+                    ring = (214, 40, 48) if is_call else None
+                    trim = tuple(brand.get("colors", {})
+                                 .get("secondary", (10, 10, 10)))
+                    # A shirt in the club's colours, not a coloured dot: the
+                    # difference between a tactics diagram and something a
+                    # supporter recognises as their team.
+                    _jersey(d, x, y - 26, rr, accent, trim, num, pf_num,
+                            ring=ring)
                 # name pill under the marker — crisper than raw text on grass
                 name = name.upper()
                 f = pf_name
