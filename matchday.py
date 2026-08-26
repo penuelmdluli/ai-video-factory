@@ -845,6 +845,28 @@ async def cmd_live(a):
     backup for when this process is down.
     """
     from modules.psl_fixtures import todays_fixtures
+
+    # REAP OLDER SELVES. pm2 restart spawns a new watcher but does not always
+    # kill the old one: on 26 Aug a process from 07:39 was still alive at
+    # 19:18 alongside the 09:23 one, won the mutex, and posted the CONFIRMED
+    # XI using code from before the verdict reel existed. The mutex did its
+    # job — only one poster acted — but the one that acted was running stale
+    # logic, which is a failure the mutex alone can never catch.
+    try:
+        import psutil
+        me = os.getpid()
+        for proc in psutil.process_iter(["pid", "cmdline", "create_time"]):
+            try:
+                cl = " ".join(proc.info.get("cmdline") or [])
+                if (proc.info["pid"] != me and "matchday.py" in cl
+                        and " live" in f" {cl}"):
+                    print(f"[Live] killing older watcher pid {proc.info['pid']}")
+                    proc.kill()
+            except Exception:
+                continue
+    except Exception as e:
+        print(f"[Live] could not reap older watchers: {str(e)[:90]}")
+
     print("[Live] resident watcher started")
     while True:
         try:
