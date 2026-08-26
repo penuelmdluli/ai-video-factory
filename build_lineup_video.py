@@ -502,7 +502,14 @@ async def main():
         for c in calls:
             xi[c["index"]] = c["out"]
     else:
-        calls = pick_calls(a.club, xi, bench, n=2)
+        # who has been frozen out — the change that actually starts a fight
+        _cold = {}
+        try:
+            from modules.rotation import coldness
+            _cold = await coldness(a.club)
+        except Exception as e:
+            _log(f"rotation read failed: {str(e)[:80]}")
+        calls = pick_calls(a.club, xi, bench, n=2, cold=_cold)
     marks = []
     if calls:
         xi, marks = apply_calls(xi, calls)

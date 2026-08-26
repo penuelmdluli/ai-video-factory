@@ -443,6 +443,9 @@ async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--club", default="chiefs")
     ap.add_argument("--post", action="store_true")
+    ap.add_argument("--within", type=float, default=15.0,
+                    help="only build if kickoff is inside this many hours")
+    ap.add_argument("--force", action="store_true")
     a = ap.parse_args()
 
     try:
@@ -460,6 +463,22 @@ async def main():
     if not fx:
         _log("no upcoming fixture — refusing to preview a played game")
         return 1
+    # MATCHDAY GATE. The owner wants a long-form every time we play, which
+    # means a task that runs daily — and without a gate that task would build a
+    # three-minute preview for a fixture eight days out and post it as though
+    # the game were tonight. Same failure the hype reel refuses.
+    try:
+        from datetime import datetime as _dt2
+        _ko = _dt2.fromisoformat(fx["kickoff_iso"])
+        _h = (_ko - _dt2.now(_ko.tzinfo)).total_seconds() / 3600
+        if _h > a.within and not a.force:
+            _log(f"next match is {_ko:%a %d %b} ({_h:.0f}h away) — a preview "
+                 f"belongs on the day, not {_h/24:.0f} days early "
+                 f"(--force to override)")
+            return 2
+    except Exception as e:
+        _log(f"kickoff gate skipped: {str(e)[:80]}")
+
     opp_key = fx["away_key"] if fx["home_key"] == a.club else fx["home_key"]
 
     sheet = await last_lineup(a.club)
@@ -467,11 +486,35 @@ async def main():
         _log("no published team sheet to build from")
         return 1
     xi, bench = sheet["players"], sheet.get("bench", [])
-    xi, swaps = filter_xi(a.club, xi, bench)
-    for o, i, why in swaps:
-        _log(f"INJURY: {o} out ({why}) — {i or 'no cover'} in")
-    bench = [b for b in bench if b not in xi]
-    calls = pick_calls(a.club, xi, bench, n=2)
+
+    # ONE SIDE PER FIXTURE. The long-form used to select its own eleven, which
+    # meant a three-minute preview could name a different XI from the reel the
+    # page posted an hour earlier — the page contradicting itself in public on
+    # the one subject it is supposed to be authoritative about. If a prediction
+    # was already published for this fixture, that IS the side.
+    _pred = {}
+    try:
+        _pp = ROOT / "data" / "xi_predictions.json"
+        if _pp.exists():
+            _pred = (json.loads(_pp.read_text(encoding="utf-8"))
+                     .get(str(fx.get("id", ""))) or {})
+    except Exception as e:
+        _log(f"stored prediction unreadable: {str(e)[:80]}")
+
+    if _pred.get("xi"):
+        xi = list(_pred["xi"])
+        a.formation = _pred.get("formation") or getattr(a, "formation", "")
+        calls = [{"index": 0, "in": c["in"], "out": c["out"],
+                  "reason": "our call", "hook": ""}
+                 for c in (_pred.get("calls") or [])]
+        _log(f"using the XI already published for this fixture: "
+             f"{', '.join(xi)}")
+    else:
+        xi, swaps = filter_xi(a.club, xi, bench)
+        for o, i, why in swaps:
+            _log(f"INJURY: {o} out ({why}) — {i or 'no cover'} in")
+        bench = [b for b in bench if b not in xi]
+        calls = pick_calls(a.club, xi, bench, n=2)
     marks = []
     if calls:
         xi, marks = apply_calls(xi, calls)

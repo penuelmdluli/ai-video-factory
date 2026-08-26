@@ -84,6 +84,7 @@ def make_lineup_card(
     bench: list[str] | None = None,
     highlight: list[int] | None = None,
     pending: bool = False,
+    badge: str = "",
 ) -> str | None:
     """Render the XI on a pitch. Returns the path, or None on failure."""
     try:
@@ -112,7 +113,10 @@ def make_lineup_card(
         d.text((153, 84), "PSL & MZANSI FOOTBALL", font=_font(20, bold=False),
                fill=sub)
 
-        label = "PREDICTED XI" if predicted else "STARTING XI"
+        # A "you pick the rest" card is neither a prediction nor a team
+        # sheet, and calling it PREDICTED XI with three shirts empty
+        # reads as a card that failed to render.
+        label = badge or ("PREDICTED XI" if predicted else "STARTING XI")
         lf = _font(40)
         lw = d.textlength(label, font=lf)
         pill = (200, 40, 40) if predicted else accent

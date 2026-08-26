@@ -90,7 +90,8 @@ def _pos_map(club: str) -> dict:
     return out
 
 
-def pick(club: str, xi: list[str], bench: list[str], n: int = 2) -> list[dict]:
+def pick(club: str, xi: list[str], bench: list[str], n: int = 2,
+         cold: dict | None = None) -> list[dict]:
     """[{out, in, reason, hook}] — n deliberate changes from the last XI.
 
     Preference order for who comes IN: a bench man the news is talking about
@@ -102,9 +103,18 @@ def pick(club: str, xi: list[str], bench: list[str], n: int = 2) -> list[dict]:
     if not bench or len(xi) < 11:
         return []
 
+    # WHO COMES IN. This used to be "whoever the news mentions, else next off
+    # the bench", which produces a change but rarely an argument — swapping in
+    # the man who played sixty minutes last week is rotation, not a position.
+    # Owner call 2026-08-26: use the ones stuck on the bench or unused for a
+    # long time. So the COLDEST man goes first: the fans' own "why does he
+    # never play?" said out loud by the page. News interest breaks ties.
+    cold = cold or {}
     incoming = sorted(
         bench,
-        key=lambda b: (0 if _news_hook(club, _surname(b)) else 1, bench.index(b)))
+        key=lambda b: (-cold.get(_surname(b).lower(), 0),
+                       0 if _news_hook(club, _surname(b)) else 1,
+                       bench.index(b)))
 
     outfield = [(i, p) for i, p in enumerate(xi) if i not in PROTECTED_INDEX]
     outgoing = sorted(
@@ -133,8 +143,13 @@ def pick(club: str, xi: list[str], bench: list[str], n: int = 2) -> list[dict]:
         used_in.add(pick_in)
         used_pos.add(vpos)
         hook = _news_hook(club, _surname(pick_in))
-        reason = (f"in the headlines this week" if hook
-                  else "our call — we would freshen this up")
+        gap = cold.get(_surname(pick_in).lower(), 0)
+        if gap >= 2:
+            reason = f"has not started in {gap} matches"
+        elif hook:
+            reason = "in the headlines this week"
+        else:
+            reason = "our call — we would freshen this up"
         calls.append({"index": idx, "out": victim, "in": pick_in,
                       "reason": reason, "hook": hook})
     return calls
@@ -162,7 +177,11 @@ def narration(club_name: str, calls: list[dict]) -> list[str]:
     for c in calls:
         o, i = _surname(c["out"]), _surname(c["in"])
         lines.append(f"{i} comes in for {o}.")
-        if c["hook"]:
+        # The reason IS the argument. "He never plays" is the line fans use
+        # themselves, so saying it back to them is the whole point.
+        if c.get("reason", "").startswith("has not started"):
+            lines.append(f"{i} {c['reason']}. We think that is wrong.")
+        elif c["hook"]:
             lines.append(f"{i} has been in the headlines this week.")
     lines.append("Disagree? Say so in the comments — that is the whole point.")
     return lines

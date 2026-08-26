@@ -1,0 +1,91 @@
+{
+  "chiefs": {
+    "at": "2026-08-26T09:21:42.639480",
+    "log": [
+      {
+        "date": "2026-08-15",
+        "match": "Kaizer Chiefs v Mamelodi Sundowns",
+        "starters": [
+          "petersen",
+          "mmodi",
+          "miguel",
+          "moloisane",
+          "macheke",
+          "monyane",
+          "maboe",
+          "mthethwa",
+          "ndlovu",
+          "phili",
+          "baartman"
+        ],
+        "bench": [
+          "ngcobo",
+          "duba",
+          "chislett",
+          "vilakazi",
+          "velebayi",
+          "solomons",
+          "bitegeko",
+          "shabalala",
+          "leaner"
+        ]
+      },
+      {
+        "date": "2026-08-12",
+        "match": "Kaizer Chiefs v Sekhukhune United FC",
+        "starters": [
+          "petersen",
+          "frosler",
+          "miguel",
+          "macheke",
+          "solomons",
+          "mthethwa",
+          "phili",
+          "baartman",
+          "velebayi",
+          "maboe",
+          "ighodaro"
+        ],
+        "bench": [
+          "monyane",
+          "vilakazi",
+          "moloisane",
+          "ndlovu",
+          "leaner",
+          "mmodi",
+          "silva",
+          "nkgwesa",
+          "shabalala"
+        ]
+      },
+      {
+        "date": "2026-08-01",
+        "match": "Kruger United v Kaizer Chiefs",
+        "starters": [
+          "petersen",
+          "frosler",
+          "miguel",
+          "macheke",
+          "monyane",
+          "maboe",
+          "baartman",
+          "chislett",
+          "vilakazi",
+          "ndlovu",
+          "silva"
+        ],
+        "bench": [
+          "mmodi",
+          "leaner",
+          "solomons",
+          "ngcobo",
+          "nkgwesa",
+          "duba",
+          "ighodaro",
+          "moloisane",
+          "mthethwa"
+        ]
+      }
+    ]
+  }
+}
