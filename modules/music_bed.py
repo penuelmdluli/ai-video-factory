@@ -20,7 +20,9 @@ failed to build because the music model was busy does not.
 """
 from pathlib import Path
 
-DEFAULT_VOL = 0.18
+# 0.18 was barely there under the narration — the owner wants the
+# bed audible so a lineup reel feels like a broadcast, not a slideshow.
+DEFAULT_VOL = 0.34
 
 
 def add_bed(video_path, out_path, niche: str, duration: float,

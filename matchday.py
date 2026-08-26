@@ -109,6 +109,29 @@ async def cmd_lineup(a, predicted: bool):
         raise SystemExit("card render failed")
     print(f"card: {out}")
 
+    # THE LINEUP IS A VIDEO NOW (owner call 2026-08-21). The static card still
+    # goes out as the image post, but the reel is the animated reveal — crests,
+    # fixture line, names loading in one by one, subs, and the prediction
+    # disclaimer — which is the format the page is judged on.
+    try:
+        import subprocess
+        cmd = [sys.executable, "-X", "utf8", "build_lineup_video.py",
+               "--club", a.club, "--formation", a.formation]
+        if a.opponent:
+            cmd += ["--opponent", a.opponent]
+        if a.kickoff:
+            cmd += ["--kickoff", a.kickoff]
+        if a.post:
+            cmd += ["--post"]
+        print(f"[Matchday] building the lineup reel: {' '.join(cmd[3:])}")
+        r = subprocess.run(cmd, cwd=str(Path(__file__).parent),
+                           capture_output=True, text=True, timeout=1800)
+        tail = (r.stdout or r.stderr or "").strip().splitlines()[-3:]
+        for line in tail:
+            print(f"[Lineup] {line}")
+    except Exception as e:
+        print(f"[Matchday] lineup reel skipped: {str(e)[:120]}")
+
     if a.post:
         label = "Our PREDICTED XI" if predicted else "CONFIRMED: your starting XI"
         caption = (f"{label} — {_name(a.club)} vs {_name(a.opponent)}"
@@ -134,6 +157,29 @@ async def cmd_result(a):
     if not out:
         raise SystemExit("card render failed")
     print(f"card: {out}")
+
+    # THE LINEUP IS A VIDEO NOW (owner call 2026-08-21). The static card still
+    # goes out as the image post, but the reel is the animated reveal — crests,
+    # fixture line, names loading in one by one, subs, and the prediction
+    # disclaimer — which is the format the page is judged on.
+    try:
+        import subprocess
+        cmd = [sys.executable, "-X", "utf8", "build_lineup_video.py",
+               "--club", a.club, "--formation", a.formation]
+        if a.opponent:
+            cmd += ["--opponent", a.opponent]
+        if a.kickoff:
+            cmd += ["--kickoff", a.kickoff]
+        if a.post:
+            cmd += ["--post"]
+        print(f"[Matchday] building the lineup reel: {' '.join(cmd[3:])}")
+        r = subprocess.run(cmd, cwd=str(Path(__file__).parent),
+                           capture_output=True, text=True, timeout=1800)
+        tail = (r.stdout or r.stderr or "").strip().splitlines()[-3:]
+        for line in tail:
+            print(f"[Lineup] {line}")
+    except Exception as e:
+        print(f"[Matchday] lineup reel skipped: {str(e)[:120]}")
 
     if a.post:
         caption = (f"{a.status}: {_name(a.home)} {a.score} {_name(a.away)}"
