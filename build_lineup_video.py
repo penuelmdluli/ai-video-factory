@@ -57,8 +57,16 @@ async def pick_xi_real(club: str) -> tuple[list[str], str, str, list[str]]:
         # post — it hands them the mention and it tells the viewer where the
         # side came from before the reveal has earned it. The date carries the
         # same credibility without naming anybody.
+        # sheet["date"] is ISO, which read as "our last match (2026-08-15)"
+        # in the caption. Nobody says a date that way out loud.
+        _d = str(sheet.get("date", ""))
+        try:
+            from datetime import date as _date
+            _d = _date.fromisoformat(_d[:10]).strftime("%d %b").lstrip("0")
+        except Exception:
+            pass
         return (sheet["players"], sheet["formation"],
-                f"our last match ({sheet['date']})",
+                f"our last match ({_d})" if _d else "our last match",
                 sheet.get("bench", []))
     return [], "", "", []
 
