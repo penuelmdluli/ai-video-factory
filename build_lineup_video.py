@@ -216,6 +216,10 @@ async def main():
                     help="override; normally resolved from the next fixture")
     ap.add_argument("--formation", default="4-3-3")
     ap.add_argument("--kickoff", default="")
+    ap.add_argument("--start", default="",
+                    help="comma-separated players the owner wants started; "
+                         "each replaces a same-position pick and becomes one "
+                         "of the big calls on the card")
     ap.add_argument("--post", action="store_true")
     a = ap.parse_args()
 
@@ -278,8 +282,81 @@ async def main():
     # started last time, same position for same position, marked in red on the
     # card and named out loud, so the argument is about our opinion and never
     # about whether we know the team.
-    from modules.bold_calls import pick as pick_calls, apply as apply_calls
-    calls = pick_calls(a.club, xi, bench, n=2)
+    from modules.bold_calls import (pick as pick_calls, apply as apply_calls,
+                                    _pos_map, _surname)
+
+    # OWNER SELECTIONS. When the owner names the side, their picks ARE the big
+    # calls — the algorithm does not get a second opinion on top, or the card
+    # ends up carrying four changes and reads like a mistake rather than a
+    # position. Each name replaces a same-position starter, because a forced
+    # keeper swapped for a forward is how an XI stops being a shape.
+    forced = [w.strip() for w in a.start.split(",") if w.strip()]
+    calls = []
+    if forced:
+        # _pos_map is keyed by SURNAME, so resolving a full name against it
+        # finds nothing. Read the squad straight from the cache instead.
+        import json as _json
+        _sq = _json.loads((ROOT / "data" / "psl_squads_cache.json")
+                          .read_text(encoding="utf-8"))
+        squad = {(pl.get("name") or ""): (pl.get("pos") or "").upper()[:2]
+                 for pl in (_sq.get(a.club) or {}).get("squad") or []
+                 if pl.get("name")}
+        # The XI is written "<no> <Surname>" ("13 Mmodi"). A forced pick has to
+        # match that or the card reads "13 Mmodi" beside "Renaldo Leaner".
+        _no = {(pl.get("name") or ""): str(pl.get("no") or "").strip()
+               for pl in (_sq.get(a.club) or {}).get("squad") or []
+               if pl.get("name")}
+
+        def _entry(full: str) -> str:
+            sn, n = _surname(full), _no.get(full, "")
+            return f"{n} {sn}".strip()
+
+        def _norm(x: str) -> str:
+            import unicodedata
+            return "".join(c for c in unicodedata.normalize("NFKD", str(x))
+                           if not unicodedata.combining(c)).lower().strip()
+
+        def _resolve(q: str) -> str:
+            qn = _norm(q)
+            for n in squad:                       # exact, then surname, then token
+                if _norm(n) == qn:
+                    return n
+            for n in squad:
+                if _norm(_surname(n)) == qn:
+                    return n
+            hits = [n for n in squad if qn in _norm(n)]
+            return hits[0] if len(hits) == 1 else ""
+
+        def _grp(n: str) -> str:
+            return squad.get(n) or squad.get(_resolve(_surname(n)), "")
+
+        picked = [x for x in (_resolve(w) for w in forced) if x]
+        for want, name in zip(forced, (_resolve(w) for w in forced)):
+            if not name:
+                _log(f"START: '{want}' matched no one in the squad — skipped")
+                continue
+            if any(_norm(_surname(n)) == _norm(_surname(name)) for n in xi):
+                _log(f"START: {name} already in the XI")
+                continue
+            g = _grp(name)
+            cand = [k for k, n in enumerate(xi)
+                    if _grp(n) == g
+                    and not any(_norm(_surname(n)) == _norm(_surname(f))
+                                for f in picked)]
+            if not cand:
+                _log(f"START: no {g} free to make way for {name} — skipped")
+                continue
+            k = cand[-1]                          # the last pick in that unit
+            calls.append({"index": k, "in": _entry(name), "out": xi[k],
+                          "reason": "our call", "hook": ""})
+            bench = [b for b in bench if _surname(b) != _surname(name)] + [xi[k]]
+            xi = list(xi)
+            xi[k] = _entry(name)                  # so the next resolve sees it
+        # apply() re-writes these indexes, so hand it the ORIGINAL XI back
+        for c in calls:
+            xi[c["index"]] = c["out"]
+    else:
+        calls = pick_calls(a.club, xi, bench, n=2)
     marks = []
     if calls:
         xi, marks = apply_calls(xi, calls)

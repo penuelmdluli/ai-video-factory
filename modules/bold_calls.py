@@ -155,8 +155,10 @@ def apply(xi: list[str], calls: list[dict]) -> tuple[list[str], list[int]]:
 def narration(club_name: str, calls: list[dict]) -> list[str]:
     if not calls:
         return []
-    lines = [f"And we are making {'two' if len(calls) == 2 else str(len(calls))} "
-             f"big calls."]
+    _w = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five"}
+    _n = len(calls)
+    lines = [f"And we are making {_w.get(_n, str(_n))} "
+             f"big call{'s' if _n != 1 else ''}."]
     for c in calls:
         o, i = _surname(c["out"]), _surname(c["in"])
         lines.append(f"{i} comes in for {o}.")

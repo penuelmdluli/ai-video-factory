@@ -24,6 +24,8 @@ Usage:
         --scorers-home "Du Preez 34', Shabalala 78'" --scorers-away "Rayners 60'" \
         --venue "FNB Stadium" --post
 """
+import os
+import time
 import argparse
 import asyncio
 import sys
@@ -468,6 +470,60 @@ async def _post_motm(f, sh: list[str], sa: list[str], post: bool) -> bool:
     return True
 
 
+# ── SINGLE POSTER ────────────────────────────────────────────────────────
+# Every goal, card and full-time on 25 Aug was posted TWICE. The cause is in
+# cmd_live's own docstring: the resident watcher runs 24/7 AND the five-minute
+# scheduled task calls the same cmd_auto "as a backup". It is not a backup, it
+# is a second poster. Both read data/matchday_state.json at the top of the
+# run, both find the event unseen, both post, and the state file — written
+# once at the very END of cmd_auto — records the loser's copy last.
+#
+# Hence a mutex rather than more state. Whoever holds it posts; anyone else
+# returns immediately and tries again on its next tick. A lock whose owner has
+# died is stolen after LOCK_STALE_S so a crash can never mute the page.
+_LOCK = Path("data/matchday.lock")
+LOCK_STALE_S = 600
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        import psutil
+        return psutil.pid_exists(pid)
+    except Exception:
+        return True          # cannot tell -> assume alive, never double-post
+
+
+def _acquire() -> bool:
+    try:
+        _LOCK.parent.mkdir(parents=True, exist_ok=True)
+        if _LOCK.exists():
+            age = time.time() - _LOCK.stat().st_mtime
+            try:
+                owner = int((_LOCK.read_text(encoding="utf-8") or "0").split(",")[0])
+            except Exception:
+                owner = 0
+            if owner != os.getpid() and age < LOCK_STALE_S and _pid_alive(owner):
+                print(f"[Auto] another poster holds the lock (pid {owner}, "
+                      f"{age:.0f}s) - skipping this tick")
+                return False
+            if age >= LOCK_STALE_S or not _pid_alive(owner):
+                print(f"[Auto] stealing stale lock from pid {owner}")
+        _LOCK.write_text(f"{os.getpid()},{time.time()}", encoding="utf-8")
+        return True
+    except Exception as e:
+        print(f"[Auto] lock unavailable ({e}) - proceeding")
+        return True
+
+
+def _release():
+    try:
+        if _LOCK.exists() and _LOCK.read_text(encoding="utf-8").startswith(
+                str(os.getpid()) + ","):
+            _LOCK.unlink()
+    except Exception:
+        pass
+
+
 async def cmd_auto(a):
     """
     Fixture-aware cadence — safe to run every hour of every day:
@@ -480,15 +536,26 @@ async def cmd_auto(a):
     from modules.psl_fixtures import todays_fixtures, priority, SAST, BIG_THREE
     from datetime import datetime as _dt, timedelta as _td
 
+    if not _acquire():
+        return
+
     state_p = Path("data/matchday_state.json")
     try:
         state = _json.loads(state_p.read_text(encoding="utf-8"))
     except Exception:
         state = {}
 
-    # ALL PSL fixtures get live goals + results (a football news page reports
-    # every score); predicted XI / team sheets / MOTM stay big-three unless --all.
-    fixtures = await todays_fixtures()
+    # CHIEFS ONLY (owner call 2026-08-26). This used to cover every PSL
+    # fixture on the reasoning that a football news page reports every score.
+    # It is not a football news page, it is a Kaizer Chiefs page — and on
+    # 25 Aug that reasoning filled the feed with Marumo Gallants, TS Galaxy,
+    # Durban City, Chippa and Kruger United while Chiefs were not playing.
+    fixtures = [f for f in await todays_fixtures()
+                if "chiefs" in (f.get("home_key"), f.get("away_key"))]
+    if not fixtures:
+        print("[Auto] no Kaizer Chiefs fixture today - nothing to cover")
+        _release()
+        return
     if not fixtures:
         print("[Auto] no qualifying fixtures today — normal cadence")
         return
@@ -622,14 +689,25 @@ async def cmd_auto(a):
                                       else "Does this change the game? 👇")
                     # ANIMATED follow-up for big-three drama: the Goal Reel /
                     # red-card motion piece, minutes after the real moment
+                    # A goal earns the animated follow-up. A red card does
+                    # not — owner call 2026-08-26: the card post says it in
+                    # full, and a second piece of media for a sending-off is
+                    # two posts about the same moment.
                     from modules.psl_fixtures import priority as _prio
-                    if _prio(f) >= 1:
-                        if ev["kind"] == "GOAL":
-                            await _goal_reel_post(f, ev, scorer_club, hs, as_)
-                        else:
-                            await _red_card_post(f, ev, scorer_club)
+                    if _prio(f) >= 1 and ev["kind"] == "GOAL":
+                        await _goal_reel_post(f, ev, scorer_club, hs, as_)
                 print(f"[Auto] live event posted: {ev['key']}")
                 seen.add(ev["key"])
+                # Persist immediately. The state file used to be written once,
+                # at the very end of the run, so anything that interrupted a
+                # tick mid-way re-posted every event it had already sent.
+                st["events"] = sorted(seen)
+                try:
+                    state_p.parent.mkdir(parents=True, exist_ok=True)
+                    state_p.write_text(_json.dumps(state, indent=2),
+                                       encoding="utf-8")
+                except Exception as e:
+                    print(f"[Auto] state save failed: {str(e)[:80]}")
             st["events"] = sorted(seen)
 
         # 3) result card, once, after full-time
@@ -661,6 +739,7 @@ async def cmd_auto(a):
 
     state_p.parent.mkdir(parents=True, exist_ok=True)
     state_p.write_text(_json.dumps(state, indent=2), encoding="utf-8")
+    _release()
     print("[Auto] done")
 
 

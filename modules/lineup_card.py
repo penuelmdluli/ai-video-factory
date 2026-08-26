@@ -261,7 +261,11 @@ def make_lineup_card(
         # Say what the red rings mean. Two marked players and no legend is just
         # a graphic nobody can read.
         if highlight:
-            leg = "OUR TWO BIG CALLS"
+            # The count is not always two. The owner named the side on
+            # 26 Aug and it came to three, under a legend that still said TWO.
+            _w = {1: "ONE", 2: "TWO", 3: "THREE", 4: "FOUR", 5: "FIVE"}
+            _n = len(highlight)
+            leg = f"OUR {_w.get(_n, str(_n))} BIG CALL" + ("S" if _n != 1 else "")
             lf = _font(21)
             lw = d.textlength(leg, font=lf)
             cx = W // 2 - (lw + 34) / 2
