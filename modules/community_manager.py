@@ -27,8 +27,14 @@ from config import NICHES, ROOT_DIR, ANTHROPIC_API_KEY, GEMINI_API_KEY
 GRAPH_API_BASE = "https://graph.facebook.com/v24.0"
 DB_PATH = ROOT_DIR / "data" / "growth_analytics.db"
 
-MAX_REPLIES_PER_HOUR = int(os.getenv("COMMUNITY_REPLY_MAX_PER_HOUR", "10"))
-REPLY_DELAY_SECONDS = 15  # Delay between replies on same page
+# Owner call 2026-08-26: raise the cap so the 281-comment backlog clears
+# faster. Backlog-AWARE rather than permanently high — it bursts while there
+# is a queue and settles back once the page is caught up, so the page is not
+# running at burst rate forever for no reason.
+MAX_REPLIES_PER_HOUR = int(os.getenv("COMMUNITY_REPLY_MAX_PER_HOUR", "20"))
+BURST_REPLIES = int(os.getenv("COMMUNITY_REPLY_BURST", "60"))
+BURST_ABOVE = int(os.getenv("COMMUNITY_BURST_ABOVE", "40"))   # queue size
+REPLY_DELAY_SECONDS = int(os.getenv("COMMUNITY_REPLY_DELAY", "8"))
 
 # Niches with active FB pages
 ACTIVE_NICHES = [
@@ -77,7 +83,10 @@ ESCALATION_KEYWORDS = [
 ]
 
 # Rate limiter: page_id -> deque of reply timestamps
-_reply_timestamps: dict[str, deque] = defaultdict(lambda: deque(maxlen=MAX_REPLIES_PER_HOUR))
+# maxlen must cover the BURST cap, not the resting one — sized at the resting
+# cap it silently discards the oldest timestamp and the limiter never trips.
+_reply_timestamps: dict[str, deque] = defaultdict(
+    lambda: deque(maxlen=max(BURST_REPLIES, MAX_REPLIES_PER_HOUR)))
 
 
 # ── Database ─────────────────────────────────────────────────
@@ -217,9 +226,15 @@ async def fetch_recent_comments(niche: str, limit: int = POST_SWEEP) -> list[dic
     seen_posts = 0
     cutoff = datetime.utcnow() - timedelta(days=COMMENT_MAX_AGE_DAYS)
 
+    # Comments come back NESTED in the posts call. Asking per post cost one
+    # HTTP round trip each — 202 posts made a single sweep take over ten
+    # minutes, which is useless to a task that runs every thirty. Nested at
+    # limit 100 the same sweep is about five calls, and only a post that
+    # actually returns a full hundred needs a follow-up.
     url = f"{GRAPH_API_BASE}/{page_id}/posts"
-    params = {"fields": "id,message,created_time", "limit": 50,
-              "access_token": page_token}
+    params = {"fields": "id,message,created_time,"
+                        "comments.limit(100){id,message,from,created_time,parent}",
+              "limit": 50, "access_token": page_token}
     try:
         for _ in range(POST_PAGES_MAX):
             data = await _get(url, params)
@@ -233,7 +248,11 @@ async def fetch_recent_comments(niche: str, limit: int = POST_SWEEP) -> list[dic
                 seen_posts += 1
                 post_message = (post.get("message", "") or "")[:200]
 
-                for comment in await _all_comments_on(post["id"], page_token):
+                nested = (post.get("comments") or {}).get("data") or []
+                if len(nested) >= 100:
+                    # only this post is deep enough to be worth paging
+                    nested = await _all_comments_on(post["id"], page_token)
+                for comment in nested:
                     if is_already_replied(comment["id"]):
                         continue
                     commenter_id = comment.get("from", {}).get("id", "")
@@ -504,6 +523,17 @@ async def post_reply(comment_id: str, reply_text: str, niche: str) -> dict:
 
 # ── Rate Limiting ────────────────────────────────────────────
 
+# set per round from the size of the queue actually found
+_round_cap: dict[str, int] = {}
+
+
+def _set_round_cap(page_id: str, backlog: int):
+    cap = BURST_REPLIES if backlog >= BURST_ABOVE else MAX_REPLIES_PER_HOUR
+    _round_cap[page_id] = cap
+    print(f"[Community] backlog {backlog} -> replying up to {cap} this round "
+          f"({REPLY_DELAY_SECONDS}s apart)")
+
+
 def _can_reply(page_id: str) -> bool:
     """Check if we can reply (within rate limits)."""
     now = datetime.now()
@@ -513,7 +543,7 @@ def _can_reply(page_id: str) -> bool:
     while timestamps and (now - timestamps[0]).total_seconds() > 3600:
         timestamps.popleft()
 
-    return len(timestamps) < MAX_REPLIES_PER_HOUR
+    return len(timestamps) < _round_cap.get(page_id, MAX_REPLIES_PER_HOUR)
 
 
 def _record_reply(page_id: str):
@@ -655,6 +685,7 @@ async def run_community_round(niches: list[str] | None = None) -> dict:
             c["sentiment"] = analyze_sentiment(c.get("message", ""))
         comments.sort(key=lambda c: sentiment_priority.get(c["sentiment"], 3))
 
+        _set_round_cap(page_id, len(comments))
         replies_sent = 0
         stats = {"positive": 0, "negative": 0, "escalations": 0}
 
