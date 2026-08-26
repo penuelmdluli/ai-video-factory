@@ -18,6 +18,7 @@ than a face.
 import argparse
 import asyncio
 import json
+import math
 import os
 import sys
 from datetime import datetime
@@ -142,7 +143,8 @@ def _reveal_ticks(out_wav: Path, times: list[float], total: float) -> Path | Non
 
 
 def analysis_lines(club: str, opponent: str, formation: str, xi: list[str],
-                   provenance: str = "", bench: list[str] | None = None) -> list[str]:
+                   provenance: str = "", bench: list[str] | None = None,
+                   squad_size: int = 0) -> list[str]:
     """Narration. Built from what is actually on the card, so it can never
     describe a player who is not in the XI."""
     from modules.club_brand import CLUB_BRAND
@@ -162,6 +164,9 @@ def analysis_lines(club: str, opponent: str, formation: str, xi: list[str],
         "Breaking team news.",
         f"This is the {name} eleven we expect"
         + (f" against {opp}." if opp else "."),
+        # spoken over the squad funnel, so the picture and the words agree
+        (f"{squad_size} players in the squad. Only eleven start."
+         if squad_size else "Only eleven start."),
         "The names are coming in now. Stay with us for the full eleven.",
         f"The shape is {formation.replace('-', ' ')}.",
     ]
@@ -209,10 +214,61 @@ def build_frames(work: Path, club: str, opponent: str, formation: str,
     return cards
 
 
+
+def _live_loader(img, t: float, formation: str, bench: bool,
+                 revealed: int, accent):
+    """Animated "waiting on this name" markers, drawn per frame.
+
+    The first version baked a static "TO COME" chip into each card PNG, so it
+    could not move — a still graphic asking you to wait. A loader has to
+    actually spin to read as live, and a card is rendered once, so this is
+    overlaid on the frame instead: a sweeping arc, a breathing ring and dots
+    that cycle, all driven by t.
+    """
+    from PIL import ImageDraw
+    from modules.tactics_motion import base_positions, _font
+    try:
+        spots, _ = base_positions(formation, bench)
+    except Exception:
+        return img
+    d = ImageDraw.Draw(img, "RGBA")
+    for i in range(revealed, len(spots)):
+        x, y = spots[i]
+        y -= 26
+        r = 33
+        # breathing halo — each slot a beat out of phase with its neighbour
+        br = r + 6 + 4 * math.sin(t * 3.1 + i * 0.6)
+        d.ellipse([x - br, y - br, x + br, y + br],
+                  outline=accent + (54,), width=3)
+        d.ellipse([x - r, y - r, x + r, y + r], outline=(96, 102, 112), width=3)
+        # the sweep: a 90-degree arc going round, brightest at its head
+        head = (t * 250 + i * 47) % 360
+        for k in range(9):
+            a0 = head - k * 10
+            d.arc([x - r, y - r, x + r, y + r], a0, a0 + 10,
+                  fill=accent + (int(235 - k * 24),), width=5)
+        # cycling dots, so even a paused frame looks mid-load
+        dots = 1 + int((t * 2.6 + i * 0.5) % 3)
+        lab = "." * dots
+        lf = _font(26)
+        lw = d.textlength(lab, font=lf)
+        d.text((x - lw / 2, y - 20), lab, font=lf, fill=accent + (215,))
+        bw = 82
+        d.rounded_rectangle([x - bw // 2, y + r + 5, x + bw // 2, y + r + 29],
+                            radius=7, fill=(24, 27, 33, 225))
+        tf = _font(15)
+        tw = d.textlength("LOADING", font=tf)
+        d.text((x - tw / 2, y + r + 9), "LOADING", font=tf,
+               fill=(190, 196, 206))
+    return img
+
+
 def render_video(cards: list[Path], out: Path, total: float,
                  reveal_frac: float = 0.62, formation: str = "4-3-3",
                  players: list[str] | None = None, bg: Path | None = None,
-                 bench: bool = False, accent=(255, 193, 7)) -> str:
+                 bench: bool = False, accent=(255, 193, 7),
+                 squad: list[dict] | None = None, crest=None,
+                 funnel_frac: float = 0.16) -> str:
     """Reveal the XI one man at a time, then hold the full card.
 
     Owner note 2026-08-24: the first cut fired all eleven in about four
@@ -227,8 +283,25 @@ def render_video(cards: list[Path], out: Path, total: float,
     frames = [Image.open(c).convert("RGB") for c in cards]
     n = len(frames)
     canvas_y = (H - frames[0].height) // 2
-    reveal_t = total * reveal_frac
-    per = reveal_t / n                       # seconds per player
+
+    # ACT ONE: the whole squad, cut down to eleven. Opening on an empty pitch
+    # gave away nothing about the size of the decision; showing all thirty-odd
+    # names and burning the rest away makes the eleven read as CHOSEN, and it
+    # puts every fringe player's name on screen, which is what this page's
+    # fans go looking for.
+    fctx, funnel_t = None, 0.0
+    if squad:
+        try:
+            from modules.squad_funnel import build_ctx
+            funnel_t = total * funnel_frac
+            fctx = build_ctx(squad, players or [], frames[0].size, accent,
+                             crest=crest)
+        except Exception as e:
+            print(f"[Lineup] squad funnel skipped: {str(e)[:100]}")
+            fctx, funnel_t = None, 0.0
+
+    reveal_t = funnel_t + (total - funnel_t) * reveal_frac
+    per = (reveal_t - funnel_t) / n          # seconds per player
     fade = min(0.28, per * 0.35)             # tail of each slot spent blending
 
     # Phase two: once the side is named, animate the SHAPE. Owner call — the
@@ -246,13 +319,16 @@ def render_video(cards: list[Path], out: Path, total: float,
 
     def frame_fn(t):
         base = Image.new("RGB", (W, H), DARK)
-        if plan and t >= reveal_t:
+        if fctx is not None and t < funnel_t:
+            from modules.squad_funnel import frame as ffr
+            img = ffr(t, funnel_t, fctx)
+        elif plan and t >= reveal_t:
             from modules.tactics_motion import frame as tframe
             img = tframe(bg_img, formation, players, t - reveal_t, plan,
                          accent=accent, bench=bench)
         else:
-            pos = t / per
-            idx = min(n - 1, int(pos))
+            pos = (t - funnel_t) / per
+            idx = max(0, min(n - 1, int(pos)))
             into = (pos - idx) * per         # seconds into this player's slot
             if idx < n - 1 and into > per - fade:
                 # cross-fade into the next card so the reveal reads as motion
@@ -261,6 +337,9 @@ def render_video(cards: list[Path], out: Path, total: float,
                                   min(1.0, max(0.0, u2)))
             else:
                 img = frames[idx]
+            # the men still to be named get a live loader, not a static chip
+            img = _live_loader(img.copy(), t, formation, bench,
+                               min(n, idx + 1), accent)
         base.paste(img, (0, canvas_y))
         return base
 
@@ -432,8 +511,16 @@ async def main():
 
     from modules.club_brand import CLUB_BRAND as _CBn
     club_label = _CBn.get(a.club, {}).get("name", a.club.title())
+    _sq_n = 0
+    try:
+        _sq_n = len((json.loads((ROOT / "data" / "psl_squads_cache.json")
+                                .read_text(encoding="utf-8"))
+                     .get(a.club) or {}).get("squad") or [])
+    except Exception:
+        pass
     lines = analysis_lines(a.club, a.opponent, a.formation, xi,
-                           provenance=provenance, bench=bench)
+                           provenance=provenance, bench=bench,
+                           squad_size=_sq_n)
     if calls:
         from modules.bold_calls import narration as call_narration
         # slot the calls in before the sign-off, not after it
@@ -449,13 +536,28 @@ async def main():
     bg = work / "pitch_bg.png"
     _mk(bg, club=a.club, players=[""] * len(xi), opponent=a.opponent,
         formation=a.formation, kickoff=a.kickoff,
-        competition="Betway Premiership", predicted=True, bench=bench)
+        competition="Betway Premiership", predicted=True, bench=bench,
+        pending=False)          # bare pitch — the motion phase owns the markers
     from modules.club_brand import CLUB_BRAND as _CB
     accent = tuple(_CB.get(a.club, {}).get("colors", {}).get("primary", (255, 193, 7)))
 
     silent = work / "lineup_silent.mp4"
+    _squad = []
+    _crest = None
+    try:
+        _squad = (json.loads((ROOT / "data" / "psl_squads_cache.json")
+                             .read_text(encoding="utf-8"))
+                  .get(a.club) or {}).get("squad") or []
+        from modules.club_brand import official_badge
+        _bp = official_badge(a.club)
+        if _bp:
+            from PIL import Image as _I
+            _crest = _I.open(_bp).convert("RGBA")
+    except Exception as e:
+        _log(f"squad funnel inputs unavailable: {str(e)[:90]}")
     render_video(cards, silent, total=total, formation=a.formation,
-                 players=xi, bg=bg, bench=bool(bench), accent=accent)
+                 players=xi, bg=bg, bench=bool(bench), accent=accent,
+                 squad=_squad, crest=_crest)
     _log(f"video: {silent.name} — {total:.1f}s, "
          f"{(total * 0.62) / max(1, len(cards)):.1f}s per player")
 
@@ -502,9 +604,12 @@ async def main():
              else f"{club_name} Predicted XI")
     calls_line = ""
     if calls:
-        bits = " and ".join(
-            f"{c['in'].split(None, 1)[-1]} in for {c['out'].split(None, 1)[-1]}"
-            for c in calls)
+        _sw = [f"{c['in'].split(None, 1)[-1]} in for {c['out'].split(None, 1)[-1]}"
+               for c in calls]
+        # "A and B and C" reads like a machine wrote it once there are three.
+        bits = (_sw[0] if len(_sw) == 1 else
+                " and ".join(_sw) if len(_sw) == 2 else
+                ", ".join(_sw[:-1]) + " and " + _sw[-1])
         calls_line = ((chr(10) * 2) + _CALLW.get(len(calls), str(len(calls))).upper()
                       + " BIG CALLS: " + bits +
                       ". Disagree? Tell us who you'd start.")

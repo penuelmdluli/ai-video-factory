@@ -83,6 +83,7 @@ def make_lineup_card(
     heads: dict | None = None,
     bench: list[str] | None = None,
     highlight: list[int] | None = None,
+    pending: bool = False,
 ) -> str | None:
     """Render the XI on a pitch. Returns the path, or None on failure."""
     try:
@@ -196,6 +197,13 @@ def make_lineup_card(
                 # side fills up. Without this, every man already on the pitch
                 # slid sideways each time another was added.
                 if not str(p).strip():
+                    if not pending:
+                        # The motion phase draws its own markers over a
+                        # pre-rendered EMPTY pitch. With placeholders on by
+                        # default that pitch carried eleven "TO COME" chips,
+                        # so the whole tactical section played out on top of
+                        # them — after the side had already been named.
+                        continue
                     # PENDING SLOT. A blank used to draw nothing at all, so a
                     # half-revealed XI looked like a team with four players in
                     # it rather than a team sheet still coming in. Now the slot

@@ -146,6 +146,64 @@ def _ease(u):
     return u * u * u * (u * (u * 6 - 15) + 10)
 
 
+
+def _channels(d, a, b, pos, formation, phase, u, px, accent):
+    """Shade the ground the full-backs cover, and the box they defend.
+
+    Owner call 2026-08-26: "show the box and the space the right and left back
+    cover as they move". Arrows say where a man is going; they say nothing
+    about how much grass he is responsible for. The channel is the whole point
+    of a modern full-back, so it is drawn as territory rather than a line.
+    """
+    px1, py1, px2, py2 = px
+    rows = [1] + [max(1, int(v)) for v in str(formation).split("-")
+                  if v.strip().isdigit()]
+    if len(rows) < 2:
+        return
+    back_n = rows[1]
+    if back_n < 3:
+        return
+    wide = [1, back_n]                       # indexes of the two wide backs
+    fade = 1.0 - abs(u * 2 - 1)              # strongest mid-transition
+    alpha = int(64 + 54 * fade)
+
+    for i in wide:
+        if i >= len(a) or i >= len(b) or i >= len(pos):
+            continue
+        x0, y0 = a[i]
+        x1, y1 = b[i]
+        if abs(y1 - y0) < 6 and abs(x1 - x0) < 6:
+            continue
+        half = 62
+        # the corridor between where he starts and where he ends up
+        poly = [(x0 - half, y0 + 26), (x0 + half, y0 + 26),
+                (x1 + half, y1 - 26), (x1 - half, y1 - 26)]
+        d.polygon(poly, fill=accent + (alpha,))
+        for k in range(0, 5):                # rungs, so it reads as ground
+            yy = y0 + (y1 - y0) * k / 4.0
+            xx = x0 + (x1 - x0) * k / 4.0
+            d.line([xx - half, yy, xx + half, yy],
+                   fill=accent + (min(255, alpha + 46),), width=2)
+        cur = pos[i]
+        d.ellipse([cur[0] - half, cur[1] - 12, cur[0] + half, cur[1] + 12],
+                  outline=accent + (200,), width=3)
+
+    # The defensive box: what the block is actually protecting.
+    if phase == "defend":
+        bw = int((px2 - px1) * 0.46)
+        bh = 150
+        bx = (px1 + px2) // 2
+        d.rectangle([bx - bw // 2, py2 - bh, bx + bw // 2, py2],
+                    outline=(255, 255, 255, 150), width=4)
+        d.rectangle([bx - bw // 2, py2 - bh, bx + bw // 2, py2],
+                    fill=(255, 255, 255, 20))
+        bf = _font(22)
+        lab = "PROTECT THIS"
+        lw = d.textlength(lab, font=bf)
+        d.text((bx - lw / 2, py2 - bh - 34), lab, font=bf,
+               fill=(255, 255, 255, 190))
+
+
 def frame(background, formation: str, players: list[str], t: float,
           plan: list[tuple[str, float]], accent=(255, 193, 7), bench=False):
     """One motion frame at time t, given a plan of (phase, seconds) legs."""
@@ -193,6 +251,10 @@ def frame(background, formation: str, players: list[str], t: float,
     # Run arrows, under the markers: where each man is heading. Strongest
     # mid-transition and gone once everyone has arrived, so a settled shape is
     # never cluttered by arrows pointing at nothing.
+    _, (px1, py1, px2, py2) = base_positions(formation, bench)
+    _channels(d, a, b, pos, formation, to if u > 0.5 else frm, u,
+              (px1, py1, px2, py2), accent)
+
     fade = 1.0 - abs(u * 2 - 1)
     if fade > 0.05 and to != frm:
         alpha = int(190 * fade)
@@ -209,7 +271,6 @@ def frame(background, formation: str, players: list[str], t: float,
     # in the top corner the attacking shape pushed a forward into it. The
     # bottom corners are the only ground no phase ever occupies — the keeper
     # stays central and the back line never widens past the full-backs.
-    _, (px1, py1, px2, py2) = base_positions(formation, bench)
     lf = _font(30)
     lw = d.textlength(label, font=lf)
     lx, ly = px1 + 22, py2 - 68
