@@ -141,14 +141,19 @@ def slot_plan() -> tuple[str, str]:
     """(lead club, required angle) for this run — rotates through the week."""
     from datetime import datetime as _d
     n = _d.now()
-    # Chiefs still lead most slots (biggest audience) but not all of them.
-    # Owner call: MORE Chiefs, just never the same story. Chiefs take five of
-    # every seven slots; the other two keep Pirates and Sundowns alive.
-    lead_cycle = ["chiefs", "chiefs", "pirates", "chiefs", "chiefs",
-                  "sundowns", "chiefs"]
+    # CHIEFS ONLY (owner call 2026-08-26). This used to be a 5-of-7 cycle that
+    # gave two slots a week to Pirates and Sundowns. It is a Kaizer Chiefs page
+    # read by Kaizer Chiefs fans, and the numbers said the same thing long
+    # before the instruction did: Chiefs posts ran a median 1,066 views against
+    # 90 for everything else. A Sundowns story on this page is a slot spent on
+    # an audience that is not here.
+    #
+    # Variety now comes from the ANGLE, not from the club. There are enough
+    # angles and enough Chiefs sweeps that no two slots have to tell the same
+    # story — which was the original reason the rotation existed.
     idx = n.timetuple().tm_yday * 3 + (0 if n.hour < 11 else
                                        1 if n.hour < 17 else 2)
-    return lead_cycle[idx % len(lead_cycle)], ANGLES[idx % len(ANGLES)]
+    return "chiefs", ANGLES[idx % len(ANGLES)]
 
 
 async def pick_topic() -> str:

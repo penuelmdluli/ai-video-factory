@@ -45,6 +45,10 @@ JUNK_MARKERS = re.compile(
     r"promo code|bonus code|predictions? and odds|casino|how to bet|"
     r"deposit bonus|acca|accumulator)\b", re.I)
 
+# A headline only belongs to Chiefs if it says so.
+_NAMES_CHIEFS = re.compile(
+    r"\b(kaizer chiefs|amakhosi|khosi|chiefs)\b", re.I)
+
 CLUBS = {
     "chiefs": ("Kaizer Chiefs", "Amakhosi", "Kaizer Chiefs"),
     "pirates": ("Orlando Pirates", "Buccaneers", "Orlando Pirates"),
@@ -302,6 +306,17 @@ async def get_psl_briefing(force_refresh: bool = False) -> dict:
             for e in extra:
                 if not isinstance(e, Exception) and e:
                     items.extend(e)
+            # A Google News query for "Kaizer Chiefs ..." returns whatever the
+            # ranker thinks is close, so the Chiefs bucket was carrying stories
+            # that never mention the club — a Sundowns team-talk arrived in it
+            # on 26 Aug. Now the headline has to actually name Amakhosi. A
+            # rival headline that names Chiefs (the log, the title race) still
+            # counts: that IS Chiefs news to a Chiefs fan.
+            before = len(items)
+            items = [i for i in items if _NAMES_CHIEFS.search(i.get("title", ""))]
+            if before != len(items):
+                print(f"[PSLNews] chiefs bucket: dropped {before - len(items)} "
+                      f"headline(s) that never name the club")
         if not items:
             briefing[key] = []
             continue
@@ -388,28 +403,40 @@ async def headlines_for_prompt(force_refresh: bool = False,
         "pirates": "ORLANDO PIRATES (Buccaneers)",
         "sundowns": "MAMELODI SUNDOWNS (Masandawana)",
     }
-    club_keys = [lead] + [k for k in CLUBS if k != lead]
+    # CHIEFS ONLY (owner call 2026-08-26). Every other section used to be
+    # offered as a story SOURCE, so a slot could and did come back with a
+    # Sundowns transfer or a Bafana squad. They are still supplied — a
+    # Chiefs story often needs the opponent, the log or the league around
+    # it — but strictly as CONTEXT the story may reference, never as its
+    # subject.
     sections = [
         f"REAL PSL HEADLINES (fetched {b.get('fetched_human', 'just now')}) — "
         f"these are the ONLY facts you may use:",
-        f"{labels[lead]} — LEAD CLUB FOR THIS SLOT. Take your story from this "
-        f"section if it has anything usable:\n"
-        f"{_format_items(b.get(lead, []), 8)}",
+        f"THIS IS A KAIZER CHIEFS PAGE. The subject of the story MUST be "
+        f"Kaizer Chiefs — the club, its players, its coach, its formation, "
+        f"its fixture or its fans. A story whose subject is any other club "
+        f"is unusable no matter how strong the headline is.",
+        f"{labels['chiefs']} — TAKE YOUR STORY FROM HERE:\n"
+        f"{_format_items(b.get('chiefs', []), 10)}",
     ]
-    for k in club_keys[1:]:
-        sections.append(f"{labels[k]}:\n{_format_items(b.get(k, []))}")
-    sections += [
-        f"BETWAY PREMIERSHIP (league-wide):\n"
-        f"{_format_items(b.get('premiership', []), 5)}",
-        f"OTHER PREMIERSHIP CLUBS — "
-        f"{', '.join(b.get('others_clubs', []) or [])}:\n"
-        f"{_format_items(b.get('others', []), 5)}",
-        f"TRANSFERS:\n{_format_items(b.get('transfers', []), 4)}",
-        f"THIS WEEKEND'S FIXTURES:\n{_format_items(b.get('weekend', []), 4)}",
-        f"BAFANA BAFANA:\n{_format_items(b.get('bafana', []), 3)}",
-        f"CUPS (MTN8 / Nedbank / Carling):\n{_format_items(b.get('cups', []), 3)}",
-        f"CONTINENTAL (CAF):\n{_format_items(b.get('continental', []), 2)}",
-    ]
+
+    ctx = []
+    for k in [x for x in CLUBS if x != "chiefs"]:
+        items = _format_items(b.get(k, []), 3)
+        if items.strip():
+            ctx.append(f"{labels[k]}:\n{items}")
+    for key, label, n in [("premiership", "BETWAY PREMIERSHIP", 4),
+                          ("weekend", "THIS WEEKEND'S FIXTURES", 3),
+                          ("cups", "CUPS (MTN8 / Nedbank / Carling)", 3),
+                          ("transfers", "TRANSFERS", 3)]:
+        items = _format_items(b.get(key, []), n)
+        if items.strip():
+            ctx.append(f"{label}:\n{items}")
+    if ctx:
+        sections.append(
+            "CONTEXT ONLY — background you may REFERENCE inside a Kaizer "
+            "Chiefs story (the opponent, the log, the run-in). You may NOT "
+            "make any of it the subject:\n\n" + "\n\n".join(ctx))
     return "\n\n".join(sections)
 
 

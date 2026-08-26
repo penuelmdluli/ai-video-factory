@@ -44,6 +44,14 @@ XI_WINDOW_H = 14                    # predicted XI inside this many hours —
 DEBATE_WINDOW_H = 96                # selection debate inside this many hours
 DEBATE_GROUPS = ["forwards", "midfield", "defence"]
 
+# MATCHDAY (owner call 2026-08-26): on the day Chiefs play, 100% of the page is
+# the game. Not "Chiefs-weighted", not a news reel that happens to mention the
+# fixture — the crest, the team sheet, the argument about who starts. The order
+# is deliberate: the roll-call goes out first because it is the cheapest thing
+# a fan can answer and it warms the post that follows; the XI lands mid-morning
+# when team news is read; the argument runs into kickoff.
+MATCHDAY_ORDER = ["hype", "xi", "debate"]
+
 
 def _log(m):
     print(f"[Slot] {m}", flush=True)
@@ -90,6 +98,29 @@ async def decide() -> tuple[str, dict]:
     # side posted three days out is a talking point; the same side posted the
     # day before kickoff is the post people actually come back for, and one
     # must not consume the other.
+    # On matchday nothing else gets a slot. Each format is posted once, then
+    # the next one takes over; if all three are spent the slot still stays on
+    # the game rather than falling through to general news.
+    try:
+        is_matchday = ko.date() == datetime.now(ko.tzinfo).date() and hours >= -2
+    except Exception:
+        is_matchday = False
+    if is_matchday:
+        for fmt in MATCHDAY_ORDER:
+            if done.get(f"md_{fmt}"):
+                continue
+            if fmt == "debate":
+                used = done.get("debate_groups", [])
+                grp = next((g for g in DEBATE_GROUPS if g not in used),
+                           DEBATE_GROUPS[0])
+                return "debate", {"fid": fid, "fx": fx, "group": grp,
+                                  "md": "md_debate"}
+            return fmt, {"fid": fid, "fx": fx, "slot": "xi_matchday",
+                         "md": f"md_{fmt}"}
+        _log("matchday formats all posted — repeating the XI rather than "
+             "leaving the game for a general news reel")
+        return "xi", {"fid": fid, "fx": fx, "slot": "xi_matchday"}
+
     if 0 <= hours <= XI_WINDOW_H and not done.get("xi_matchday"):
         return "xi", {"fid": fid, "fx": fx, "slot": "xi_matchday"}
     if XI_WINDOW_H < hours <= DEBATE_WINDOW_H and not done.get("xi_early"):
@@ -122,7 +153,9 @@ async def main():
         return 0
 
     post = ["--post"] if a.post else []
-    if fmt == "xi":
+    if fmt == "hype":
+        rc = _run(["py", "build_matchday_hype.py", "--club", CLUB] + post)
+    elif fmt == "xi":
         rc = _run(["py", "build_lineup_video.py", "--club", CLUB] + post)
     elif fmt == "debate":
         rc = _run(["py", "build_debate_video.py", "--club", CLUB,
@@ -132,10 +165,14 @@ async def main():
 
     # Only record success. A failed XI build must be retried at the next slot,
     # not silently marked done and skipped for the rest of the fixture week.
-    if rc == 0 and a.post and ctx.get("fid") and fmt in ("xi", "debate"):
+    if rc == 0 and a.post and ctx.get("fid") and fmt in ("hype", "xi", "debate"):
         st = _state()
         rec = st.setdefault(ctx["fid"], {})
-        if fmt == "xi":
+        if ctx.get("md"):
+            rec[ctx["md"]] = datetime.now().isoformat()
+        if fmt == "hype":
+            pass
+        elif fmt == "xi":
             rec[ctx.get("slot", "xi_matchday")] = datetime.now().isoformat()
         else:
             rec.setdefault("debate_groups", []).append(ctx["group"])
