@@ -193,7 +193,8 @@ def analysis_lines(club: str, opponent: str, formation: str, xi: list[str],
 def build_frames(work: Path, club: str, opponent: str, formation: str,
                  xi: list[str], kickoff: str,
                  bench: list[str] | None = None,
-                 highlight: list[int] | None = None) -> list[Path]:
+                 highlight: list[int] | None = None,
+                 predicted: bool = True) -> list[Path]:
     """One card per revealed player — the build-up animation."""
     from modules.lineup_card import make_lineup_card
     cards = []
@@ -204,7 +205,8 @@ def build_frames(work: Path, club: str, opponent: str, formation: str,
         revealed = xi[:n] + [""] * (len(xi) - n)
         p = make_lineup_card(out, club=club, players=revealed, opponent=opponent,
                              formation=formation, kickoff=kickoff,
-                             competition="Betway Premiership", predicted=True,
+                             competition="Betway Premiership",
+                             predicted=predicted,
                              # bench on EVERY frame: it shortens the pitch, so
                              # adding it only at the end would move all eleven
                              # markers on the last card and smear the crossfade
@@ -268,7 +270,8 @@ def render_video(cards: list[Path], out: Path, total: float,
                  players: list[str] | None = None, bg: Path | None = None,
                  bench: bool = False, accent=(255, 193, 7),
                  squad: list[dict] | None = None, crest=None,
-                 funnel_frac: float = 0.16) -> str:
+                 funnel_frac: float = 0.16, intro_fn=None,
+                 predicted: bool = True) -> str:
     """Reveal the XI one man at a time, then hold the full card.
 
     Owner note 2026-08-24: the first cut fired all eleven in about four
@@ -289,16 +292,22 @@ def render_video(cards: list[Path], out: Path, total: float,
     # names and burning the rest away makes the eleven read as CHOSEN, and it
     # puts every fringe player's name on screen, which is what this page's
     # fans go looking for.
-    fctx, funnel_t = None, 0.0
-    if squad:
+    # Act one is pluggable. The predicted reel opens on the squad funnel; the
+    # confirmed reel opens on the verdict — our morning call, marked. Both are
+    # just a callable that returns a card-sized image for a given t.
+    intro, funnel_t = intro_fn, 0.0
+    if intro is not None:
+        funnel_t = total * funnel_frac
+    elif squad:
         try:
-            from modules.squad_funnel import build_ctx
+            from modules.squad_funnel import build_ctx, frame as _ffr
             funnel_t = total * funnel_frac
             fctx = build_ctx(squad, players or [], frames[0].size, accent,
                              crest=crest)
+            intro = lambda t, dur, _c=fctx: _ffr(t, dur, _c)
         except Exception as e:
             print(f"[Lineup] squad funnel skipped: {str(e)[:100]}")
-            fctx, funnel_t = None, 0.0
+            intro, funnel_t = None, 0.0
 
     reveal_t = funnel_t + (total - funnel_t) * reveal_frac
     per = (reveal_t - funnel_t) / n          # seconds per player
@@ -319,9 +328,8 @@ def render_video(cards: list[Path], out: Path, total: float,
 
     def frame_fn(t):
         base = Image.new("RGB", (W, H), DARK)
-        if fctx is not None and t < funnel_t:
-            from modules.squad_funnel import frame as ffr
-            img = ffr(t, funnel_t, fctx)
+        if intro is not None and t < funnel_t:
+            img = intro(t, funnel_t)
         elif plan and t >= reveal_t:
             from modules.tactics_motion import frame as tframe
             img = tframe(bg_img, formation, players, t - reveal_t, plan,
@@ -383,6 +391,7 @@ async def main():
             x for x in (fx.get("kickoff_sast", ""), fx.get("venue", "")) if x)
         _log(f"next fixture: {fx.get('home')} v {fx.get('away')} — "
              f"{fx.get('kickoff_sast')} ({'home' if home else 'away'})")
+        a.fixture_id = str(fx.get("id", ""))
 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     work = ROOT / "output" / f"lineup_{a.club}_{stamp}"
@@ -501,6 +510,30 @@ async def main():
             _log(f"BIG CALL: {c['in']} in for {c['out']} ({c['reason']})")
         bench = [b for b in bench if b not in xi]
     _log(f"XI: {', '.join(xi)}")
+
+    # KEEP THE PREDICTION. Every matchday morning this page calls a side, and
+    # ~60 minutes before kickoff the real team sheet lands. Without the call
+    # stored against the fixture there is nothing to hold it to, and a
+    # prediction nobody ever checks is just noise. This is what the confirmed
+    # XI reel marks its verdict against.
+    _fid = getattr(a, "fixture_id", "")
+    if _fid:
+        try:
+            _pp = ROOT / "data" / "xi_predictions.json"
+            _store = json.loads(_pp.read_text(encoding="utf-8")) if _pp.exists() else {}
+            _store[_fid] = {
+                "club": a.club, "opponent": a.opponent,
+                "formation": a.formation, "xi": list(xi),
+                "bench": list(bench),
+                "calls": [{"in": c["in"], "out": c["out"]} for c in calls],
+                "built_at": datetime.now().isoformat(),
+            }
+            _pp.parent.mkdir(parents=True, exist_ok=True)
+            _pp.write_text(json.dumps(_store, indent=2, ensure_ascii=False),
+                           encoding="utf-8")
+            _log(f"prediction stored against fixture {_fid}")
+        except Exception as e:
+            _log(f"prediction not stored: {str(e)[:90]}")
 
     cards = build_frames(work, a.club, a.opponent, a.formation, xi, a.kickoff,
                          bench=bench, highlight=marks)

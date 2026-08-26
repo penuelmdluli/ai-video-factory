@@ -645,16 +645,31 @@ async def cmd_auto(a):
             sheet = sheets.get(club)
             if sheet:
                 print(f"[Auto] official XI published: {label} — posting starting XI")
-                ns = argparse.Namespace(
-                    club=club, opponent=opp, formation=sheet["formation"],
-                    kickoff=" · ".join(x for x in (f["kickoff_sast"], f["venue"]) if x),
-                    competition="Betway Premiership",
-                    players="; ".join(sheet["players"]), post=a.post)
-                try:
-                    await cmd_lineup(ns, predicted=False)
+                # The CONFIRMED XI reel, not a static card. Every page in the
+                # country has the same team-sheet graphic within seconds of it
+                # dropping; the one thing they cannot copy is our own morning
+                # call being marked against it. build_official_xi opens on that
+                # verdict, reveals the real eleven, then calls the game off the
+                # side that was actually picked.
+                #
+                # Run as a subprocess so a failed render cannot take the live
+                # watcher down with it. Blocking is safe here: the sheet lands
+                # ~75 minutes before kickoff, so there is no live match to miss.
+                import subprocess as _sp
+                cmd = [sys.executable, "-X", "utf8",
+                       str(Path(__file__).parent / "build_official_xi.py"),
+                       "--club", club]
+                if a.post:
+                    cmd.append("--post")
+                rc = _sp.run(cmd, cwd=str(Path(__file__).parent)).returncode
+                if rc == 0:
                     st["lineup"] = now.isoformat()
-                except SystemExit as e:
-                    print(f"[Auto] official XI skipped: {e}")
+                    print("[Auto] confirmed XI reel posted")
+                elif rc == 2:
+                    print("[Auto] team sheet not published yet — will retry")
+                else:
+                    print(f"[Auto] confirmed XI reel failed (rc={rc}) — "
+                          f"not recorded, next tick retries")
 
         # 2b) LIVE updates — a card for every new goal / red card while in play
         if f["status"] == "in" and f["home_key"] and f["away_key"]:

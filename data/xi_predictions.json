@@ -1,0 +1,47 @@
+{
+  "401902057": {
+    "club": "chiefs",
+    "opponent": "richards_bay",
+    "formation": "5-3-2",
+    "xi": [
+      "16 Leaner",
+      "13 Mmodi",
+      "84 Miguel",
+      "42 Moloisane",
+      "4 Macheke",
+      "2 Monyane",
+      "6 Maboe",
+      "5 Mthethwa",
+      "28 Vilakazi",
+      "70 Phili",
+      "77 Silva"
+    ],
+    "bench": [
+      "12 Ngcobo",
+      "47 Duba",
+      "23 Chislett",
+      "17 Velebayi",
+      "18 Solomons",
+      "22 Bitegeko",
+      "7 Shabalala",
+      "1 Petersen",
+      "11 Baartman",
+      "8 Ndlovu"
+    ],
+    "calls": [
+      {
+        "in": "16 Leaner",
+        "out": "1 Petersen"
+      },
+      {
+        "in": "77 Silva",
+        "out": "11 Baartman"
+      },
+      {
+        "in": "28 Vilakazi",
+        "out": "8 Ndlovu"
+      }
+    ],
+    "built_at": "2026-08-26T08:40:50.387372"
+  }
+}
