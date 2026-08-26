@@ -331,6 +331,14 @@ async def main():
             except Exception as e:
                 _log(f"first comment failed: {str(e)[:90]}")
 
+    # A two-way argument is better WATCHED than read — the shirt flicking
+    # between the names is the question. The other two are better read: a
+    # still card is taken in during the half second it takes to scroll past.
+    # The router does not have to know any of this, because the builder picks
+    # the mode, so the builder picks the shape that mode wants.
+    if mode == "start" and a.video:
+        a.as_reel = True
+
     if a.post and a.as_reel and video and Path(video).exists():
         # One question, one piece of media, everywhere. Used when the ask is
         # better watched than read — a two-way argument wants the shirt to

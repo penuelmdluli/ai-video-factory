@@ -44,6 +44,20 @@ XI_WINDOW_H = 14                    # predicted XI inside this many hours —
 DEBATE_WINDOW_H = 96                # selection debate inside this many hours
 DEBATE_GROUPS = ["forwards", "midfield", "defence"]
 
+# No format twice in one day. A week simulation on 2026-08-26 showed the
+# router firing forwards, midfield AND defence debates across the three slots
+# of a single Thursday — the same format three times before lunch — because
+# the only thing stopping a debate was whether that GROUP had been used for
+# the fixture, not whether we had already debated something today.
+ONCE_PER_DAY = ("debate", "fancall")
+
+# The last hours before kickoff belong to the confirmed XI reel, which
+# matchday.py posts off the real team sheet ~75 minutes out. The same
+# simulation had the router posting a selection debate at 18:00 for a 19:30
+# kickoff — 15 minutes before the actual team news, arguing about who should
+# start when the answer was about to be published.
+QUIET_BEFORE_KO_H = 3.5
+
 # MATCHDAY (owner call 2026-08-26): on the day Chiefs play, 100% of the page is
 # the game. Not "Chiefs-weighted", not a news reel that happens to mention the
 # fixture — the crest, the team sheet, the argument about who starts. The order
@@ -55,6 +69,14 @@ MATCHDAY_ORDER = ["hype", "xi", "debate"]
 
 def _log(m):
     print(f"[Slot] {m}", flush=True)
+
+
+def _today() -> str:
+    return datetime.now().strftime("%Y%m%d")
+
+
+def _posted_today(st: dict) -> list:
+    return (st.get("daily") or {}).get(_today(), [])
 
 
 def _state() -> dict:
@@ -105,6 +127,11 @@ async def decide() -> tuple[str, dict]:
         is_matchday = ko.date() == datetime.now(ko.tzinfo).date() and hours >= -2
     except Exception:
         is_matchday = False
+    if is_matchday and 0 <= hours <= QUIET_BEFORE_KO_H:
+        _log(f"{hours:.1f}h to kickoff — holding the slot for the confirmed "
+             f"XI reel off the real team sheet")
+        return "none", {}
+
     if is_matchday:
         for fmt in MATCHDAY_ORDER:
             if done.get(f"md_{fmt}"):
@@ -121,11 +148,10 @@ async def decide() -> tuple[str, dict]:
         # fourth slot must NOT repeat the XI — the page would carry the same
         # eleven three times in a day, which is the automated look every other
         # fix today has been removing. Ask the fans about tonight instead.
-        today = datetime.now().strftime("%Y%m%d")
-        if not st.get("fancall", {}).get(today):
+        if "fancall" not in _posted_today(st):
             _log("matchday formats all posted — asking the fans rather than "
                  "posting the same eleven again")
-            return "fancall", {"fid": fid, "day": today}
+            return "fancall", {"fid": fid, "day": _today()}
         _log("matchday formats and the fan call all posted — news reel")
         return "news", {"fid": fid}
 
@@ -136,7 +162,8 @@ async def decide() -> tuple[str, dict]:
         used_all = all(g in done.get("debate_groups", []) for g in DEBATE_GROUPS)
         if used_all:
             return "xi", {"fid": fid, "fx": fx, "slot": "xi_early"}
-    if 0 <= hours <= DEBATE_WINDOW_H:
+    today_done = _posted_today(st)
+    if 0 <= hours <= DEBATE_WINDOW_H and "debate" not in today_done:
         used = done.get("debate_groups", [])
         nxt = next((g for g in DEBATE_GROUPS if g not in used), "")
         if nxt:
@@ -149,9 +176,8 @@ async def decide() -> tuple[str, dict]:
     # page most needs a reason for someone to comment. The mode rotates by
     # day inside the builder, so the same question is never asked twice
     # running.
-    today = datetime.now().strftime("%Y%m%d")
-    if not _state().get("fancall", {}).get(today):
-        return "fancall", {"fid": fid, "day": today}
+    if "fancall" not in today_done:
+        return "fancall", {"fid": fid, "day": _today()}
 
     return "news", {"fid": fid}
 
@@ -172,6 +198,9 @@ async def main():
     if a.dry:
         return 0
 
+    if fmt == "none":
+        return 0
+
     post = ["--post"] if a.post else []
     if fmt == "hype":
         rc = _run(["py", "build_matchday_hype.py", "--club", CLUB] + post)
@@ -188,12 +217,18 @@ async def main():
 
     # Only record success. A failed XI build must be retried at the next slot,
     # not silently marked done and skipped for the rest of the fixture week.
-    if rc == 0 and a.post and fmt == "fancall" and ctx.get("day"):
+    if rc == 0 and a.post and fmt in ONCE_PER_DAY:
         st = _state()
-        st.setdefault("fancall", {})[ctx["day"]] = datetime.now().isoformat()
+        st.setdefault("daily", {}).setdefault(_today(), [])
+        if fmt not in st["daily"][_today()]:
+            st["daily"][_today()].append(fmt)
+        # keep the ledger small — nothing older than a fortnight matters
+        for k in sorted(st["daily"])[:-14]:
+            st["daily"].pop(k, None)
         _save(st)
-        _log(f"recorded fancall for {ctx['day']}")
-    elif rc == 0 and a.post and ctx.get("fid") and fmt in ("hype", "xi", "debate"):
+        _log(f"recorded {fmt} for {_today()}")
+
+    if rc == 0 and a.post and ctx.get("fid") and fmt in ("hype", "xi", "debate"):
         st = _state()
         rec = st.setdefault(ctx["fid"], {})
         if ctx.get("md"):
