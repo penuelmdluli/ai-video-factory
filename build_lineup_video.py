@@ -28,6 +28,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 ROOT = Path(__file__).parent
+_CALLW = {1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five'}
 NICHE = "sa_pulse"
 W, H = 1080, 1920
 
@@ -50,8 +51,14 @@ async def pick_xi_real(club: str) -> tuple[list[str], str, str, list[str]]:
     from modules.psl_fixtures import last_lineup
     sheet = await last_lineup(club)
     if sheet:
+        # Provenance used to read "last XI v Mamelodi Sundowns (23 Aug)" and
+        # went out in both the narration and the caption. On a Kaizer Chiefs
+        # page there is no reason to put a rival's name in our own team-news
+        # post — it hands them the mention and it tells the viewer where the
+        # side came from before the reveal has earned it. The date carries the
+        # same credibility without naming anybody.
         return (sheet["players"], sheet["formation"],
-                f"last XI v {sheet['match'].split(' v ')[-1]} ({sheet['date']})",
+                f"our last match ({sheet['date']})",
                 sheet.get("bench", []))
     return [], "", "", []
 
@@ -89,6 +96,43 @@ def pick_xi(club: str, formation: str = "4-3-3") -> list[str]:
     return xi[:11]
 
 
+
+def _reveal_ticks(out_wav: Path, times: list[float], total: float) -> Path | None:
+    """A short percussive tick under each name as it lands.
+
+    Synthesised rather than loaded from the SFX library so the reel has no
+    asset dependency: a build must never lose its audio because a wav moved.
+    """
+    try:
+        import wave
+        import numpy as np
+        sr = 44100
+        buf = np.zeros(int(sr * (total + 0.5)), dtype=np.float32)
+        for i, t in enumerate(times):
+            k = int(t * sr)
+            n = int(sr * 0.11)
+            if k + n >= len(buf):
+                break
+            e = np.exp(-np.linspace(0, 9, n))            # fast decay
+            # rises slightly through the XI so the last name lands highest
+            f0 = 520 + 26 * i
+            tone = np.sin(2 * np.pi * f0 * np.arange(n) / sr)
+            click = np.sin(2 * np.pi * 1750 * np.arange(n) / sr) * np.exp(
+                -np.linspace(0, 34, n))
+            buf[k:k + n] += (tone * 0.55 + click * 0.45) * e * 0.30
+        peak = float(np.max(np.abs(buf))) or 1.0
+        buf = (buf / max(1.0, peak)) * 0.32
+        with wave.open(str(out_wav), "w") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(sr)
+            w.writeframes((buf * 32767).astype("<i2").tobytes())
+        return out_wav
+    except Exception as e:
+        print(f"[Lineup] reveal ticks skipped: {str(e)[:100]}")
+        return None
+
+
 def analysis_lines(club: str, opponent: str, formation: str, xi: list[str],
                    provenance: str = "", bench: list[str] | None = None) -> list[str]:
     """Narration. Built from what is actually on the card, so it can never
@@ -102,19 +146,25 @@ def analysis_lines(club: str, opponent: str, formation: str, xi: list[str],
     front = [p.split(" ", 1)[-1] for p in xi[-int(parts[-1]):]] if len(parts) > 1 else []
 
     bench = bench or []
+    # BREAKING-NEWS FRAMING. The old opening stated the whole premise in one
+    # sentence and then read a list, which gives a viewer no reason to stay
+    # past the third name. It now opens like team news breaking, says the
+    # names are still coming, and holds the full eleven to the end.
     lines = [
-        f"This is the {name} eleven Genesis News expects"
+        "Breaking team news.",
+        f"This is the {name} eleven we expect"
         + (f" against {opp}." if opp else "."),
+        "The names are coming in now. Stay with us for the full eleven.",
+        f"The shape is {formation.replace('-', ' ')}.",
     ]
-    # Saying WHERE the side comes from is what makes it undeniable. An XI
-    # nobody can argue with is one built on the last team sheet, not on a guess.
-    if provenance:
-        lines.append(f"This is the side that started {provenance}.")
-    lines.append(f"The shape is {formation.replace('-', ' ')}.")
     if keeper:
         lines.append(f"{keeper} starts in goal.")
     if back:
         lines.append("The back line reads " + ", ".join(back) + ".")
+    # Saying WHERE the side comes from is what makes it undeniable — but after
+    # the reveal has done its work, not before it has started.
+    if provenance:
+        lines.append(f"This is built on the side that started {provenance}.")
     if front:
         lines.append("Up top, " + " and ".join(front) + " carry the goals.")
     lines += [
@@ -402,7 +452,29 @@ async def main():
          f"{(total * 0.62) / max(1, len(cards)):.1f}s per player")
 
     from modules.motion_kit import attach_voice
-    final = await attach_voice(silent, narration, work / "final.mp4")
+    voiced = await attach_voice(silent, narration, work / "voiced.mp4")
+
+    # One tick per name, on the frame that name appears.
+    final = Path(voiced)
+    reveal_t = total * 0.62
+    times = [reveal_t * (i + 1) / max(1, len(cards)) for i in range(len(cards))]
+    tw = _reveal_ticks(work / "ticks.wav", times, total)
+    if tw and Path(tw).exists():
+        try:
+            from moviepy import (VideoFileClip, AudioFileClip,
+                                 CompositeAudioClip)
+            v = VideoFileClip(str(voiced))
+            t = AudioFileClip(str(tw))
+            if t.duration > v.duration:
+                t = t.subclipped(0, v.duration)
+            mixed = work / "final.mp4"
+            v.with_audio(CompositeAudioClip([v.audio, t])).write_videofile(
+                str(mixed), codec="libx264", audio_codec="aac", logger=None)
+            v.close(); t.close()
+            final = mixed
+            _log(f"reveal ticks mixed under {len(times)} names")
+        except Exception as e:
+            _log(f"tick mix skipped: {str(e)[:100]}")
     _log(f"voiced: {Path(final).name}")
 
     # Cover: the finished card, crest and all
@@ -425,7 +497,8 @@ async def main():
         bits = " and ".join(
             f"{c['in'].split(None, 1)[-1]} in for {c['out'].split(None, 1)[-1]}"
             for c in calls)
-        calls_line = ((chr(10) * 2) + "TWO BIG CALLS: " + bits +
+        calls_line = ((chr(10) * 2) + _CALLW.get(len(calls), str(len(calls))).upper()
+                      + " BIG CALLS: " + bits +
                       ". Disagree? Tell us who you'd start.")
     src_line = ((chr(10) * 2) + "Based on the XI that started "
                 + provenance + ".") if provenance else ""

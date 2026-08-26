@@ -196,6 +196,27 @@ def make_lineup_card(
                 # side fills up. Without this, every man already on the pitch
                 # slid sideways each time another was added.
                 if not str(p).strip():
+                    # PENDING SLOT. A blank used to draw nothing at all, so a
+                    # half-revealed XI looked like a team with four players in
+                    # it rather than a team sheet still coming in. Now the slot
+                    # is visibly waiting — a dashed ring and a question mark —
+                    # which is what makes a viewer stay for the next name.
+                    pr = 33
+                    for seg in range(12):          # dashed ring
+                        a0 = seg * 30 + 6
+                        d.arc([x - pr, y - pr - 26, x + pr, y + pr - 26],
+                              a0, a0 + 18, fill=(120, 126, 136), width=4)
+                    qf = _font(30)
+                    qw = d.textlength("?", font=qf)
+                    d.text((x - qw / 2, y - 44), "?", font=qf,
+                           fill=(120, 126, 136))
+                    bw = 74
+                    d.rounded_rectangle([x - bw // 2, y + 18, x + bw // 2, y + 40],
+                                        radius=7, fill=(28, 31, 38))
+                    tf = _font(15)
+                    tw = d.textlength("TO COME", font=tf)
+                    d.text((x - tw / 2, y + 22), "TO COME", font=tf,
+                           fill=(150, 156, 166))
                     continue
                 num, name = _parse_player(p)
                 # A "big call" is marked so nobody has to guess which two
