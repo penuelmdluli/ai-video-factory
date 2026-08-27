@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 
 CACHE = Path(__file__).parent.parent / "data" / "psl_facts.json"
-TTL = 3600
+TTL = 600      # match state goes stale fast on a matchday
 
 
 async def facts_pack() -> str:
@@ -46,25 +46,61 @@ async def facts_pack() -> str:
     try:
         from datetime import datetime, timedelta
         from modules.psl_fixtures import fixtures_for, SAST
-        played, coming = [], []
-        for d in range(-3, 6):
-            day = datetime.now(SAST) + timedelta(days=d)
+        now = datetime.now(SAST)
+
+        # THE CLOCK. Without this the model had no idea what "today" was, so
+        # it wrote about finished matches as if they were about to kick off.
+        lines.insert(0, "RIGHT NOW: " + now.strftime("%A %d %B %Y, %H:%M")
+                     + " South African time.")
+
+        played, coming, live = [], [], []
+        for d in range(-6, 8):
+            day = now + timedelta(days=d)
             try:
-                for f in await fixtures_for(day):
-                    if f.get("completed"):
-                        played.append(f"{f['home']} {f['home_score']}-"
-                                      f"{f['away_score']} {f['away']}")
-                    elif f.get("status") == "pre" and d >= 0:
-                        coming.append(f"{f['home']} v {f['away']} "
-                                      f"({f['kickoff_sast']})")
+                fixtures = await fixtures_for(day)
             except Exception:
                 continue
+            for f in fixtures:
+                when = day.strftime("%a %d %b")
+                score = f"{f.get('home_score')}-{f.get('away_score')}"
+                status = str(f.get("status", "")).lower()
+                if f.get("completed"):
+                    rel = "TODAY" if d == 0 else ("YESTERDAY" if d == -1
+                                                  else when)
+                    played.append(f"{f['home']} {score} {f['away']} "
+                                  f"(FINISHED, {rel})")
+                elif status in ("in", "live", "inprogress"):
+                    live.append(f"{f['home']} {score} {f['away']} "
+                                "(BEING PLAYED RIGHT NOW)")
+                elif d >= 0:
+                    ko = f.get("kickoff_iso") or ""
+                    rel = "TODAY" if d == 0 else ("TOMORROW" if d == 1
+                                                  else when)
+                    try:
+                        kt = datetime.fromisoformat(ko)
+                        if kt <= now:
+                            continue
+                        coming.append(f"{f['home']} v {f['away']} "
+                                      f"(NOT PLAYED YET, {rel} "
+                                      f"{kt.strftime('%H:%M')})")
+                    except ValueError:
+                        coming.append(f"{f['home']} v {f['away']} "
+                                      f"(NOT PLAYED YET, {rel})")
+        if live:
+            lines.append("IN PLAY: " + "; ".join(live))
         if played:
-            lines.append("RECENT RESULTS: " + "; ".join(played[-6:]))
+            lines.append("ALREADY PLAYED: " + "; ".join(played[-6:]))
         if coming:
-            lines.append("UPCOMING: " + "; ".join(coming[:4]))
+            lines.append("STILL TO COME: " + "; ".join(coming[:4]))
+        lines.append(
+            "TENSE RULE: a match marked FINISHED has already been played - "
+            "write about it in the past tense and never preview it. Only a "
+            "match marked NOT PLAYED YET may be previewed, and only say "
+            "'tonight' if it is marked TODAY. Never invent a fixture that is "
+            "not listed here.")
     except Exception:
         pass
+
 
     text = "\n".join(lines)
     try:
