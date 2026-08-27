@@ -176,8 +176,32 @@ async def decide() -> tuple[str, dict]:
     # page most needs a reason for someone to comment. The mode rotates by
     # day inside the builder, so the same question is never asked twice
     # running.
-    if "fancall" not in today_done:
-        return "fancall", {"fid": fid, "day": _today()}
+    # Where the choice is genuinely free, let the numbers pick.
+    #
+    # Everything above this line is fixture logic and stays fixed: on matchday
+    # the team sheet outranks anything a scoreboard could tell us. But here,
+    # between games, fancall and news are both eligible and the rotation used
+    # to alternate them blind. Measured over 30 days on 2026-08-27, news came
+    # last of every format we run, so alternating gave our weakest format an
+    # equal share of the week forever. weight_for() is fed by real engagement
+    # and clamped to [0.4, 2.0], so a strong format tilts the slot without
+    # ever silencing the others - and an unproven format sits at exactly 1.0
+    # so it can still earn its place.
+    free = [f for f in ("fancall", "news") if f not in today_done]
+    if free:
+        try:
+            from modules.format_intel import weight_for
+            ranked = sorted(free, key=lambda f: -weight_for("sa_pulse", f))
+            if len(free) > 1:
+                _log("learned pick: " + ", ".join(
+                    f"{f}={weight_for('sa_pulse', f):.2f}" for f in ranked))
+            pick = ranked[0]
+        except Exception as e:
+            _log(f"weights unavailable ({e}) - falling back to fancall")
+            pick = free[0]
+        if pick == "fancall":
+            return "fancall", {"fid": fid, "day": _today()}
+        return "news", {"fid": fid}
 
     return "news", {"fid": fid}
 

@@ -82,15 +82,14 @@ def _runs_today():
 
 # ---------------------------------------------------------------- detectors
 
-def detect() -> list:
+async def detect_async() -> list:
     """[{name, severity, evidence, brief}] - everything currently wrong."""
     found = []
 
     # 1. The facts pack the comment engine speaks from.
     try:
-        import asyncio
         from check_facts_integrity import run as facts_run
-        problems = asyncio.run(facts_run())
+        problems = await facts_run()
         if problems:
             found.append({
                 "name": "facts_pack",
@@ -143,9 +142,8 @@ def detect() -> list:
 
     # 3. Our own comments that have gone wrong or stale.
     try:
-        import asyncio
         from sweep_comments import sweep
-        res = asyncio.run(sweep("sa_pulse", do_delete=False, posts=30))
+        res = await sweep("sa_pulse", do_delete=False, posts=30)
         bad = res.get("findings") or []
         if bad:
             found.append({
@@ -166,6 +164,28 @@ def detect() -> list:
         pass
 
     return found
+
+
+def detect() -> list:
+    """Sync wrapper around detect_async.
+
+    This used to be a plain function calling asyncio.run() inside itself. That
+    works from a script and raises the moment a caller already inside an event
+    loop uses it - which is exactly what happened on brain.py's first cycle:
+    every detector failed with 'coroutine was never awaited', the exceptions
+    were swallowed by the try/except around each one, and the run cheerfully
+    reported a healthy factory. A checker that goes silent under an unexpected
+    caller is worse than no checker, because it manufactures confidence. So
+    async callers must await detect_async, and are told so rather than being
+    handed an empty list.
+    """
+    import asyncio
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(detect_async())
+    raise RuntimeError("detect() called from inside a running event loop - "
+                       "await detect_async() instead")
 
 
 # ------------------------------------------------------------------ healing
