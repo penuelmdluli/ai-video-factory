@@ -72,8 +72,18 @@ REEL STRUCTURE (follow this beat map for every short):
   a coach's actual words, a fixture and venue.
 - THE KEY BATTLE (0:25-0:45): the football insight — the matchup, the tactical question,
   the form line, the player under pressure. This is what makes it worth watching.
-- CALL TO ACTION (0:45-0:60): a debate question that fans MUST answer in the comments
-  ("Drop your score prediction"), then the closing ask.
+- CALL TO ACTION (0:45-0:60): GIVE THE VIEWER A JOB.
+  Our own numbers: a news reel did 46,225 views and got 5 comments, while a
+  "who starts" post did 33,747 and got 138, and the matchday post got 345.
+  Views without replies leave nothing behind — replies are what keep the page
+  in front of the same people. So the closing question must be SPECIFIC and
+  ANSWERABLE IN THREE WORDS, about a choice only a fan can make:
+    "Who starts on Saturday - Phili or Baartman?"
+    "Name the one player you would drop."
+    "Your score: comment it now."
+  BANNED: "what do you think", "let us know", "thoughts?", "comment below"
+  on their own - nobody answers a question with no answer in it.
+  Then the closing ask.
   THE CLOSING LINE IS MANDATORY and must use the word "subscribe" out loud, with a
   REASON to come back — not a bare "follow us". The same audio runs on YouTube,
   Facebook and TikTok, and on YouTube "subscribe" is the action that counts.
