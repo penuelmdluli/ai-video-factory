@@ -105,9 +105,9 @@ async def facts_pack() -> str:
         # gave it. A pack that omits the fixture we are posting about is not
         # merely incomplete, it is actively misleading, so these lines are
         # pinned in and never truncated.
+        nxt = []
         try:
             from modules.psl_fixtures import next_fixture
-            nxt = []
             for ck, cname in (("chiefs", "Kaizer Chiefs"),
                               ("pirates", "Orlando Pirates"),
                               ("sundowns", "Mamelodi Sundowns")):
@@ -133,6 +133,23 @@ async def facts_pack() -> str:
                              "overrides anything above): " + "; ".join(nxt))
         except Exception as e:
             print(f"[Facts] next-match block skipped: {e}")
+
+        # Silence here is the actual danger, and it is what let the Siwelele
+        # bug out a second time: the block above was dead, the pack was built
+        # and cached anyway, and the only Siwelele line left in it was the
+        # FINISHED game against Chippa. The pack read as complete, so the
+        # engine answered from it. When we cannot state a club's next match,
+        # the pack must SAY it cannot rather than quietly leaving the fixture
+        # out - missing evidence the model knows about is safe, missing
+        # evidence it does not is how a supporter gets told a match that has
+        # not kicked off was already played.
+        if not nxt:
+            lines.append(
+                "FIXTURE DATA UNAVAILABLE: the next-match lookup failed, so "
+                "this pack does NOT contain the upcoming fixture for any club "
+                "we cover. Say nothing about when any club plays next or "
+                "whether any fixture has been played - a club appearing in a "
+                "FINISHED line above tells you nothing about its next match.")
 
         # A club name on its own is not a match. "Siwelele" appears in a
         # finished game against Chippa AND in an unplayed game against
