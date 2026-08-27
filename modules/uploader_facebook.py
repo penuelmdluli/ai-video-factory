@@ -89,10 +89,41 @@ GRAPH_API_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 FB_APP_ID = os.getenv("FB_APP_ID", "591543017174198")
 
 # Page tokens: one per page we post to (long-lived page access tokens)
+# PAUSED PAGES — measured, not guessed.
+#
+# Audit of 703 posts on 2026-08-27, engagement per post:
+#
+#     Genesis News        77.6      1,644 followers
+#     Blissful Moments     0.9     57,831 followers
+#     Limitless You        0.5        210 followers
+#     Smart Money AI       0.4      4,393 followers
+#
+# The three below returned under one point per post across a hundred posts
+# each. They had already gone quiet on their own - nothing had published to
+# them for days or weeks when this was written - so this is not a change of
+# behaviour, it is making the existing state deliberate and durable so a
+# forgotten scheduled task cannot quietly restart them.
+#
+# The guard is HERE, at the page lookup, rather than in each publisher,
+# because a rule that every caller has to remember is a rule the next caller
+# forgets. Nothing is deleted and no token is revoked: clear
+# GENESIS_PAUSED_PAGES in .env, or edit this set, and a page is live again.
+PAUSED_PAGES = {
+    n.strip() for n in os.getenv(
+        "GENESIS_PAUSED_PAGES",
+        "blissful_moments,limitless_you,ai_money").split(",") if n.strip()
+}
+
+
 # Format in .env: FB_PAGE_TOKEN_<niche>=<token>
 # The page ID is also needed: FB_PAGE_ID_<niche>=<page_id>
 def _get_page_config(niche: str) -> dict:
     """Get Facebook page ID and token for a niche."""
+    if niche in PAUSED_PAGES:
+        print(f"[Facebook] {niche} is PAUSED — nothing will be posted. "
+              f"It returned under 1 engagement per post across 100 posts; "
+              f"remove it from GENESIS_PAUSED_PAGES to resume.")
+        return {"page_id": "", "page_token": "", "paused": True}
     page_id = os.getenv(f"FB_PAGE_ID_{niche}", "")
     page_token = os.getenv(f"FB_PAGE_TOKEN_{niche}", "")
     return {"page_id": page_id, "page_token": page_token}

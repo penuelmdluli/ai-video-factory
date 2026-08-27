@@ -170,6 +170,32 @@ async def decide() -> tuple[str, dict]:
     done = st.get(fid, {})
     _log(f"next fixture {fx.get('home')} v {fx.get('away')} in {hours:.1f}h")
 
+    # CADENCE FOLLOWS THE FIXTURE, NOT THE CLOCK.
+    #
+    # Six slots used to run every day regardless of whether Chiefs played in
+    # two days or twelve. The audit of 703 posts on 2026-08-27 says that is
+    # the wrong shape:
+    #
+    #     26 Aug   20 posts (matchday)      3,945 engagement
+    #     24 Aug   10 posts (2 days out)    3,159
+    #     25 Aug   43 posts (no fixture)      298
+    #
+    # Volume is not the variable - proximity is. A heavy day next to a match
+    # earns; the same volume in a quiet gap earns nothing and trains the
+    # audience to scroll past us. So the quota tightens as the fixture
+    # recedes, and the slots that would have run simply stand down.
+    today_count = len(_posted_today(st))
+    if hours <= 48:
+        quota, why = 6, "matchday window"
+    elif hours <= 96:
+        quota, why = 4, "fixture is close"
+    else:
+        quota, why = 3, "quiet week"
+    if today_count >= quota:
+        _log(f"{today_count} posted today, quota {quota} ({why}) — "
+             f"standing this slot down")
+        return "none", {}
+
     # The matchday XI is tracked separately from any earlier one. A predicted
     # side posted three days out is a talking point; the same side posted the
     # day before kickoff is the post people actually come back for, and one
