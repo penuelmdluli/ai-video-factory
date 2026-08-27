@@ -286,6 +286,7 @@ async def fetch_recent_comments(niche: str, limit: int = POST_SWEEP) -> list[dic
                         "created_time": comment.get("created_time", ""),
                         "post_id": post["id"],
                         "post_context": post_message,
+                        "post_created": post.get("created_time", ""),
                     })
 
             if seen_posts >= limit:
@@ -342,6 +343,38 @@ def analyze_sentiment(comment_text: str) -> str:
 
 
 # ── AI Reply Generation ──────────────────────────────────────
+
+
+def _post_context_block(post_context: str, post_created: str) -> str:
+    """The post text, clearly marked as HISTORY rather than current state.
+
+    A reply on yesterday's preview said the match was "tonight" — the model
+    trusted the post's own words ("Wednesday 19:30, your prediction") over
+    the live facts, because nothing said the post was old.
+    """
+    if not post_context:
+        return ""
+    age = ""
+    try:
+        from datetime import datetime, timezone
+        when = datetime.fromisoformat(post_created.replace("Z", "+00:00"))
+        days = (datetime.now(timezone.utc) - when).days
+        age = ("published TODAY" if days <= 0 else
+               "published YESTERDAY" if days == 1 else
+               f"published {days} DAYS AGO")
+    except Exception:
+        age = "published earlier"
+    return (
+        f"POST CONTEXT ({age}) — this is what we wrote AT THE TIME and may "
+        f"POST CONTEXT ({age}) - this is what we wrote AT THE TIME and may "
+        f"now be out of date: {post_context[:300]}" + "\n"
+        "TIME PRECEDENCE (CRITICAL): the LIVE LEAGUE FACTS above always beat "
+        "this post text. If the post previewed a match that the facts now "
+        "mark FINISHED, reply about the RESULT, never the preview. Never say "
+        "'tonight', 'today' or 'later' about a match the facts show as "
+        "already played."
+    )
+
 
 async def generate_reply(comment: dict, niche: str) -> str | None:
     """
@@ -428,7 +461,7 @@ RULES:
 {"- Include a subtle call-to-action like 'Follow for more!' or 'Share with someone who needs this!'" if include_cta else "- Do NOT include any call-to-action"}
 
 COMMENT from {commenter_name}: "{comment_text}"
-{"POST CONTEXT: " + post_context if post_context else ""}
+{_post_context_block(post_context, comment.get("post_created", ""))}
 SENTIMENT: {sentiment}
 
 Reply (1-2 sentences only, no quotes):"""
