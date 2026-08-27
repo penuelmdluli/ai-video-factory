@@ -191,8 +191,20 @@ async def main():
     if len(men) < 2:
         _log(f"only {len(men)} {label} in the squad cache — nothing to debate")
         return 1
+    # Availability gate. The squad cache lists everyone on the books, so
+    # without this the format asks fans to choose between men who are not in
+    # the squad — which reads as a page that does not watch the games.
+    from modules.availability import confirmed_available
+    men, held, ev = await confirmed_available(a.club, men)
+    for m, why in held:
+        _log(f"held back: {m['name']} — {why}")
+    if ev:
+        _log(f"evidence: {ev['match']} ({ev['date']}), {ev['squad_size']} named")
+    if len(men) < 2:
+        _log(f"only {len(men)} confirmed {label} — nothing to debate")
+        return 1
     men = men[:6]
-    _log(f"{len(men)} {label}: " + ", ".join(m["name"] for m in men))
+    _log(f"{len(men)} confirmed {label}: " + ", ".join(m["name"] for m in men))
 
     from modules.club_brand import CLUB_BRAND
     club_name = CLUB_BRAND.get(a.club, {}).get("name", a.club.title())

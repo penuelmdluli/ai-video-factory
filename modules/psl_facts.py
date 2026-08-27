@@ -54,7 +54,7 @@ async def facts_pack() -> str:
                      + " South African time.")
 
         played, coming, live = [], [], []
-        for d in range(-6, 8):
+        for d in range(-6, 22):
             day = now + timedelta(days=d)
             try:
                 fixtures = await fixtures_for(day)
@@ -91,7 +91,60 @@ async def facts_pack() -> str:
         if played:
             lines.append("ALREADY PLAYED: " + "; ".join(played[-6:]))
         if coming:
-            lines.append("STILL TO COME: " + "; ".join(coming[:4]))
+            lines.append("STILL TO COME: " + "; ".join(coming[:6]))
+
+        # THE CLUBS WE ACTUALLY POST ABOUT, always, whatever the window.
+        #
+        # 2026-08-27: a comment said the Siwelele game had already been
+        # played. It had not - Chiefs v Siwelele is 5 September. But the
+        # fixture was 9 days out, the scan stopped at 8, and the upcoming
+        # list was cut to 4, so that match appeared NOWHERE in this pack.
+        # The only line naming Siwelele was "Siwelele 1-1 Chippa United
+        # (FINISHED)" - a different match, against a different opponent.
+        # The model was not guessing; it answered from the only evidence we
+        # gave it. A pack that omits the fixture we are posting about is not
+        # merely incomplete, it is actively misleading, so these lines are
+        # pinned in and never truncated.
+        try:
+            from modules.psl_fixtures import next_fixture
+            nxt = []
+            for ck, cname in (("chiefs", "Kaizer Chiefs"),
+                              ("pirates", "Orlando Pirates"),
+                              ("sundowns", "Mamelodi Sundowns")):
+                try:
+                    f = await next_fixture(ck)
+                except Exception:
+                    continue
+                if not f:
+                    continue
+                try:
+                    kt = datetime.fromisoformat(f.get("kickoff_iso") or "")
+                    days = (kt.date() - now.date()).days
+                    when = ("TODAY" if days == 0 else
+                            "TOMORROW" if days == 1 else
+                            f"{kt.strftime('%a %d %b')}, {days} days from now")
+                    stamp = f"{when} at {kt.strftime('%H:%M')}"
+                except ValueError:
+                    stamp = "date not published"
+                nxt.append(f"{cname}: NEXT MATCH is {f['home']} v {f['away']}"
+                           f" - NOT PLAYED YET, {stamp}")
+            if nxt:
+                lines.append("NEXT MATCH FOR THE CLUBS WE COVER (this "
+                             "overrides anything above): " + "; ".join(nxt))
+        except Exception as e:
+            print(f"[Facts] next-match block skipped: {e}")
+
+        # A club name on its own is not a match. "Siwelele" appears in a
+        # finished game against Chippa AND in an unplayed game against
+        # Chiefs; treating those as the same fixture is what caused the bug.
+        lines.append(
+            "FIXTURE IDENTITY RULE: a match is identified by BOTH clubs, "
+            "never by one club name. Seeing a club in a FINISHED line does "
+            "not mean its next match has been played - the same club appears "
+            "in several fixtures against different opponents. Before you say "
+            "any match has been played, find the line naming BOTH clubs and "
+            "read its status. If no line names both clubs, say nothing about "
+            "that fixture's result.")
         lines.append(
             "TENSE RULE: a match marked FINISHED has already been played - "
             "write about it in the past tense and never preview it. Only a "

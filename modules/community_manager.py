@@ -705,6 +705,25 @@ async def run_community_round(niches: list[str] | None = None) -> dict:
     if niches is None:
         niches = ACTIVE_NICHES
 
+    # Football replies are only as good as the facts pack behind them. Three
+    # separate wrong comments all traced back to a bad pack rather than a bad
+    # model, so check the evidence before using it: if the pack cannot be
+    # trusted, skip football and let the other pages carry on. Saying nothing
+    # costs one round of engagement; saying the wrong thing costs the belief
+    # that anyone here watches the games.
+    if any(n in ("sa_pulse", "genesis") for n in niches):
+        try:
+            from check_facts_integrity import run as _facts_check
+            problems = await _facts_check()
+            if problems:
+                print("[Community] FACTS PACK UNSAFE - football replies "
+                      "skipped this round:")
+                for pr in problems:
+                    print(f"  ! {pr}")
+                niches = [n for n in niches if n not in ("sa_pulse", "genesis")]
+        except Exception as e:
+            print(f"[Community] facts check unavailable: {e}")
+
     summary = {}
 
     for niche in niches:
