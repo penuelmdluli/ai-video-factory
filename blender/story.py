@@ -335,8 +335,28 @@ def main():
     focus = cast[int(spec.get("focus", 0))]
     cam = build_camera(focus["arm"], focus["meshes"],
                        spec.get("shot", "medium"))
+
+    # EYELINES. A character can look at the lens or at another character, and
+    # for dialogue it must be the other character - two people talking while
+    # both stare down the barrel is the fastest way to break a scene. The
+    # target is an empty at the other actor's head height, parented to their
+    # head bone, so the eyeline follows them as they move.
     for c in cast:
-        look_at(c["arm"], cam, c["spec"].get("look", 0.0))
+        tgt_idx = c["spec"].get("look_at_cast")
+        target = cam
+        if tgt_idx is not None and 0 <= int(tgt_idx) < len(cast):
+            other = cast[int(tgt_idx)]
+            head = next((b for b in other["arm"].pose.bones
+                         if b.name.lower().endswith("head")), None)
+            bpy.ops.object.empty_add(type="PLAIN_AXES", location=(0, 0, 0))
+            e = bpy.context.object
+            e.name = "eye_" + c["arm"].name
+            e.parent = other["arm"]
+            if head:
+                e.parent_type = "BONE"
+                e.parent_bone = head.name
+            target = e
+        look_at(c["arm"], target, c["spec"].get("look", 0.0))
 
     # the speaker gets a mouth
     sp = spec.get("speaker")
