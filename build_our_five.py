@@ -37,7 +37,7 @@ sys.path.insert(0, str(ROOT))
 
 from modules.motion_kit import W, H, GOLD, DARK, _ease, _font  # noqa: E402
 from modules.reveal_kit import (  # noqa: E402
-    ambient, crest_outro, hold_hook, progress_rail, scan_loader,
+    ambient, crest_outro, hold_hook, pending_row, progress_rail, scan_loader,
     silhouette_pop, slot_reveal)
 
 NICHE = "sa_pulse"
@@ -167,6 +167,10 @@ def build(club, club_name, five, left_out, opp, out_path,
         row_h = 176
         y0 = max(340, (H - 320 - total * row_h) // 2 + 110)
         surnames = [p["name"].split()[-1].upper() for p in five]
+
+        # the picks not yet named sit under a live loader
+        for j in range(idx + 1, total):
+            pending_row(d, t, y0 + j * row_h, j, row_h, label="PICKING")
 
         for i in range(min(idx + 1, total)):
             y = y0 + i * row_h

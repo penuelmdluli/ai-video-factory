@@ -197,6 +197,56 @@ def progress_rail(d, done, total, y=H - 210, label=""):
                fill=GOLD)
 
 
+def row_loader(d, t, x, y, i=0, r=38, accent=GOLD, label="LOADING"):
+    """The lineup video's live loader, drawn on a list row.
+
+    Owner call 2026-08-27: "every video with the list or lineup show those
+    ring loaders as loading as we call the list... this is the best way".
+
+    Lifted from build_lineup_video._live_loader, which learned the lesson the
+    hard way: the first version baked a static TO COME chip into the card, so
+    it could not move - a still graphic asking you to wait, which reads as a
+    video that has frozen. It has to actually spin to feel live.
+
+    Each row is a beat out of phase with its neighbour, so a column of pending
+    names shimmers instead of pulsing in lockstep like one animation.
+    """
+    # breathing halo
+    br = r + 6 + 4 * math.sin(t * 3.1 + i * 0.6)
+    d.ellipse([x - br, y - br, x + br, y + br],
+              outline=tuple(int(accent[k] * 0.30 + DARK[k] * 0.70)
+                            for k in range(3)), width=3)
+    d.ellipse([x - r, y - r, x + r, y + r], outline=(96, 102, 112), width=3)
+    # the sweep: brightest at its head, fading behind it
+    head = (t * 250 + i * 47) % 360
+    for k in range(9):
+        a = (235 - k * 24) / 255.0
+        d.arc([x - r, y - r, x + r, y + r], head - k * 10, head - k * 10 + 10,
+              fill=tuple(int(accent[j] * a + DARK[j] * (1 - a))
+                         for j in range(3)), width=5)
+    # cycling dots, so even a paused frame looks mid-load
+    lf = _font(26)
+    dots = "." * (1 + int((t * 2.6 + i * 0.5) % 3))
+    d.text((x - d.textlength(dots, font=lf) / 2, y - 22), dots, font=lf,
+           fill=accent)
+    if label:
+        tf = _font(15)
+        bw = 84
+        d.rounded_rectangle([x - bw // 2, y + r + 5, x + bw // 2, y + r + 29],
+                            radius=7, fill=(24, 27, 33))
+        d.text((x - d.textlength(label, font=tf) / 2, y + r + 9), label,
+               font=tf, fill=(190, 196, 206))
+
+
+def pending_row(d, t, y, i, row_h=148, label="LOADING"):
+    """A list row that has not been called yet: loader where the number goes,
+    and a dim bar standing in for the name."""
+    row_loader(d, t, 90 + 48, y + 46, i=i, label=label)
+    bar_w = 320 + (i * 53) % 190          # varied so it is a list, not a grid
+    d.rounded_rectangle([214, y + 34, 214 + bar_w, y + 66], radius=10,
+                        fill=(30, 34, 41))
+
+
 def crest_outro(d, t, u, club, headline="CHIEFS FANS ARE NUMBER 1",
                 call="WHO STARTS? COMMENT BELOW", sub="SUBSCRIBE — GENESIS NEWS"):
     """The badge, big, as the closing frame.

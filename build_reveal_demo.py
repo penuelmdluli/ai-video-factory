@@ -27,7 +27,7 @@ sys.path.insert(0, str(ROOT))
 
 from modules.motion_kit import W, H, GOLD, DARK, _font, _ease  # noqa: E402
 from modules.reveal_kit import (  # noqa: E402
-    ambient, crest_outro, hold_hook, progress_rail, scan_loader,
+    ambient, crest_outro, hold_hook, pending_row, progress_rail, scan_loader,
     silhouette_pop, slot_reveal)
 
 SCAN_END = 2.6
@@ -97,6 +97,13 @@ def build(club, group, men, opponent, out_path):
         # phone reads as a video that has finished before it has.
         row_h = 148
         y0 = max(360, (H - 300 - total * row_h) // 2 + 120)
+        # EVERY row is on screen from the first name. The ones not yet called
+        # carry the lineup video's ring loader, so the list is visibly waiting
+        # rather than growing out of nothing - a viewer can see how many are
+        # still to come and watches for them to resolve.
+        for j in range(idx + 1, total):
+            pending_row(d, t, y0 + j * row_h, j, row_h)
+
         for i in range(min(shown + 1, total)):
             y = y0 + i * row_h
             live = (i == idx and idx < total)
