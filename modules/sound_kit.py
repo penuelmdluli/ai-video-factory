@@ -107,7 +107,7 @@ def bed(dur, hz=1.05):
     return tone * (0.25 + 0.35 * pulse) * 0.11
 
 
-def music_bed(dur, bpm=92, root=110.0):
+def music_bed(dur, bpm=92, root=55.0):
     """A generative music bed - bass, pad and a soft pulse, in a minor key.
 
     Owner asked for music as well as effects. Licensed loops mean a library to
@@ -133,23 +133,32 @@ def music_bed(dur, bpm=92, root=110.0):
         m = end - start
         idx = (start // seg) % len(chords)
         tt = np.arange(m) / SR
-        # Voiced in the range a PHONE can actually reproduce.
+        # The DARK root, with harmonics a phone can actually reproduce.
         #
-        # The first version put the root at 55Hz with harmonics under 200 -
-        # measured on our own score, energy was 134 in the 40-80Hz band
-        # against 18 in the mids. On a laptop it was music; on the phone
-        # speaker almost everyone watches on, which rolls off below roughly
-        # 300Hz, it was nothing at all. The owner asked where the music had
-        # gone, and it had gone under the speaker's floor. The fundamental is
-        # kept quiet for body and the audible weight now sits in the mids.
+        # The owner could not hear the music, so the root was moved up an
+        # octave - which fixed audibility and lost the character he actually
+        # wanted. Root 55 is back, and the upper partials carry the level
+        # instead. Pitch and audibility are separate controls: the
+        # fundamental sets how dark it sounds, the harmonic stack sets
+        # whether a phone speaker reproduces any of it.
+        #
+        # A note on how this was diagnosed, because the first measurement was
+        # wrong and nearly sent the fix the wrong way. Comparing the MEAN
+        # magnitude of a 40Hz-wide band against a 600Hz-wide one makes the
+        # wide band look empty - it is diluted by near-zero bins - and that
+        # reading said the mids were dead when they were not. Energy SHARE is
+        # the honest metric: this voicing puts 29% of total energy in
+        # 200-800Hz and 15.5% above 300Hz, which is quiet but real. Measure
+        # bands by share, never by mean.
         pad = np.zeros(m)
         for r in chords[idx]:
-            pad += np.sin(2 * math.pi * root * r * tt) * 0.10
-            pad += np.sin(2 * math.pi * root * r * 2 * tt) * 0.30
-            pad += np.sin(2 * math.pi * root * r * 4 * tt) * 0.26
-            pad += np.sin(2 * math.pi * root * r * 6 * tt) * 0.12
+            pad += np.sin(2 * math.pi * root * r * tt) * 0.30
+            pad += np.sin(2 * math.pi * root * r * 2 * tt) * 0.22
+            pad += np.sin(2 * math.pi * root * r * 4 * tt) * 0.30
+            pad += np.sin(2 * math.pi * root * r * 8 * tt) * 0.28
+            pad += np.sin(2 * math.pi * root * r * 12 * tt) * 0.14
         swell = 0.55 + 0.45 * np.sin(math.pi * tt / max(0.01, bar * 2))
-        out[start:end] += pad * swell * 0.20
+        out[start:end] += pad * swell * 0.19
 
     # pulse on the beat - fundamental for feel, octaves so it is heard
     step = int(SR * beat)
@@ -157,9 +166,9 @@ def music_bed(dur, bpm=92, root=110.0):
         m = min(step, n - i)
         tt = np.arange(m) / SR
         env = np.exp(-tt * 6.5)
-        hit = (np.sin(2 * math.pi * root * tt) * 0.22
-               + np.sin(2 * math.pi * root * 2 * tt) * 0.26
-               + np.sin(2 * math.pi * root * 3 * tt) * 0.12)
+        hit = (np.sin(2 * math.pi * root * tt) * 0.30
+               + np.sin(2 * math.pi * root * 2 * tt) * 0.22
+               + np.sin(2 * math.pi * root * 4 * tt) * 0.14)
         out[i:i + m] += hit * env
 
     # a breath of air so it is not purely tonal

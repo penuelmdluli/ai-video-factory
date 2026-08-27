@@ -44,14 +44,32 @@ def _log(m):
 
 
 def contenders(club: str, pos_prefix: str) -> list[dict]:
+    """Squad players in a position group, under the names FANS use.
+
+    The owner name-fix map is applied here rather than in each builder.
+    Owner call 2026-08-26: "macheke is kwinika, the fans know kwinika" - and
+    on 2026-08-27 three new formats went straight past that rule because they
+    read this function's raw output and printed the last token of the name.
+    A rule enforced in every caller is a rule that gets missed by the next
+    caller, so it lives at the source.
+    """
+    from modules.psl_squads import fix_name, fix_surname
     cache = json.loads((ROOT / "data" / "psl_squads_cache.json").read_text(encoding="utf-8"))
     squad = (cache.get(club) or {}).get("squad") or []
     out = []
     for p in squad:
         if (p.get("pos") or "").upper().startswith(pos_prefix):
             name = (p.get("name") or "").strip()
-            if name:
-                out.append({"no": str(p.get("no", "") or "").strip(), "name": name})
+            if not name:
+                continue
+            name = fix_name(name)
+            parts = name.split()
+            if parts:
+                fixed = fix_surname(parts[-1])
+                if fixed != parts[-1]:
+                    name = " ".join(parts[:-1] + [fixed])
+            out.append({"no": str(p.get("no", "") or "").strip(),
+                        "name": name})
     return out
 
 
