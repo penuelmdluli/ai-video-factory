@@ -4,12 +4,29 @@ import { StatsBand } from "./StatsBand";
 import { JobCard } from "./JobCard";
 import { NewsCard } from "./NewsCard";
 import { JobReel } from "./JobReel";
+import { CrestOutro } from "./CrestOutro";
 import band from "../input/band.example.json";
 import card from "../input/card.example.json";
 import news from "../input/news.example.json";
 
 export const RemotionRoot: React.FC = () => (
   <>
+    <Composition
+      id="CrestOutro"
+      component={CrestOutro as any}
+      durationInFrames={30 * 10}
+      fps={30}
+      width={1080}
+      height={1920}
+      defaultProps={{
+        badge: "chiefs_badge.png",
+        headline: "CHIEFS FANS ARE NUMBER 1",
+        call: "WHO STARTS? COMMENT BELOW",
+        sub: "SUBSCRIBE — GENESIS NEWS",
+        accent: "#FFC107",
+        ground: "#0C0E12",
+      }}
+    />
     <Composition
       id="StatsBand"
       component={StatsBand as any}
