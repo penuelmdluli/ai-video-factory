@@ -30,6 +30,7 @@ import math
 
 from modules.motion_kit import W, H, GOLD, DARK, _crest, _ease, _font, _over
 
+LOCK_AT = 0.82      # the wheel must settle before the row looks finished
 INK = (255, 255, 255)
 DIM = (128, 138, 152)
 
@@ -128,10 +129,18 @@ def slot_reveal(d, u, names, final, x, y, size=88, colour=INK):
     holds someone's thumb.
     """
     u = max(0.0, min(1.0, u))
-    if u >= 1.0:
+    # Settle EARLY, not on the last frame.
+    #
+    # The wheel used to tumble until u hit 1.0, while the row's underline and
+    # evidence line appeared at 0.86. For that stretch a row looked finished
+    # and carried the wrong man: a frame checked on 2026-08-27 showed "22
+    # NDLOVU" with the underline drawn, when 22 is Bitegeko. A half-locked row
+    # is worse than a slow one - it publishes a wrong squad number.
+    if u >= LOCK_AT:
         f = _font(size)
         d.text((x, y), final, font=f, fill=colour)
         return
+    u = u / LOCK_AT
     speed = (1 - _ease(u)) ** 2
     idx = int((u * 26 + speed * 40) % max(1, len(names)))
     shown = names[idx] if names else final
@@ -175,8 +184,13 @@ def silhouette_pop(d, u, crest_club, cx, cy, size=300):
                                 for i in range(3)), width=max(1, int(9 * (1 - g))))
 
 
-def progress_rail(d, done, total, y=H - 210, label=""):
-    """3 OF 11. The single strongest reason to watch the fourth."""
+def progress_rail(d, done, total, y=H - 470, label=""):
+    """3 OF 11. The single strongest reason to watch the fourth.
+
+    Sits well clear of the bottom: burnt captions occupy roughly the lowest
+    350px, and at H-210 the rail was rendering straight through them - the
+    count and the caption fighting over the same pixels.
+    """
     pad = 90
     w = W - pad * 2
     d.rounded_rectangle([pad, y, pad + w, y + 12], radius=6, fill=(38, 42, 50))

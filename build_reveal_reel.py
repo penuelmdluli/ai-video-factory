@@ -48,17 +48,22 @@ def narration(club_name, label, men, opp):
                  + (f" for {opp} on Saturday." if opp else "."))
     intro.append("Here is who is in it.")
 
+    # Each man gets his evidence, not just his name.
+    #
+    # Owner call 2026-08-27: "we rush to cut the list, that's around 18s -
+    # what about the rest of the video?". Exactly right, and the fix is not to
+    # slow the animation down. Six bare names take eighteen seconds because
+    # there are only twenty-four words to say; padding that would have made
+    # the same thin content drag. Giving every player the one true thing we
+    # know from the last team sheet more than doubles the list, and it is the
+    # part people came for. The sign-off loses a sentence at the same time.
     names = []
     for m in men:
         no = f", number {m['no']}" if m.get("no") else ""
-        names.append(f"{m['name']}{no}.")
+        why = m.get("why")
+        names.append(f"{m['name']}{no}." + (f" He {why}." if why else ""))
 
-    # Kept short deliberately. Five closing sentences bought eighteen seconds
-    # of tail against ten seconds of reveal - half the reel was a held frame
-    # after the last name had landed, which is where a viewer leaves.
     outro = [
-        "Every one of them has a case. We are not going to pretend we know "
-        "the coach's mind.",
         "So you pick it. Who starts, and who sits? Tell us why below.",
         "Subscribe to Genesis News. We post the team sheet the moment it lands.",
     ]
@@ -105,7 +110,27 @@ async def main():
     if len(men) < 2:
         print("not enough confirmed players")
         return 1
-    print(f"{len(men)} confirmed: " + ", ".join(m["name"] for m in men))
+
+    # Annotate each man with the one true thing the last team sheet tells us.
+    # This is the only evidence we hold, and it is what turns a list of names
+    # into something worth thirty seconds.
+    try:
+        from modules.availability import _surname
+        from modules.psl_fixtures import last_lineup
+        sheet = await last_lineup(a.club)
+        started = {_surname(x) for x in ((sheet or {}).get("players") or [])}
+        benched = {_surname(x) for x in ((sheet or {}).get("bench") or [])}
+        for m in men:
+            s = _surname(m["name"])
+            m["why"] = ("started the last match" if s in started
+                        else "came off the bench last time" if s in benched
+                        else "")
+    except Exception as e:
+        print("no team-sheet evidence: " + str(e))
+
+    print(f"{len(men)} confirmed: " + ", ".join(
+        m["name"] + (f" ({m.get('why')})" if m.get("why") else "")
+        for m in men))
 
     club_name = CLUB_BRAND.get(a.club, {}).get("name", a.club.title())
     opp = ""

@@ -95,7 +95,7 @@ def build(club, group, men, opponent, out_path):
         # Centre the block on the stage. Fixed at 380 it sat under the header
         # with a third of the frame empty below the last name, which on a
         # phone reads as a video that has finished before it has.
-        row_h = 148
+        row_h = 170
         y0 = max(360, (H - 300 - total * row_h) // 2 + 120)
         # EVERY row is on screen from the first name. The ones not yet called
         # carry the lineup video's ring loader, so the list is visibly waiting
@@ -120,11 +120,20 @@ def build(club, group, men, opponent, out_path):
                        num, font=nf, fill=DARK if live else GOLD)
             # A locked-in name stays bright. Dimming it made the finished
             # rows look like placeholders rather than answers.
-            slot_reveal(d, u, surnames, surnames[i], 214, y + 14, size=76,
+            slot_reveal(d, u, surnames, surnames[i], 214, y + 6, size=72,
                         colour=(255, 255, 255) if live else (234, 239, 246))
+            # The evidence line. A name on its own is a list; a name with the
+            # one true thing we know about him is a reason to keep watching.
+            why = (men[i].get("why") or "").upper()
+            if why and u > 0.7:
+                a = _ease(min(1.0, (u - 0.7) / 0.3))
+                rf = _font(30, False)
+                c = tuple(int(GOLD[k] * a + DARK[k] * (1 - a))
+                          for k in range(3))
+                d.text((216, y + 88), why, font=rf, fill=c)
             if live and u > 0.86:
                 g = (u - 0.86) / 0.14
-                d.line([(214, y + 104), (214 + int(420 * g), y + 104)],
+                d.line([(214, y + 126), (214 + int(420 * g), y + 126)],
                        fill=GOLD, width=4)
 
         progress_rail(d, min(shown + (1 if idx < total else 0), total), total)

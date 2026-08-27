@@ -143,6 +143,32 @@ async def attach_voice(video_path, text: str, out_path=None) -> str:
                     print(f"[MotionKit] caption sync covered only "
                           f"{covered:.1f}s of {voice.duration:.1f}s — "
                           f"timing {len(words)} words from the script")
+                # Whisper for TIMING, our script for SPELLING.
+                #
+                # It transcribes what it hears, and it has never seen a PSL
+                # team sheet: "Pule Sydney Mmodi" came back as "PULEH SYDNEY
+                # MM-MODI" and was burned into the frame that way. Misspelling
+                # a player's name on screen is exactly what this audience
+                # notices, and we already hold the correct text - we wrote it.
+                # So the timings are kept and the words are replaced, position
+                # by position, whenever the counts line up.
+                script_words = text.split()
+                if len(script_words) == len(segs):
+                    for seg, w in zip(segs, script_words):
+                        seg["text"] = w
+                elif abs(len(script_words) - len(segs)) <= max(
+                        2, len(script_words) // 10):
+                    # near miss: stretch our words across whisper's timings
+                    for i, seg in enumerate(segs):
+                        j = min(len(script_words) - 1,
+                                round(i * len(script_words) / max(1, len(segs))))
+                        seg["text"] = script_words[j]
+                    print("[MotionKit] caption words realigned to the script "
+                          f"({len(segs)} timings, {len(script_words)} words)")
+                else:
+                    print(f"[MotionKit] script has {len(script_words)} words "
+                          f"but whisper timed {len(segs)} - keeping whisper's "
+                          f"text, spellings may differ")
                 phrases = group_words_into_phrases(segs, max_words=4)
                 caps = _caption_clips(phrases, clip.w, vwork)
                 if caps:
