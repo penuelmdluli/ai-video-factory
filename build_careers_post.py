@@ -216,12 +216,28 @@ async def publish(job: dict, video_path: str | None, card_only=False):
             photo_credit=job.get("photo_credit", ""))
         print(f"[Careers] card: {card} (PIL fallback)")
 
-    r = await upload_photo(card, caption, NICHE)
-    print(f"[Careers] FB card: {r}")
-    results["fb_card"] = r
-    pid = r.get("post_id") or r.get("id")
-    if pid:
-        await post_comment(pid, comment, NICHE)
+    # ONE POST PER JOB on Facebook.
+    #
+    # This posted the card and then the reel about sixty seconds apart, both
+    # carrying the same caption, so every opportunity appeared on the page
+    # twice. The overnight report on 2026-08-27 caught two pairs in one day -
+    # 13:01/13:02 and 18:31/18:32 - and a feed full of doubled posts reads as
+    # a broken bot, which is the opposite of what a page selling "verified"
+    # needs. The reel wins when there is one: it carries the same detail in
+    # the caption, and video reaches further. The card still gets built and
+    # still goes to YouTube and the archive, it just stops being a second
+    # post to the same audience about the same job.
+    post_card = card_only or not video_path
+    if post_card:
+        r = await upload_photo(card, caption, NICHE)
+        print(f"[Careers] FB card: {r}")
+        results["fb_card"] = r
+        pid = r.get("post_id") or r.get("id")
+        if pid:
+            await post_comment(pid, comment, NICHE)
+    else:
+        print("[Careers] card built but not posted separately — the reel "
+              "carries this job on Facebook")
 
     if card_only or not video_path:
         return results
