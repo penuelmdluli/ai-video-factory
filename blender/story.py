@@ -33,6 +33,7 @@ sys.path.append(str(Path(__file__).parent))
 from lipsync import (build_visemes, drive_from_words,  # noqa: E402
                      find_mouth, words_from_srt)
 from street import build_street  # noqa: E402
+from settings import add_rain, apply_time  # noqa: E402
 
 PALETTE = {
     "sky_top": (0.078, 0.106, 0.212),
@@ -311,6 +312,16 @@ def main():
                      cars=int(spec.get("cars", 9)))
     else:
         build_world(total)
+
+    # The setting is applied AFTER the set is built, so it re-lights whatever
+    # is there. Any future location inherits time of day for free instead of
+    # each one carrying its own lighting rig.
+    apply_time(spec.get("time", "dusk"),
+               spec.get("mood", "neutral"),
+               spec.get("weather", "clear"))
+    if spec.get("weather") == "rain":
+        add_rain(total, drops=int(spec.get("rain_drops", 900)),
+                 seed=int(spec.get("seed", 7)))
 
     cast = []
     for i, c in enumerate(spec["cast"]):
