@@ -32,6 +32,7 @@ import bpy
 sys.path.append(str(Path(__file__).parent))
 from lipsync import (build_visemes, drive_from_words,  # noqa: E402
                      find_mouth, words_from_srt)
+from street import build_street  # noqa: E402
 
 PALETTE = {
     "sky_top": (0.078, 0.106, 0.212),
@@ -268,10 +269,17 @@ def build_camera(target_arm, meshes, shot):
         aim.parent_bone = hips.name
         aim.location = (0, -0.15, 0)
 
-    dist, height, lens = {"wide": (7.0, 2.0, 38),
-                          "medium": (4.4, 1.55, 50),
-                          "close": (2.5, 1.5, 75)}[shot]
-    bpy.ops.object.camera_add(location=(dist * 0.5, dist, height))
+    # 'street' pulls back and swings ACROSS the road rather than standing on
+    # the pavement beside the actors. The first street render framed a
+    # building wall from four metres - the traffic, the lamps and the whole
+    # reason for the set were behind the lens.
+    dist, height, lens, swing = {
+        "wide":   (7.0, 2.0, 38, 0.50),
+        "medium": (4.4, 1.55, 50, 0.50),
+        "close":  (2.5, 1.5, 75, 0.50),
+        "street": (9.5, 2.6, 40, 1.05),
+    }[shot]
+    bpy.ops.object.camera_add(location=(dist * swing, dist, height))
     cam = bpy.context.object
     cam.data.lens = lens
     c = cam.constraints.new("TRACK_TO")
@@ -296,7 +304,13 @@ def main():
     clear()
     scn = bpy.context.scene
     scn.render.fps = 30
-    build_world(total)
+    # The world is a choice now: the colonnade, or a living street with
+    # traffic. Both are generated, so a story picks one by name.
+    if spec.get("world") == "street":
+        build_street(total, seed=int(spec.get("seed", 3)),
+                     cars=int(spec.get("cars", 9)))
+    else:
+        build_world(total)
 
     cast = []
     for i, c in enumerate(spec["cast"]):
@@ -307,6 +321,7 @@ def main():
         offset_action(arm, c.get("offset", 0))
         loop_action(arm, rng[0], rng[1], total)
         place(arm, c.get("at", (0, 0)), c.get("facing", 0))
+        arm.location.z += float(c.get("lift", 0.0))
         if c.get("mirror"):
             arm.scale.x *= -1
         cast.append({"arm": arm, "meshes": meshes, "spec": c})
