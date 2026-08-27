@@ -107,10 +107,63 @@ def bed(dur, hz=1.05):
     return tone * (0.25 + 0.35 * pulse) * 0.11
 
 
-def mix(duration, events, with_bed=True):
+def music_bed(dur, bpm=92, root=55.0):
+    """A generative music bed - bass, pad and a soft pulse, in a minor key.
+
+    Owner asked for music as well as effects. Licensed loops mean a library to
+    keep, a claim risk on YouTube, and a fixed length that never matches the
+    reel. Generating it means the bed is exactly as long as the video, cannot
+    be claimed by anyone, and can be keyed to the mood of the format.
+
+    Deliberately plain: two chords, a root pulse and a wash. This sits under
+    narration for thirty seconds and must not compete with it - anything more
+    interesting would be a distraction, not a benefit.
+    """
+    n = int(SR * dur)
+    t = np.arange(n) / SR
+    beat = 60.0 / bpm
+    out = np.zeros(n)
+
+    # i - VI alternation, four bars each
+    bar = beat * 4
+    chords = [(1.0, 1.2, 1.5), (0.8, 1.0, 1.25)]     # ratios off the root
+    seg = int(SR * bar * 2)
+    for start in range(0, n, seg):
+        end = min(n, start + seg)
+        m = end - start
+        idx = (start // seg) % len(chords)
+        tt = np.arange(m) / SR
+        pad = np.zeros(m)
+        for r in chords[idx]:
+            pad += np.sin(2 * math.pi * root * r * 2 * tt) * 0.28
+            pad += np.sin(2 * math.pi * root * r * 4 * tt) * 0.10
+        swell = 0.55 + 0.45 * np.sin(math.pi * tt / max(0.01, bar * 2))
+        out[start:end] += pad * swell * 0.16
+
+    # bass pulse on the beat
+    step = int(SR * beat)
+    for i in range(0, n, step):
+        m = min(step, n - i)
+        tt = np.arange(m) / SR
+        env = np.exp(-tt * 6.5)
+        out[i:i + m] += np.sin(2 * math.pi * root * tt) * env * 0.30
+
+    # a breath of air so it is not purely tonal
+    out += _lowpass(_noise(n), 900) * 0.012
+    fade = min(int(SR * 1.2), n // 4)
+    if fade > 0:
+        out[:fade] *= np.linspace(0, 1, fade)
+        out[-fade:] *= np.linspace(1, 0, fade)
+    return out * 0.6
+
+
+def mix(duration, events, with_bed=True, with_music=False, bpm=92):
     """events = [(at_seconds, samples)] -> one normalised track."""
     n = int(SR * duration)
     track = bed(duration) if with_bed else np.zeros(n)
+    if with_music:
+        m = music_bed(duration, bpm=bpm)
+        track = track + (m[:n] if len(m) >= n else np.pad(m, (0, n - len(m))))
     if len(track) < n:
         track = np.pad(track, (0, n - len(track)))
     track = track[:n]
@@ -139,7 +192,8 @@ def write_wav(samples, out_path):
     return str(out)
 
 
-def score_reveal(out_path, duration, scan_end, crest_end, per_name, count):
+def score_reveal(out_path, duration, scan_end, crest_end, per_name,
+                 count, music=True, bpm=92):
     """The whole track for a reveal reel, built from its own timings.
 
     Each name gets a slightly higher lock than the one before, so six in a row
@@ -153,7 +207,8 @@ def score_reveal(out_path, duration, scan_end, crest_end, per_name, count):
         events.append((at, lock(pitch=1.0 + i * 0.055)))
     # a softer hit when the shortlist is complete
     events.append((crest_end + count * per_name, impact(1.0) * 0.55))
-    return write_wav(mix(duration, events), out_path)
+    return write_wav(mix(duration, events, with_music=music, bpm=bpm),
+                     out_path)
 
 
 def under_voice(video_path, music_path, out_path, music_db=-19.0):

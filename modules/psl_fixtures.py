@@ -14,6 +14,7 @@ Usage:
 """
 from datetime import datetime, timedelta, timezone
 
+import asyncio
 import httpx
 
 try:
@@ -30,15 +31,44 @@ def _key_for(team: dict) -> str:
     return _ID_TO_KEY.get(str(team.get("id", "")), "")
 
 
-async def fixtures_for(day: datetime) -> list[dict]:
-    """All PSL fixtures on a calendar day (SAST)."""
-    try:
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            r = await client.get(SCOREBOARD, params={"dates": day.strftime("%Y%m%d")})
-            events = r.json().get("events", [])
-    except Exception as e:
-        print(f"[Fixtures] fetch failed: {e}")
-        return []
+class FixtureFetchError(RuntimeError):
+    """We could not read a day. NOT the same as 'that day has no matches'."""
+
+
+async def fixtures_for(day: datetime, strict: bool = False) -> list[dict]:
+    """All PSL fixtures on a calendar day (SAST).
+
+    strict=True raises FixtureFetchError instead of returning an empty list
+    when the request fails.
+
+    This distinction is not academic. The old version returned [] for both
+    'no matches' and 'the request failed', so on 2026-08-27 a single transient
+    failure while scanning 6 September made next_fixture skip straight past
+    Chiefs v Siwelele and report Polokwane on the 12th - a different opponent,
+    a week later. Every reel, caption and countdown downstream would have
+    carried that wrong fixture, and nothing anywhere would have looked broken.
+    A silent empty list is the most dangerous value this function can return.
+    """
+    attempts = 3 if strict else 1
+    last = None
+    for i in range(attempts):
+        try:
+            async with httpx.AsyncClient(timeout=30,
+                                         follow_redirects=True) as client:
+                r = await client.get(SCOREBOARD,
+                                     params={"dates": day.strftime("%Y%m%d")})
+                r.raise_for_status()
+                events = r.json().get("events", [])
+            break
+        except Exception as e:
+            last = e
+            if i == attempts - 1:
+                print(f"[Fixtures] fetch failed: {e}")
+                if strict:
+                    raise FixtureFetchError(
+                        f"{day:%Y-%m-%d}: {e}") from e
+                return []
+            await asyncio.sleep(1.5 * (i + 1))
 
     out = []
     for e in events:
@@ -83,11 +113,22 @@ async def next_fixture(club_key: str, days_ahead: int = 21) -> dict | None:
 
     Returns the fixture dict from fixtures_for(), or None when the club has
     nothing scheduled inside the window.
+
+    Reads each day strictly: a day we could not fetch is NOT treated as a day
+    with no matches. Skipping an unreadable day is how the wrong opponent gets
+    onto a reel - the scan sails past the real next fixture and returns one a
+    week later, with nothing in any log looking wrong.
     """
     now = datetime.now(SAST)
     for i in range(days_ahead + 1):
         day = now + timedelta(days=i)
-        for f in await fixtures_for(day):
+        try:
+            fixtures = await fixtures_for(day, strict=True)
+        except FixtureFetchError as e:
+            print(f"[Fixtures] cannot read {day:%Y-%m-%d} ({e}) - refusing to "
+                  f"guess a later fixture for {club_key}")
+            return None
+        for f in fixtures:
             if club_key not in (f.get("home_key"), f.get("away_key")):
                 continue
             # today's list can still hold a finished match

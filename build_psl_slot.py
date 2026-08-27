@@ -49,7 +49,7 @@ DEBATE_GROUPS = ["forwards", "midfield", "defence"]
 # of a single Thursday — the same format three times before lunch — because
 # the only thing stopping a debate was whether that GROUP had been used for
 # the fixture, not whether we had already debated something today.
-ONCE_PER_DAY = ("debate", "fancall")
+ONCE_PER_DAY = ("debate", "fancall", "ourfive")
 
 # The last hours before kickoff belong to the confirmed XI reel, which
 # matchday.py posts off the real team sheet ~75 minutes out. The same
@@ -77,6 +77,39 @@ def _today() -> str:
 
 def _posted_today(st: dict) -> list:
     return (st.get("daily") or {}).get(_today(), [])
+
+
+def _posted_on(st: dict, days_ago: int) -> list:
+    from datetime import timedelta
+    d = (datetime.now() - timedelta(days=days_ago)).strftime("%Y%m%d")
+    return (st.get("daily") or {}).get(d, [])
+
+
+def _fatigued(st: dict, fmt: str) -> bool:
+    """True if this format ran on BOTH of the last two days.
+
+    The router only ever checked today, so a format could legitimately run
+    Monday, Tuesday and Wednesday and the page would look like it owns one
+    idea. Two days in a row is a run; a third is a rut. Deliberately not a
+    ban on the format itself - it steps aside for one day and comes back.
+    """
+    return fmt in _posted_on(st, 1) and fmt in _posted_on(st, 2)
+
+
+def _rank_free(st: dict, options: list) -> list:
+    """Order eligible formats by measured pull, with tired ones sent to the back.
+
+    Learned weight decides between fresh options; fatigue only reorders, it
+    never empties the list, because a slot must always have something to run.
+    """
+    def key(f):
+        try:
+            from modules.format_intel import weight_for
+            w = weight_for("sa_pulse", f)
+        except Exception:
+            w = 1.0
+        return (1 if _fatigued(st, f) else 0, -w)
+    return sorted(options, key=key)
 
 
 def _state() -> dict:
@@ -187,18 +220,15 @@ async def decide() -> tuple[str, dict]:
     # and clamped to [0.4, 2.0], so a strong format tilts the slot without
     # ever silencing the others - and an unproven format sits at exactly 1.0
     # so it can still earn its place.
-    free = [f for f in ("fancall", "news") if f not in today_done]
+    free = [f for f in ("ourfive", "fancall", "news") if f not in today_done]
     if free:
-        try:
-            from modules.format_intel import weight_for
-            ranked = sorted(free, key=lambda f: -weight_for("sa_pulse", f))
-            if len(free) > 1:
-                _log("learned pick: " + ", ".join(
-                    f"{f}={weight_for('sa_pulse', f):.2f}" for f in ranked))
-            pick = ranked[0]
-        except Exception as e:
-            _log(f"weights unavailable ({e}) - falling back to fancall")
-            pick = free[0]
+        ranked = _rank_free(st, free)
+        if len(free) > 1:
+            _log("learned pick: " + ", ".join(
+                f"{f}{'(tired)' if _fatigued(st, f) else ''}" for f in ranked))
+        pick = ranked[0]
+        if pick == "ourfive":
+            return "ourfive", {"fid": fid, "day": _today()}
         if pick == "fancall":
             return "fancall", {"fid": fid, "day": _today()}
         return "news", {"fid": fid}
@@ -234,8 +264,17 @@ async def main():
         rc = _run(["py", "build_fill_the_gaps.py", "--club", CLUB, "--video"]
                   + post)
     elif fmt == "debate":
-        rc = _run(["py", "build_debate_video.py", "--club", CLUB,
+        # The reveal treatment replaced the flat card sequence: same six names,
+        # staged one at a time behind a loader, which is what the lineup format
+        # was already doing when it outscored everything else 20 to 1.
+        rc = _run(["py", "build_reveal_reel.py", "--club", CLUB,
                    "--group", ctx["group"]] + post)
+        if rc != 0:
+            _log("reveal build failed - falling back to the card debate")
+            rc = _run(["py", "build_debate_video.py", "--club", CLUB,
+                       "--group", ctx["group"]] + post)
+    elif fmt == "ourfive":
+        rc = _run(["py", "build_our_five.py", "--club", CLUB] + post)
     else:
         rc = _run(["py", "build_psl_news.py"] + post)
 
