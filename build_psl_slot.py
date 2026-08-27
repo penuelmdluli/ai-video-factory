@@ -49,7 +49,13 @@ DEBATE_GROUPS = ["forwards", "midfield", "defence"]
 # of a single Thursday — the same format three times before lunch — because
 # the only thing stopping a debate was whether that GROUP had been used for
 # the fixture, not whether we had already debated something today.
-ONCE_PER_DAY = ("debate", "fancall", "ourfive")
+# The between-games rotation. news stays last on merit, not by rule - it
+# measured 22 against 452 for a staged lineup over 30 days.
+FREE_FORMATS = ("dreamsign", "dreamxi", "titlerace", "ourfive", "fancall",
+                "news")
+
+ONCE_PER_DAY = ("debate", "fancall", "ourfive", "dreamxi", "dreamsign",
+                "titlerace")
 
 # The last hours before kickoff belong to the confirmed XI reel, which
 # matchday.py posts off the real team sheet ~75 minutes out. The same
@@ -96,20 +102,35 @@ def _fatigued(st: dict, fmt: str) -> bool:
     return fmt in _posted_on(st, 1) and fmt in _posted_on(st, 2)
 
 
-def _rank_free(st: dict, options: list) -> list:
+def _rank_free(st: dict, options: list, day: str = "") -> list:
     """Order eligible formats by measured pull, with tired ones sent to the back.
 
     Learned weight decides between fresh options; fatigue only reorders, it
     never empties the list, because a slot must always have something to run.
+
+    Ties are broken by a DATE-SEEDED shuffle, and that is what makes the page
+    unpredictable. A week's simulation on 2026-08-27 ran the six formats in
+    exactly the same order on all seven days: every new format sits at weight
+    1.0 until it has three mature posts, so the sort was stable and simply
+    returned them in list order. A regular could have set their watch by us.
+    Seeding on the date keeps a day's run order fixed while it executes -
+    six slots must not reshuffle between themselves - and different tomorrow.
     """
+    import random as _r
+    day = day or _today()
+    shuffled = list(options)
+    _r.Random(f"genesis-{day}").shuffle(shuffled)
+
     def key(f):
         try:
             from modules.format_intel import weight_for
             w = weight_for("sa_pulse", f)
         except Exception:
             w = 1.0
-        return (1 if _fatigued(st, f) else 0, -w)
-    return sorted(options, key=key)
+        # round the weight so near-equal formats tie and the shuffle decides,
+        # rather than a 0.01 difference pinning the order for weeks
+        return (1 if _fatigued(st, f) else 0, -round(w, 1))
+    return sorted(shuffled, key=key)
 
 
 def _state() -> dict:
@@ -220,18 +241,23 @@ async def decide() -> tuple[str, dict]:
     # and clamped to [0.4, 2.0], so a strong format tilts the slot without
     # ever silencing the others - and an unproven format sits at exactly 1.0
     # so it can still earn its place.
-    free = [f for f in ("ourfive", "fancall", "news") if f not in today_done]
+    # Six formats compete for the between-games slots now, not two.
+    #
+    # Owner call 2026-08-27: "we need to be fully dynamic and unpredictable,
+    # change our style". With two options the page had a visible rhythm a
+    # regular could predict; with six, ranked by measured pull and with
+    # anything that ran two days straight pushed to the back, the run order
+    # stops being guessable while still favouring what works.
+    free = [f for f in FREE_FORMATS if f not in today_done]
     if free:
         ranked = _rank_free(st, free)
         if len(free) > 1:
             _log("learned pick: " + ", ".join(
                 f"{f}{'(tired)' if _fatigued(st, f) else ''}" for f in ranked))
         pick = ranked[0]
-        if pick == "ourfive":
-            return "ourfive", {"fid": fid, "day": _today()}
-        if pick == "fancall":
-            return "fancall", {"fid": fid, "day": _today()}
-        return "news", {"fid": fid}
+        if pick == "news":
+            return "news", {"fid": fid}
+        return pick, {"fid": fid, "day": _today()}
 
     return "news", {"fid": fid}
 
@@ -275,6 +301,16 @@ async def main():
                        "--group", ctx["group"]] + post)
     elif fmt == "ourfive":
         rc = _run(["py", "build_our_five.py", "--club", CLUB] + post)
+    elif fmt == "dreamxi":
+        rc = _run(["py", "build_dream_xi.py", "--club", CLUB] + post)
+    elif fmt == "dreamsign":
+        # 1-3 imagined signings, varied per run so two Tuesdays never match
+        import random as _r
+        rc = _run(["py", "build_dream_signing.py", "--club", CLUB,
+                   "--rival", _r.choice(["sundowns", "pirates"]),
+                   "--count", str(_r.choice([1, 2, 3]))] + post)
+    elif fmt == "titlerace":
+        rc = _run(["py", "build_title_race.py", "--club", CLUB] + post)
     else:
         rc = _run(["py", "build_psl_news.py"] + post)
 
