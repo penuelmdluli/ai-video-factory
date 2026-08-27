@@ -45,8 +45,8 @@ sys.path.insert(0, str(ROOT))
 
 from modules.motion_kit import W, H, GOLD, DARK, _ease, _font  # noqa: E402
 from modules.reveal_kit import (  # noqa: E402
-    ambient, crest_outro, hold_hook, pending_row, progress_rail, scan_loader,
-    slot_reveal)
+    ambient, crest_outro, hold_hook, hold_list, pending_row, progress_rail,
+    scan_loader, slot_reveal)
 
 NICHE = "sa_pulse"
 SHAPE = [("GK", 1), ("DF", 4), ("MF", 3), ("FW", 3)]   # the 4-3-3 they dream of
@@ -125,20 +125,23 @@ def narration(club_name, xi):
         label = {"GK": "In goal", "DF": "At the back",
                  "MF": "In midfield", "FW": "Up front"}[pos]
         lines.append(f"{label}: " + ", ".join(p["name"] for p in group) + ".")
+    # The read beat gets its own words, so the picture holding still is not
+    # silence. Owner call: give fans a few seconds to actually read the side.
+    hold = ["There it is. The whole eleven, take it in."]
     outro = [
         "That is ours. Every man in it plays for the club today.",
         "Now give us yours. Who is in your dream eleven, and who misses out?",
         "Subscribe to Genesis News. We do this every week.",
     ]
-    text = " ".join(intro + lines + outro)
-    return text, " ".join(intro), lines, " ".join(outro)
+    text = " ".join(intro + lines + hold + outro)
+    return (text, " ".join(intro), lines, " ".join(hold), " ".join(outro))
 
 
-def build(club, club_name, xi, out_path, scan, crest, per, tail):
+def build(club, club_name, xi, out_path, scan, crest, per, hold, tail):
     groups = [(pos, [p for p in xi if p["pos"] == pos]) for pos, _ in SHAPE]
     groups = [g for g in groups if g[1]]
     total = len(groups)
-    duration = scan + crest + total * per + tail
+    duration = scan + crest + total * per + hold + tail
     crest_end = scan + crest
     LABEL = {"GK": "IN GOAL", "DF": "AT THE BACK",
              "MF": "IN MIDFIELD", "FW": "UP FRONT"}
@@ -176,8 +179,20 @@ def build(club, club_name, xi, out_path, scan, crest, per, tail):
             return np.array(im)
 
         names_end = crest_end + total * per
-        if t >= names_end:
-            crest_outro(d, t, (t - names_end) / max(0.1, tail), club,
+        hold_end = names_end + hold
+        if names_end <= t < hold_end:
+            rows = [(p["no"], p["name"].split()[-1],
+                     {"GK": "in goal", "DF": "at the back",
+                      "MF": "in midfield", "FW": "up front"}[p["pos"]])
+                    for p in xi]
+            # No title and no rail label on this beat: the header already
+            # says THE DREAM XI, and both were landing on top of other text.
+            hold_list(d, t, rows, y0=300, row_h=96, club=club,
+                      note="READ IT. THEN GIVE US YOURS.")
+            return np.array(im)
+
+        if t >= hold_end:
+            crest_outro(d, t, (t - hold_end) / max(0.1, tail), club,
                         headline="THAT IS OUR DREAM",
                         call="WHO IS IN YOURS?",
                         sub="A DREAM — NOT A TEAM SHEET")
@@ -252,7 +267,7 @@ async def main():
     work = ROOT / "output" / f"dreamxi_{a.club}_{stamp}"
     work.mkdir(parents=True, exist_ok=True)
 
-    text, intro, lines, outro = narration(club_name, xi)
+    text, intro, lines, hold_txt, outro = narration(club_name, xi)
     from build_reveal_reel import make_voice
     audio, vdur = await make_voice(text, work)
     if not audio:
@@ -261,18 +276,20 @@ async def main():
 
     def wc(s):
         return max(1, len(s.split()))
-    w_i, w_n, w_o = wc(intro), wc(" ".join(lines)), wc(outro)
-    spw = vdur / (w_i + w_n + w_o)
+    w_i, w_n, w_h, w_o = (wc(intro), wc(" ".join(lines)), wc(hold_txt),
+                          wc(outro))
+    spw = vdur / (w_i + w_n + w_h + w_o)
     head = w_i * spw
     per = max(1.5, (w_n * spw) / max(1, len(lines)))
+    hold = max(3.5, w_h * spw)      # never shorter than a read takes
     tail = max(2.5, w_o * spw)
     scan = max(1.8, head * 0.66)
     crest = max(0.8, head - scan)
     print(f"voice {vdur:.1f}s -> scan {scan:.1f}s, {per:.1f}s per line, "
-          f"tail {tail:.1f}s")
+          f"hold {hold:.1f}s, tail {tail:.1f}s")
 
     silent, dur = build(a.club, club_name, xi, work / "silent.mp4",
-                        scan, crest, per, tail)
+                        scan, crest, per, hold, tail)
 
     from modules.motion_kit import attach_voice
     voiced = await attach_voice(silent, text, work / "voiced.mp4")

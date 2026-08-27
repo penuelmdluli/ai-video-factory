@@ -285,6 +285,122 @@ def pending_row(d, t, y, i, row_h=148, label="LOADING"):
                         fill=(30, 34, 41))
 
 
+def hold_list(d, t, rows, y0=320, row_h=96, title="", club="",
+              note="READ IT. THEN TELL US."):
+    """The finished list, held still and whole, so it can actually be READ.
+
+    Owner call 2026-08-27: "after the line up we need to wait a few seconds
+    showing the line up clearly, give fans time to read it".
+
+    Every list format was revealing names one at a time and then cutting
+    straight to the crest - so the complete side existed on screen only in the
+    final instant of the last reveal, and never as a thing you could take in
+    or screenshot. This is the beat where the reel stops performing and just
+    shows you the team.
+
+    Deliberately almost static: a faint pulse on the note line and nothing
+    else moving, because this beat's whole job is legibility.
+
+    rows = [(number, name, sub)] already in display order.
+    """
+    if title:
+        f = _font(40)
+        d.text((90, y0 - 78), title.upper(), font=f, fill=GOLD)
+
+    for i, (no, name, sub) in enumerate(rows):
+        y = y0 + i * row_h
+        if no:
+            d.rounded_rectangle([90, y, 176, y + 66], radius=12,
+                                fill=(44, 49, 58))
+            nf = _font(36)
+            d.text((133 - d.textlength(str(no), font=nf) / 2, y + 12),
+                   str(no), font=nf, fill=GOLD)
+        nf2 = _font(52)
+        d.text((200, y + 2), str(name).upper(), font=nf2, fill=(255, 255, 255))
+        if sub:
+            sf = _font(24, False)
+            d.text((202, y + 62), str(sub).upper(), font=sf, fill=(132, 140, 152))
+
+    if note:
+        pulse = 0.55 + 0.45 * (0.5 + 0.5 * math.sin(t * 2.2))
+        f = _font(40)
+        c = tuple(int(GOLD[i] * pulse + DARK[i] * (1 - pulse))
+                  for i in range(3))
+        d.text((W / 2 - d.textlength(note, font=f) / 2,
+                y0 + len(rows) * row_h + 34), note, font=f, fill=c)
+
+
+def pitch_xi(d, t, xi, formation="4-3-3", highlight=(), club="",
+             title="", note=""):
+    """The side laid out on a pitch, with the imagined men lit up.
+
+    Owner call 2026-08-27: "visualise it on the field, how they can play
+    together, make it the best Chiefs to ever exist".
+
+    A list answers WHO. A pitch answers whether it actually works - whether
+    three signings all want the same shirt, whether the shape still balances.
+    That is the argument the owner is after, and it cannot be had from a
+    column of names.
+
+    xi entries: {"name","no","pos","new":bool}. Highlighted men get a gold
+    ring and a pulse; everyone else is drawn plainly, so a screenshot always
+    shows which names are the fantasy.
+    """
+    from modules.tactics_motion import base_positions
+    try:
+        pts, (px1, py1, px2, py2) = base_positions(formation, False)
+    except Exception:
+        return
+
+    # pitch
+    d.rounded_rectangle([px1, py1, px2, py2], radius=18, fill=(16, 34, 22),
+                        outline=(44, 78, 54), width=3)
+    mid = (py1 + py2) // 2
+    d.line([(px1, mid), (px2, mid)], fill=(44, 78, 54), width=3)
+    d.ellipse([W // 2 - 90, mid - 90, W // 2 + 90, mid + 90],
+              outline=(44, 78, 54), width=3)
+    for yy, hh in ((py1, 150), (py2 - 150, 150)):
+        d.rectangle([W // 2 - 210, yy, W // 2 + 210, yy + hh],
+                    outline=(44, 78, 54), width=3)
+
+    if title:
+        f = _font(36)
+        d.text((px1 + 6, py1 - 52), title.upper(), font=f, fill=GOLD)
+
+    for i, p in enumerate(xi[:len(pts)]):
+        x, y = pts[i]
+        new = p.get("new")
+        r = 40
+        if new:
+            # a ring that breathes, so the imagined men are unmistakable
+            br = r + 8 + 5 * math.sin(t * 3.0 + i)
+            d.ellipse([x - br, y - br, x + br, y + br], outline=GOLD, width=4)
+        d.ellipse([x - r, y - r, x + r, y + r],
+                  fill=GOLD if new else (30, 34, 41),
+                  outline=GOLD if new else (92, 100, 112), width=3)
+        nf = _font(30)
+        no = str(p.get("no") or "")[:2]
+        if no:
+            d.text((x - d.textlength(no, font=nf) / 2, y - 17), no, font=nf,
+                   fill=DARK if new else GOLD)
+        sf = _font(26)
+        nm = str(p.get("name", "")).split()[-1].upper()[:11]
+        tw = d.textlength(nm, font=sf)
+        d.rounded_rectangle([x - tw / 2 - 9, y + r + 5,
+                             x + tw / 2 + 9, y + r + 40],
+                            radius=8, fill=(12, 14, 18))
+        d.text((x - tw / 2, y + r + 9), nm, font=sf,
+               fill=GOLD if new else (226, 232, 240))
+
+    if note:
+        pulse = 0.55 + 0.45 * (0.5 + 0.5 * math.sin(t * 2.2))
+        f = _font(36)
+        c = tuple(int(GOLD[i] * pulse + DARK[i] * (1 - pulse))
+                  for i in range(3))
+        d.text((W / 2 - d.textlength(note, font=f) / 2, py2 + 18), note,
+               font=f, fill=c)
+
+
 def crest_outro(d, t, u, club, headline="CHIEFS FANS ARE NUMBER 1",
                 call="WHO STARTS? COMMENT BELOW", sub="SUBSCRIBE — GENESIS NEWS"):
     """The badge, big, as the closing frame.
