@@ -27,6 +27,7 @@ All functions draw onto a PIL ImageDraw at a given time t and compose with
 motion_kit, so existing builders can adopt one piece without a rewrite.
 """
 import math
+import re
 
 from modules.motion_kit import W, H, GOLD, DARK, _crest, _ease, _font, _over
 
@@ -149,6 +150,29 @@ def slot_reveal(d, u, names, final, x, y, size=88, colour=INK):
     a = 0.35 + 0.65 * _ease(u)
     c = tuple(int(colour[i] * a + DARK[i] * (1 - a)) for i in range(3))
     d.text((x, y + jitter), shown, font=f, fill=c)
+
+
+def count_reveal(d, u, final, x, y, size=66, colour=INK):
+    """Numbers COUNT UP to their value instead of tumbling through others.
+
+    slot_reveal borrows the other rows' text while it spins, which is
+    harmless for names - they are all plausible names - and wrong for figures.
+    On the title-race reel it put "3 - 8 PTS" under the label "WHAT A TITLE
+    COSTS" for most of that row's reveal: a labelled fact showing another
+    row's number. Counting up reads as computing, and every frame on the way
+    is honestly an intermediate value rather than a different claim.
+    """
+    u = max(0.0, min(1.0, u))
+    m = re.match(r"^(\D*)(\d+)(.*)$", str(final), re.S)
+    if not m:
+        slot_reveal(d, u, [str(final)], str(final), x, y, size, colour)
+        return
+    pre, num, post = m.group(1), int(m.group(2)), m.group(3)
+    shown = num if u >= LOCK_AT else int(num * _ease(u / LOCK_AT))
+    f = _font(size)
+    a = 0.45 + 0.55 * _ease(min(1.0, u / LOCK_AT))
+    c = tuple(int(colour[i] * a + DARK[i] * (1 - a)) for i in range(3))
+    d.text((x, y), f"{pre}{shown}{post}", font=f, fill=c)
 
 
 def silhouette_pop(d, u, crest_club, cx, cy, size=300):
