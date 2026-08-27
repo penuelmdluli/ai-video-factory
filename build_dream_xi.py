@@ -190,7 +190,11 @@ def build(club, club_name, xi, out_path, scan, crest, per, tail):
         # or the back four runs straight into IN MIDFIELD
         row_h = 288
         y0 = 300
-        pool = [p["name"].split()[-1].upper() for p in xi]
+        # The wheel may only tumble through names from THIS row's group.
+        # Drawing from all eleven put PETERSEN and MAKO - the keeper and a
+        # defender - under the label UP FRONT while that row settled. Brief
+        # or not, it is a wrong claim on screen, the same fault as a squad
+        # number landing on the wrong man.
 
         for j in range(idx + 1, total):
             pending_row(d, t, y0 + j * row_h, j, row_h, label="DREAMING")
@@ -205,10 +209,12 @@ def build(club, club_name, xi, out_path, scan, crest, per, tail):
             d.text((92, y), LABEL[pos], font=lf,
                    fill=tuple(int(GOLD[k] * a + DARK[k] * (1 - a))
                               for k in range(3)))
+            group_pool = [q["name"].split()[-1].upper() for q in men] or ["..."]
             for j, p in enumerate(men):
                 yy = y + 44 + j * 52
                 sub_u = min(1.0, max(0.0, (u - j * 0.12) / 0.7))
-                slot_reveal(d, sub_u, pool, p["name"].split()[-1].upper(),
+                slot_reveal(d, sub_u, group_pool,
+                            p["name"].split()[-1].upper(),
                             92, yy, size=44,
                             colour=(255, 255, 255) if live else (228, 234, 242))
                 if sub_u >= 1.0 or not live:
