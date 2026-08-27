@@ -27,8 +27,8 @@ sys.path.insert(0, str(ROOT))
 
 from modules.motion_kit import W, H, GOLD, DARK, _font, _ease  # noqa: E402
 from modules.reveal_kit import (  # noqa: E402
-    ambient, hold_hook, progress_rail, scan_loader, silhouette_pop,
-    slot_reveal)
+    ambient, crest_outro, hold_hook, progress_rail, scan_loader,
+    silhouette_pop, slot_reveal)
 
 SCAN_END = 2.6
 CREST_END = 3.4
@@ -79,6 +79,15 @@ def build(club, group, men, opponent, out_path):
             progress_rail(d, 0, total, label="FOUND THEM")
             return np.array(im)
 
+        names_end = CREST_END + total * PER_NAME
+        if t >= names_end:
+            # The outro belongs to the badge. Sixteen seconds of held names is
+            # where a viewer leaves; the crest is the one image this audience
+            # sits through, so it closes the reel.
+            crest_outro(d, t, (t - names_end) / max(0.1, TAIL), club)
+            progress_rail(d, total, total, label="THAT IS YOUR SHORTLIST")
+            return np.array(im)
+
         idx = int((t - CREST_END) / PER_NAME)
         u_local = ((t - CREST_END) % PER_NAME) / PER_NAME
 
@@ -113,16 +122,6 @@ def build(club, group, men, opponent, out_path):
 
         progress_rail(d, min(shown + (1 if idx < total else 0), total), total)
 
-        if idx >= total:
-            k = (t - (CREST_END + total * PER_NAME)) / TAIL
-            hold_hook(d, t, "WHO STARTS? TELL US BELOW", y=H - 420)
-            if k > 0.35:
-                f = _font(44)
-                msg = "COMMENT YOUR XI"
-                a = _ease(min(1.0, (k - 0.35) / 0.4))
-                c = tuple(int(255 * a + DARK[i] * (1 - a)) for i in range(3))
-                d.text((W / 2 - d.textlength(msg, font=f) / 2, H - 340),
-                       msg, font=f, fill=c)
         return np.array(im)
 
     from moviepy import VideoClip

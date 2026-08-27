@@ -197,6 +197,89 @@ def progress_rail(d, done, total, y=H - 210, label=""):
                fill=GOLD)
 
 
+def crest_outro(d, t, u, club, headline="CHIEFS FANS ARE NUMBER 1",
+                call="WHO STARTS? COMMENT BELOW", sub="SUBSCRIBE — GENESIS NEWS"):
+    """The badge, big, as the closing frame.
+
+    Owner call 2026-08-27: "at the outro add the best crest design... Chiefs
+    fans are number 1". The closing seconds are as long as the sign-off takes
+    to say - sixteen on a six-man reel - and a held list of names is where
+    people leave. The crest is the one image this audience will sit through,
+    so the outro belongs to it.
+
+    Rays turn, the badge breathes, and a ring pulses outward on a beat. u is
+    0..1 across the outro so the entrance can overshoot before it settles.
+    """
+    cx, cy = W // 2, int(H * 0.44)
+    u = max(0.0, min(1.0, u))
+
+    # turning rays behind the badge
+    spokes = 18
+    for i in range(spokes):
+        ang = math.radians(t * 11 + i * (360 / spokes))
+        a = 0.05 + 0.05 * (0.5 + 0.5 * math.sin(t * 2 + i))
+        L = 520
+        x2, y2 = cx + L * math.cos(ang), cy + L * math.sin(ang)
+        d.line([(cx, cy), (x2, y2)],
+               fill=tuple(int(GOLD[k] * a + DARK[k] * (1 - a))
+                          for k in range(3)), width=26)
+
+    # pulse rings on a slow beat
+    for k in range(2):
+        ph = ((t * 0.55 + k * 0.5) % 1.0)
+        rr = int(230 + ph * 330)
+        a = (1 - ph) * 0.34
+        d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr],
+                  outline=tuple(int(GOLD[i] * a + DARK[i] * (1 - a))
+                                for i in range(3)), width=4)
+
+    c = _crest(club, 460)
+    if c:
+        breathe = (_over(min(1.0, u * 3.2)) if u < 0.34 else
+                   1 + 0.025 * math.sin(t * 2.4))
+        cw, ch = max(1, int(c.width * breathe)), max(1, int(c.height * breathe))
+        im = c.resize((cw, ch))
+        d._image.paste(im, (cx - cw // 2, cy - ch // 2), im)
+
+    # Scrim behind the words. The rays run right through this band, and the
+    # call to action - the one line that has to be read - was landing as grey
+    # text on gold spokes and disappearing.
+    if u > 0.18:
+        top, bot = cy + 300, cy + 600
+        for yy in range(top, min(H, bot)):
+            e = 1 - abs((yy - (top + bot) / 2) / ((bot - top) / 2))
+            a = max(0.0, e) * 0.86
+            d.line([(0, yy), (W, yy)],
+                   fill=tuple(int(DARK[i] * a + 0 * (1 - a)) if a > 0 else DARK[i]
+                              for i in range(3)))
+
+    if u > 0.22:
+        a = _ease(min(1.0, (u - 0.22) / 0.25))
+        f = _font(62)
+        col = tuple(int(GOLD[i] * a + DARK[i] * (1 - a)) for i in range(3))
+        d.text((W / 2 - d.textlength(headline, font=f) / 2, cy + 330),
+               headline, font=f, fill=col)
+    if u > 0.42:
+        a = _ease(min(1.0, (u - 0.42) / 0.25))
+        f = _font(54)
+        # heavy outline: this is the instruction, it must survive any backdrop
+        x = W / 2 - d.textlength(call, font=f) / 2
+        y = cy + 440
+        for dx in (-3, 0, 3):
+            for dy in (-3, 0, 3):
+                if dx or dy:
+                    d.text((x + dx, y + dy), call, font=f, fill=(6, 8, 10))
+        col = tuple(int(255 * a + DARK[i] * (1 - a)) for i in range(3))
+        d.text((x, y), call, font=f, fill=col)
+    if u > 0.6:
+        pulse = 0.6 + 0.4 * (0.5 + 0.5 * math.sin(t * 3.4))
+        f = _font(40)
+        col = tuple(int(GOLD[i] * pulse + DARK[i] * (1 - pulse))
+                    for i in range(3))
+        d.text((W / 2 - d.textlength(sub, font=f) / 2, cy + 530),
+               sub, font=f, fill=col)
+
+
 def hold_hook(d, t, text="WHO IS NEXT?", y=None):
     """A question that breathes, for the beat before a reveal."""
     y = H // 2 + 330 if y is None else y
