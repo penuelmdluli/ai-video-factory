@@ -218,6 +218,33 @@ the exact command output proving it works. If you could not fix it, say what
 you ruled out and what you would try next."""
 
 
+def claude_exe() -> str | None:
+    """Absolute path to the Claude CLI, or None.
+
+    The first live run failed instantly with "claude CLI not on PATH" while
+    `which claude` in the shell resolved it fine. The npm install ships three
+    files - `claude` (a bash shim with no extension), `claude.cmd` and
+    `claude.ps1`. Git Bash finds the extensionless shim; Python's subprocess
+    on Windows goes through CreateProcess, which only considers the
+    extensions in PATHEXT, so it sees nothing. Resolving to the .cmd
+    explicitly is the whole fix.
+
+    Checked in order: PATH under each Windows extension, then the npm global
+    directory, which is where it actually lives on this machine.
+    """
+    import shutil
+    for name in ("claude.cmd", "claude.exe", "claude.bat", "claude"):
+        found = shutil.which(name)
+        if found and Path(found).suffix.lower() in (".cmd", ".exe", ".bat"):
+            return found
+    npm = Path(os.environ.get("APPDATA", "")) / "npm"
+    for name in ("claude.cmd", "claude.exe", "claude.bat"):
+        p = npm / name
+        if p.exists():
+            return str(p)
+    return None
+
+
 def heal(problem: dict, dry=False) -> dict:
     brief = build_prompt(problem)
     branch = "heal/" + problem["name"] + "-" + _now().strftime("%m%d-%H%M")
@@ -230,13 +257,28 @@ def heal(problem: dict, dry=False) -> dict:
         return {"dry": True, "problem": problem["name"], "branch": branch}
 
     started = _now()
+
+    # Resolve the CLI BEFORE branching. The first live run created a heal
+    # branch, failed to find claude, and left the repo checked out on an
+    # empty branch - the fix must be found before anything is disturbed.
+    exe = claude_exe()
+    if not exe:
+        entry = {"at": started.strftime("%Y-%m-%d %H:%M"),
+                 "problem": problem["name"], "branch": "", "ok": False,
+                 "minutes": 0.0, "changed": "",
+                 "summary": "Claude CLI not found - searched PATH for "
+                            "claude.cmd/.exe/.bat and %APPDATA%\\npm"}
+        _log_write(entry)
+        print("[Heal] " + entry["summary"])
+        return entry
+
     try:
         subprocess.run(["git", "checkout", "-b", branch], cwd=str(ROOT),
                        capture_output=True, text=True, timeout=60)
     except Exception as e:
         print("[Heal] could not branch: " + str(e))
 
-    cmd = ["claude", "-p", brief,
+    cmd = [exe, "-p", brief,
            "--allowedTools", "Read,Edit,Write,Grep,Glob,Bash",
            "--output-format", "json"]
     print("[Heal] " + problem["name"] + " -> claude on " + branch)
