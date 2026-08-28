@@ -216,13 +216,16 @@ def write_wav(samples, out_path):
 
 
 def score_reveal(out_path, duration, scan_end, crest_end, per_name,
-                 count, music=True, bpm=92):
+                 count, music=False, bpm=92):
     """The whole track for a reveal reel, built from its own timings.
 
     Each name gets a slightly higher lock than the one before, so six in a row
     climb instead of repeating - the ear hears a list being completed rather
     than the same noise six times.
     """
+    # music defaults OFF now: under_voice lays the page's signature bed over
+    # this track, and two beds at once is mud. This file supplies the TIMED
+    # sounds - risers, impacts, locks - which is the job it is good at.
     events = [(0.0, riser(max(0.6, scan_end))),
               (scan_end, impact())]
     for i in range(count):
@@ -234,7 +237,8 @@ def score_reveal(out_path, duration, scan_end, crest_end, per_name,
                      out_path)
 
 
-def under_voice(video_path, music_path, out_path, music_db=-12.0):
+def under_voice(video_path, music_path, out_path, music_db=-12.0,
+                niche="sa_pulse", page_bed_db=-17.0):
     """Lay the score under the existing narration with ffmpeg.
 
     Mixed low deliberately: the voice carries the message. amix alone would
@@ -242,6 +246,44 @@ def under_voice(video_path, music_path, out_path, music_db=-12.0):
     own level.
     """
     import subprocess
+    # THE PAGE'S SIGNATURE BED, on every video.
+    #
+    # Owner call 2026-08-28: "all our videos posted to this page should always
+    # have this music". The lineup that pulled 583 likes carried the Genesis
+    # signature bed from ace_music, while every format built since had its own
+    # synthesised track - so the page sounded like five different channels.
+    # One bed across everything is what makes a feed recognisable before a
+    # viewer has read a word of it.
+    #
+    # The synthesised SFX stay: risers, crest impacts and the name locks are
+    # timed to the frame and carry the reveals. Music identifies the page;
+    # effects punctuate the edit. They are different jobs.
+    bed = None
+    try:
+        from modules.ace_music import get_ace_music_sync
+        bed = get_ace_music_sync(niche)
+    except Exception as e:
+        print("[Sound] page bed unavailable: " + str(e)[:80])
+
+    if bed and Path(bed).exists():
+        cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+               "-i", str(video_path), "-i", str(music_path),
+               "-stream_loop", "-1", "-i", str(bed),
+               "-filter_complex",
+               f"[1:a]volume={music_db}dB,afade=t=in:st=0:d=0.4[fx];"
+               f"[2:a]volume={page_bed_db}dB[bed];"
+               f"[0:a][fx][bed]amix=inputs=3:duration=first:"
+               f"dropout_transition=0:normalize=0[x];"
+               f"[x]loudnorm=I=-15:TP=-1.5:LRA=11[a]",
+               "-map", "0:v", "-map", "[a]", "-c:v", "copy",
+               "-c:a", "aac", "-b:a", "192k", str(out_path)]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+        if r.returncode == 0:
+            print("[Sound] page signature bed mixed in")
+            return str(out_path)
+        print("[Sound] bed mix failed, falling back: "
+              + (r.stderr or "")[:160])
+
     # loudnorm to -15 LUFS on the way out. Our first mix measured -26.2, which
     # is roughly a quarter as loud as everything else in a feed - a viewer
     # reaches for the volume, and most of them just scroll instead. Platforms
