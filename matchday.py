@@ -867,6 +867,31 @@ async def cmd_live(a):
     except Exception as e:
         print(f"[Live] could not reap older watchers: {str(e)[:90]}")
 
+    # STALE CODE GUARD. The reaper below stops a SECOND watcher existing; it
+    # cannot stop the one that survives from being old. On 28 Aug the live
+    # watcher had been up 42 hours, still holding the pre-fix psl_fixtures in
+    # memory — the version whose silent empty list made next_fixture report a
+    # different opponent a week later. A long-lived process is exactly where
+    # that bug does the most damage.
+    #
+    # So: note what the source looked like at startup, and exit when it
+    # changes. pm2 restarts us and the new process loads the fix. Exiting is
+    # the point — a watcher cannot reload its own imports.
+    _watched = [Path(__file__)] + [
+        Path(__file__).parent / "modules" / f for f in
+        ("psl_fixtures.py", "result_card.py", "lineup_card.py")]
+
+    def _fingerprint():
+        out = {}
+        for f in _watched:
+            try:
+                out[f.name] = f.stat().st_mtime
+            except Exception:
+                pass
+        return out
+
+    _sig = _fingerprint()
+
     print("[Live] resident watcher started")
     while True:
         try:
@@ -875,6 +900,12 @@ async def cmd_live(a):
         except Exception as e:
             print(f"[Live] tick failed: {e}")
             live_now = False
+
+        if _fingerprint() != _sig:
+            print("[Live] source changed on disk — exiting so the supervisor "
+                  "restarts us on the new code")
+            return
+
         await asyncio.sleep(45 if live_now else 300)
 
 
