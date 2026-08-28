@@ -190,7 +190,12 @@ async def decide() -> tuple[str, dict]:
     elif hours <= 96:
         quota, why = 4, "fixture is close"
     else:
-        quota, why = 3, "quiet week"
+        # Owner call 2026-08-28: 3 was too quiet for a nine-day gap. The
+        # 25 Aug evidence is against 43 posts in a fixture-free day, not
+        # against 5 — the collapse there was volume far past anything the
+        # audience would absorb, and standing two slots down every quiet day
+        # leaves the page silent from lunchtime onward.
+        quota, why = 5, "quiet week"
     if today_count >= quota:
         _log(f"{today_count} posted today, quota {quota} ({why}) — "
              f"standing this slot down")
