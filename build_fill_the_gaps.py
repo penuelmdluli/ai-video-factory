@@ -336,7 +336,13 @@ async def main():
     # still card is taken in during the half second it takes to scroll past.
     # The router does not have to know any of this, because the builder picks
     # the mode, so the builder picks the shape that mode wants.
-    if mode == "start" and a.video:
+    # Owner call 2026-08-28: "we did not post a video". Only the two-way
+    # question went out as a reel; fill and replace put a still card on
+    # Facebook on the theory that a question is read in half a second. The
+    # page's own numbers say otherwise — today's reels ran into the thousands
+    # of views while the fill card sat on zero. Facebook surfaces reels and
+    # buries photos, so every fan question goes out as video there now.
+    if a.video:
         a.as_reel = True
 
     if a.post and a.as_reel and video and Path(video).exists():
