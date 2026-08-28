@@ -34,7 +34,12 @@ NICHE = "sa_pulse"
 W, H = 1080, 1920
 
 FORMATIONS = {"4-3-3": [1, 4, 3, 3], "4-2-3-1": [1, 4, 2, 3, 1],
-              "3-5-2": [1, 3, 5, 2], "4-4-2": [1, 4, 4, 2]}
+              "3-5-2": [1, 3, 5, 2], "4-4-2": [1, 4, 4, 2],
+              # 3-4-3: the attacking shape, and not an invention - Chiefs
+              # lined up 3-4-3 against Richards Bay on 26 August, so a card
+              # showing it is a side the coach has actually picked rather
+              # than a formation we wished onto him.
+              "3-4-3": [1, 3, 4, 3]}
 
 
 def _log(m):
@@ -427,6 +432,68 @@ async def main():
         else:
             _log(f"INJURY: {dropped} out ({why}) — no cover on the bench")
     bench = [b for b in bench if b not in xi]
+
+    # OWNER PICKS. --start was a stub: the argument was parsed and then never
+    # read, so `--start Leaner` built a card with Petersen in goal and said
+    # nothing about it. A flag that silently does nothing is worse than one
+    # that errors, because the build looks like it worked.
+    #
+    # A named player comes into the XI and the man he replaces goes to the
+    # bench. The swap is same-position wherever the squad tells us the
+    # position, because a keeper cannot replace a winger.
+    if a.start:
+        from modules.psl_squads import fix_surname
+        squad_pos = {}
+        try:
+            import json as _json
+            cache = _json.loads((ROOT / "data" / "psl_squads_cache.json")
+                                .read_text(encoding="utf-8"))
+            for p in (cache.get(a.club) or {}).get("squad") or []:
+                nm = (p.get("name") or "").split()[-1].lower()
+                squad_pos[fix_surname(nm.title()).lower()] = \
+                    (p.get("pos") or "")[:2].upper()
+                squad_pos[nm] = (p.get("pos") or "")[:2].upper()
+        except Exception:
+            pass
+
+        def surname(entry):
+            parts = str(entry).split(None, 1)
+            return (parts[1] if len(parts) > 1 else str(entry)).strip()
+
+        for want in [w.strip() for w in a.start.split(",") if w.strip()]:
+            wl = want.lower()
+            if any(surname(x).lower() == wl for x in xi):
+                _log(f"OWNER PICK: {want} already starts")
+                continue
+            incoming = next((b for b in bench
+                             if surname(b).lower() == wl), None)
+            if not incoming:
+                _log(f"OWNER PICK: {want} is not in the squad for this "
+                     f"match — ignored rather than invented")
+                continue
+            pos = squad_pos.get(wl, "")
+            out = None
+            if pos == "GK":
+                # The keeper is ALWAYS index 0 - every formation in FORMATIONS
+                # starts with 1. Do not look him up by name: the squad cache
+                # spells him "Brandon Peterson" and the ESPN team sheet spells
+                # him "Petersen", so a surname match finds nothing, silently
+                # falls through, and swaps the keeper in for a winger. That is
+                # exactly what happened on the first run of this flag.
+                out = xi[0]
+            elif pos:
+                out = next((x for x in reversed(xi)
+                            if squad_pos.get(surname(x).lower(), "") == pos),
+                           None)
+            if out is None:
+                _log(f"OWNER PICK: cannot place {want} safely — no "
+                     f"same-position player to replace, so leaving the XI "
+                     f"alone rather than guessing")
+                continue
+            xi[xi.index(out)] = incoming
+            bench = [b for b in bench if b != incoming] + [out]
+            _log(f"OWNER PICK: {surname(incoming)} IN for "
+                 f"{surname(out)}" + (f" ({pos})" if pos else ""))
 
     # TWO BIG CALLS. Owner call 2026-08-24 — every XI should carry a couple of
     # selections worth arguing about. They are real changes from the side that
