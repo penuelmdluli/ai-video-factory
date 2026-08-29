@@ -13,6 +13,7 @@ Rate limiting: Max 10 replies per page per hour, 15s between replies.
 """
 import os
 import json
+import re
 import sqlite3
 import asyncio
 import requests
@@ -376,6 +377,69 @@ def _post_context_block(post_context: str, post_created: str) -> str:
     )
 
 
+
+# ── Has the fan already answered? ────────────────────────────────────────
+# Owner call 2026-08-28: "fans are responding with 'take Shabalala out and put
+# someone else' — that IS the response we want, but our comment keeps asking
+# the same or a similar question. They have already tried to fix our line-up."
+#
+# The persona tells the model to ask for their predictions and takes, so it
+# asked — even of someone who had just given a full eleven. Asking a man who
+# has named seven players who he would pick is the clearest possible signal
+# that nobody read him, and it is worse than not replying at all.
+_SQUAD_CACHE: dict = {}
+
+
+def _squad_surnames(club: str = "chiefs") -> set:
+    if club in _SQUAD_CACHE:
+        return _SQUAD_CACHE[club]
+    names = set()
+    try:
+        import json as _j
+        from pathlib import Path as _P
+        root = _P(__file__).resolve().parent.parent
+        data = _j.loads((root / "data" / "psl_squads_cache.json")
+                        .read_text(encoding="utf-8"))
+        for pl in (data.get(club) or {}).get("squad") or []:
+            sn = (pl.get("name") or "").split()
+            if sn:
+                names.add(sn[-1].lower())
+    except Exception:
+        pass
+
+    # The squad cache and the team sheet disagree on spellings, and it is the
+    # TEAM SHEET spelling that fans use. The cache says "Brandon Peterson" and
+    # "Inacio Santos"; ESPN, the broadcast and every commenter say Petersen
+    # and Miguel. Reading only the cache made the page blind to the two names
+    # its own fans argue about most - which is the exact failure this detector
+    # exists to prevent. Union both sources.
+    try:
+        import json as _j2
+        from pathlib import Path as _P2
+        root = _P2(__file__).resolve().parent.parent
+        rot = _j2.loads((root / "data" / "rotation_cache.json")
+                        .read_text(encoding="utf-8"))
+        for m in (rot.get(club) or {}).get("log") or []:
+            names.update(n.lower() for n in (m.get("starters") or []))
+            names.update(n.lower() for n in (m.get("bench") or []))
+    except Exception:
+        pass
+    _SQUAD_CACHE[club] = names
+    return names
+
+
+
+
+def selection_in(comment_text: str, club: str = "chiefs") -> list:
+    """Squad surnames the commenter actually named."""
+    txt = (comment_text or "").lower()
+    if not txt:
+        return []
+    found = [n for n in _squad_surnames(club)
+             if re.search(r"\b" + re.escape(n) + r"\b", txt)]
+    return sorted(found)
+
+
 async def generate_reply(comment: dict, niche: str) -> str | None:
     """
     Generate a contextual, human-sounding reply using Claude AI.
@@ -444,10 +508,27 @@ WAR-NEWS REPLY DOCTRINE (CRITICAL — this page has an international audience):
         except Exception:
             pass
 
+    # If they named players, they have already given us their answer.
+    named = selection_in(comment_text) if niche == "sa_pulse" else []
+    selection_block = ""
+    if named:
+        selection_block = (
+            "\nTHIS FAN HAS ALREADY ANSWERED. They named: "
+            + ", ".join(n.title() for n in named) + ".\n"
+            "- Do NOT ask them who they would pick, who should start, or "
+            "what their XI is. They just told you. Asking again reads as "
+            "if nobody read the comment.\n"
+            "- Reply to THEIR names specifically. Say whether you agree, "
+            "or push back with one short reason - not a lecture.\n"
+            "- If you disagree, disagree warmly and BY NAME. That is the "
+            "argument the post exists to start.\n"
+            "- End with a statement, not another question, unless the "
+            "question is about the SPECIFIC player they named.\n")
+
     prompt = f"""You are a social media community manager replying to a comment on Facebook.
 
 {personality}
-{neutrality_doctrine}{facts_block}
+{neutrality_doctrine}{facts_block}{selection_block}
 RULES:
 - Reply in 1-2 short sentences MAX
 - Sound human and warm, NOT like a bot or corporate account
