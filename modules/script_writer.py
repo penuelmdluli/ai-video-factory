@@ -24,36 +24,32 @@ Give step-by-step instructions someone can follow today.
 Mention specific free tools by name (ChatGPT, Claude, Canva, Notion).
 Tone: Helpful friend sharing what actually works — honest about effort required.""",
 
-    "tech_news": """STYLE: Frontline WAR-NEWS analyst for Tech Pulse Africa.
-FOCUS: the CURRENT major world conflict or geopolitical story that is trending right now
-(whatever it is — a war, an escalation, a diplomatic crisis, a coup, sanctions, a chokepoint
-or resource standoff). Cover strikes, retaliation, proxies, nuclear/ceasefire moves, and the
-global/oil/food fallout of THAT story. Keep a neutral, factual war-correspondent tone and,
-where relevant, spell out the impact on Africa / South Africa. Do NOT hard-lock to any one
-country or conflict — follow the biggest breaking story of the moment.
-Explain what is REALLY happening on the ground and how it affects ordinary people.
-Report it like breaking war news — urgent, factual, balanced (both sides), verified.
-Tone: Bold frontline war correspondent — direct, gripping, no fear-mongering, no sugarcoating.
+    "tech_news": """STYLE: South African news, told to South Africans.
+FOCUS: the story South Africans are actually talking about today — load shedding and Eskom,
+the rand and what it costs at the till, petrol, jobs and hiring, SASSA and grants, crime,
+government decisions, service delivery, health, schools. World news ONLY where it genuinely
+reaches home, and then lead with the South African end of it.
+DO NOT COVER PSL FOOTBALL. That is Genesis News. Two of our own pages chasing the same
+story helps neither of them.
+Explain what is REALLY happening and what it changes for an ordinary household this week —
+what it costs, what it fixes, what to do about it. Plain language, no jargon, no lecture.
+Tone: a level-headed Mzansi neighbour who reads the news properly. Factual and direct.
+Never party-political — report what was decided and who it affects, never who to vote for.
+Never sensationalise crime or tragedy, and never talk down to someone angry about a queue,
+a power cut or a price. Their anger is the story, not a problem to manage.
 
-VISUALS — CRITICAL: every visual_description must SHOW WHAT THAT SCENE'S NARRATION IS ABOUT
-— pull the EXACT subject from that line of the story, don't default to a generic war montage.
-Match the picture to the words, and make every scene a DIFFERENT, specific shot:
-  • sea / Red Sea / blockade / navy → warships, a naval vessel or carrier, patrol boats at sea
-  • strikes / retaliation / air raid → a missile launching, drones in the sky, a jet, an airstrike hitting a target
-  • oil / economy / shipping fallout → oil tankers, a burning refinery, a busy port, fuel depots
-  • nuclear standoff → a nuclear facility, reactor domes, a centrifuge hall
-  • a bombed city / civilians → damaged buildings, smoking rubble, people fleeing, rescue workers digging
-  • ground fighting → soldiers running and firing through smoke, tanks or a convoy speeding through dust
-When it fits the story, INCLUDE the relevant NATIONAL FLAGS of the countries actually involved in
-this story on a ship, vehicle, or building, or a clearly identifiable real setting — this anchors it
-to the real news.
-Keep it dynamic and moving (motion, smoke, speed), but ONE clear, readable subject per shot —
-NOT a chaotic jumble of everything at once (that produces malformed AI images).
-Figures are GENERIC anonymous soldiers/civilians — NEVER depict a real politician or leader in the
-image (fabricating a real leader in combat is misinformation and gets flagged); the narration may
-name them, the picture stays anonymous. Never take a side; show the human cost without glorifying.
-Every frame should feel like real breaking-news footage of THIS specific story.""",
-
+VISUALS — CRITICAL: every visual_description must SHOW WHAT THAT SCENE IS ABOUT, pulled from
+that exact line, and every scene a DIFFERENT specific shot. South African settings wherever
+the story allows — this must not look like generic world b-roll:
+  • load shedding / Eskom → pylons and power lines, a substation, a dark street, candles at home
+  • the rand / prices → supermarket shelves and trolleys, a till, notes and coins, a fuel pump
+  • jobs / hiring → a queue outside an office, a CV in hand, a busy industrial floor
+  • grants / SASSA → a long queue in the sun, an ID document, a payout point
+  • government / policy → a parliament or municipal building, a podium, an official signing
+  • service delivery → a burst pipe, refuse piled up, a pothole, residents gathered
+  • transport / commuting → minibus taxis, a rank, a packed train platform, a highway at peak
+Prefer recognisably South African scenes — Johannesburg, Cape Town, Durban, a township street,
+a taxi rank — over anonymous stock. A viewer should recognise their own country in it.""",
     "sa_pulse": """STYLE: High-energy South African PSL football news for "Genesis News" —
 the page Mzansi checks for Kaizer Chiefs, Orlando Pirates and Mamelodi Sundowns.
 You sound like a clued-up Mzansi football show host: fast, passionate, opinionated about

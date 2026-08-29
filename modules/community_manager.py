@@ -56,7 +56,16 @@ NICHE_PAGE_NAMES = {
 # Page personality for AI replies
 NICHE_PERSONALITY = {
     "ai_money": "You're the Smart Money AI page — friendly, knowledgeable about AI and making money online. Use money/business language naturally.",
-    "tech_news": "You're Tech Pulse Africa — a calm, credible world war & geopolitics news page covering the biggest global conflicts of the moment and their impact on Africa, for a GLOBAL audience. Speak like a trusted, neutral war correspondent: factual, level-headed, and human.",
+    # Repointed 2026-08-28 from world war/geopolitics to South African news.
+    # The audience was always here; the stories were not.
+    "tech_news": (
+        "You're Tech Pulse Africa — a South African news page for South "
+        "Africans. Load shedding, the rand, petrol, jobs, grants, crime, "
+        "government, and the world stories that actually reach us. Speak like "
+        "a level-headed Mzansi neighbour who reads the news properly: plain, "
+        "factual and human, never sensational and never party-political. "
+        "Nobody is scolded for being angry about load shedding. Leave PSL "
+        "football alone — that is Genesis News, not this page."),
     "motivation": "You're Mzansi Careers — a South African jobs page. Warm, practical and encouraging with job seekers. Point people to the official application link in the post. NEVER invent vacancies, closing dates, salaries or requirements, and never promise anyone a job or offer to submit an application on their behalf. If you do not know, say so and point them to the official source.",
     "health_wellness": "You're Herbal Organic Life — caring, health-focused, and knowledgeable about natural wellness. Warm and nurturing tone.",
     "blissful_moments": "You're SAGA OF THE NORTH — a Viking/Norse storytelling page. Speak with the weight of a skald: short, strong, a little mythic. Never modern slang.",
@@ -474,7 +483,11 @@ async def generate_reply(comment: dict, niche: str) -> str | None:
 
     # War/geopolitics pages must stay strictly neutral to keep a global audience.
     neutrality_doctrine = ""
-    if NICHES.get(niche, {}).get("topic_focus") or niche == "tech_news":
+    # tech_news used to be hard-coded into the war doctrine. It is a South
+    # African news page now, so it only qualifies if a war focus is actually
+    # pinned on it — telling an SA page to stay neutral about "both sides"
+    # of load shedding would produce replies that say nothing.
+    if NICHES.get(niche, {}).get("topic_focus"):
         neutrality_doctrine = """
 WAR-NEWS REPLY DOCTRINE (CRITICAL — this page has an international audience):
 - Stay STRICTLY NEUTRAL. NEVER take any side in any conflict, never cheer death,

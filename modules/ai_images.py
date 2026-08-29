@@ -34,7 +34,10 @@ _sdxl_pipe = None
 # ── Niche-Specific Image Style Prompts (cloud generators) ────
 NICHE_IMAGE_STYLES = {
     "ai_money": "RAW photograph of real person working intensely, dramatic natural window light, real office environment, sweat and focus visible, candid action moment, shot on Sony A7IV 85mm f1.4",
-    "tech_news": "cinematic war ACTION, a few anonymous soldiers running through smoke, ONE clear military vehicle, an explosion in the background, dust and sparks, motion blur, dramatic light, photorealistic, sharp coherent subjects, one clear focal action not overcrowded, no real politicians, no static portrait",
+    # Repointed 2026-08-28: this page is South African news, not war news. A
+    # story about a power cut illustrated with soldiers and an explosion is
+    # the fastest way to look like a content farm.
+    "tech_news": "cinematic documentary photograph of everyday South African life, ONE clear focal subject - a lit street at dusk, a busy minibus taxi rank, a supermarket aisle, a queue of people in the sun, electricity pylons against a wide sky - warm natural light, real ordinary people seen from a respectful distance, photorealistic, sharp coherent subjects, one clear focal action not overcrowded, no real politicians, no logos, no text, no static portrait",
     "motivation": "RAW photograph of real person pushing through struggle, sweat dripping, muscles tensed, golden hour backlight, genuine pain and determination on face, shot on Canon 5D 135mm f2",
     "health_wellness": "RAW photograph of real person preparing fresh food, steam rising, hands chopping vegetables, morning kitchen light, genuine lifestyle moment, extreme detail on textures, shot on Fuji XT5",
     "blissful_moments": "RAW photograph of real African mother holding baby, genuine laughter and tears of joy, warm golden backlight, intimate close-up of real emotion, shot on Sony A7III 50mm f1.2",

@@ -405,36 +405,58 @@ NICHES = {
         "edge_voice": "en-US-AriaNeural",
     },
     "tech_news": {
-        "name": "Tech Pulse Africa - World News & Tech",
-        # UN-PINNED (2026-08-06): topic_focus no longer hard-locks this page to the
-        # Trump–Iran–Israel conflict. It now DEFAULTS to empty so the news brain /
-        # topic generator follows fresh trending news instead of one stale topic.
-        # To temporarily re-pin a theme (e.g. a breaking story), set the env var
-        # TECH_NEWS_TOPIC_FOCUS to the desired focus string; empty = free/fresh.
+        # SOUTH AFRICA (owner call 2026-08-28: "change it to South African page
+        # focus - for South Africa interest"). The page carried world
+        # geopolitics - Red Sea shipping, Ghanaian gold, Zambian copper - to
+        # 10,442 South African followers, and went quiet on 21 Aug. A page
+        # about everywhere is a page about nowhere; the audience is here, so
+        # the stories should be too.
+        #
+        # It must NOT stray into PSL football. Genesis News owns that, and two
+        # of the owner's pages competing for the same story helps neither.
+        "name": "Tech Pulse Africa - South African News",
         "topic_focus": os.getenv("TECH_NEWS_TOPIC_FOCUS", ""),
-        # Evergreen, conflict-AGNOSTIC angle templates. These deliberately name NO
-        # single war so the page follows WHATEVER major world conflict / geopolitical
-        # story is breaking right now, with a recurring Africa / South-Africa angle.
+        # Angles, not headlines - the topic generator fills them from real
+        # trending SA news. Each is written so the answer affects the viewer's
+        # own week: what it costs, what it changes, what to do about it.
         "topics_bank": [
-            "what is really happening in the world's biggest conflict right now and why it matters",
-            "how this war is pushing oil and food prices and hitting your wallet",
-            "the African angle on the global crisis nobody is talking about",
-            "who actually gains from this war — follow the money",
-            "how close are the world's powers to a wider war",
-            "the ceasefire everyone is watching — will it hold",
-            "what this global crisis means for South Africa and Africa",
-            "the map that explains the conflict in 60 seconds",
-            "BRICS, the US and the new world order explained simply",
-            "the resource and minerals war behind the headlines",
-            "why this chokepoint controls the world economy",
-            "the humanitarian crisis the media moved on from",
+            "the load shedding stage everyone is arguing about and what it means for your week",
+            "what the rand doing this is actually costing you at the till",
+            "the petrol price change this month and what it does to your budget",
+            "the big South African story everyone is talking about today, explained simply",
+            "what this government decision actually changes for ordinary people",
+            "the crime story South Africans cannot stop talking about",
+            "load shedding, Eskom and the plan - what is real and what is talk",
+            "the jobs and hiring story that matters if you are looking for work",
+            "what is happening with grants, SASSA and the money people depend on",
+            "the municipality failing its residents and what is being done",
+            "the South African business story behind the headline",
+            "what this new law or regulation means for you in plain language",
+            "the health story every South African household should know",
+            "the school and university story parents are asking about",
+            "the world story that actually reaches South Africa, and how",
         ],
-        "search_keywords": ["breaking world news", "geopolitics", "global conflict", "war news", "Middle East", "Ukraine", "Africa geopolitics", "BRICS", "oil prices", "world crisis"],
-        "pexels_queries": ["missile", "war zone", "fighter jet", "military", "press conference", "protest crowd", "explosion", "soldiers", "parliament", "oil refinery", "United Nations", "global news"],
-        "hashtags": ["#BreakingNews", "#WorldNews", "#Geopolitics", "#War", "#GlobalNews", "#Conflict", "#Africa", "#BRICS", "#WorldOrder", "#TechPulseAfrica"],
+        "search_keywords": [
+            "South Africa news", "load shedding Eskom", "rand exchange rate",
+            "petrol price South Africa", "SASSA grants", "South Africa crime",
+            "South Africa politics", "Gauteng", "Cape Town", "Durban",
+            "South Africa economy", "municipality service delivery",
+        ],
+        "pexels_queries": [
+            "south africa city", "johannesburg skyline", "cape town",
+            "township street", "power lines", "electricity pylon",
+            "petrol station", "supermarket shopping", "south african flag",
+            "parliament building", "commuter taxi", "queue people",
+        ],
+        "hashtags": ["#SouthAfrica", "#Mzansi", "#SANews", "#LoadShedding",
+                     "#Eskom", "#SouthAfricaNews", "#Gauteng", "#CapeTown",
+                     "#TechPulseAfrica"],
         "cpm_estimate": 18,
         "generate_charts": False,
-        "edge_voice": "en-GB-RyanNeural",
+        # A South African page read in a British accent is the first thing an
+        # SA viewer notices. Luke is the en-ZA male voice; Genesis already
+        # uses the en-ZA female, so the two pages stay distinguishable.
+        "edge_voice": "en-ZA-LukeNeural",
     },
     "sa_pulse": {
         "name": "Genesis News - PSL & Mzansi Football",
@@ -736,7 +758,8 @@ NICHES = {
 # ══════════════════════════════════════════════════════════════
 
 # SINGLE-PAGE MODE: only build/post for these niches. Focus is Tech Pulse Africa
-# (war news). Set BUILD_NICHES="tech_news,ai_money" etc. to add pages back.
+# (South African news since 2026-08-28). Set BUILD_NICHES="tech_news,ai_money"
+# etc. to add pages back.
 BUILD_NICHES = [n.strip() for n in os.getenv("BUILD_NICHES", "tech_news").split(",") if n.strip()]
 
 # ── LOCKED PAGES ──────────────────────────────────────────────
@@ -773,7 +796,7 @@ def page_locked(niche: str) -> bool:
 
 SCHEDULE = {
     "ai_money": {"short": 1},           # Smart Money AI (4.4K followers)
-    "tech_news": {"short": 1},          # Tech Pulse Africa (10.4K followers) — world news & geopolitics
+    "tech_news": {"short": 1},          # Tech Pulse Africa (10.4K followers) — South African news
     # motivation: LOCKED to MZANSI CAREERS — see LOCKED_PAGES / build_careers_post.py
     "health_wellness": {"short": 1},    # Herbal Organic Life (920 followers)
     # blissful_moments: LOCKED to SAGA OF THE NORTH — see LOCKED_PAGES / post_next_viking.py
