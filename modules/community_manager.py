@@ -113,11 +113,39 @@ _reply_timestamps: dict[str, deque] = defaultdict(
 # ── Database ─────────────────────────────────────────────────
 
 def _get_db() -> sqlite3.Connection:
+    """A connection that survives another process holding the database.
+
+    On 2026-08-29 the page went quiet on comments and the cause was here, not
+    in the reply logic. Three faults compounded:
+
+      1. busy_timeout was set AFTER journal_mode, so the journal_mode change -
+         which needs a brief exclusive lock - had no busy timeout to wait on
+         and failed instantly the moment any other build touched the file.
+      2. Switching to WAL was treated as required. It is an optimisation; a
+         reply engine that refuses to run because it could not change a
+         journal mode is choosing silence over doing its job.
+      3. _init_tables() runs at IMPORT, so that failure did not degrade the
+         round - it propagated out of `import community_manager` and killed
+         the scheduled task before it read a single comment.
+
+    Several builders now run at once (roll-call, lineup, brain), so contention
+    is normal rather than exceptional and the connection has to expect it.
+    """
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH), timeout=10)
+    conn = sqlite3.connect(str(DB_PATH), timeout=30)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=5000")
+    # busy_timeout FIRST: it is what makes every statement after it wait for a
+    # lock instead of raising.
+    try:
+        conn.execute("PRAGMA busy_timeout=20000")
+    except Exception:
+        pass
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except sqlite3.OperationalError as e:
+        # Fine. Journal mode is a performance choice, not a precondition.
+        print(f"[Community] WAL unavailable ({e}) — continuing in "
+              f"the default journal mode")
     return conn
 
 
@@ -165,7 +193,22 @@ def _init_tables():
         conn.close()
 
 
-_init_tables()
+# Creating tables must never stop this module being imported.
+#
+# _init_tables() ran bare at import, so a database momentarily held by any
+# other build - and several now run at once - raised straight out of
+# `import community_manager` and killed the scheduled comment round before it
+# had read a single comment. The page went quiet on comments for that reason
+# alone, while the reply logic itself was working perfectly.
+#
+# These tables were created months ago; the only run that genuinely needs this
+# to succeed is the very first. So a failure is reported and the round carries
+# on, and the next call retries.
+try:
+    _init_tables()
+except Exception as _e:                                   # noqa: BLE001
+    print(f"[Community] table init deferred ({_e}) — database busy, "
+          f"tables already exist, continuing")
 
 
 # ── Comment Fetching ─────────────────────────────────────────
