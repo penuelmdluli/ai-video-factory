@@ -253,6 +253,28 @@ async def upload_to_tiktok(
         schedule_time: If set, schedule the post for this datetime instead
                        of posting immediately. Must be at least 15 min in the future.
     """
+    # ── WHOSE TIKTOK IS THIS? ────────────────────────────────────────────
+    # There is one TIKTOK_SESSION_ID and it belongs to the Genesis News
+    # (soccer) account. upload_to_tiktok already took a niche and then ignored
+    # it for auth, so every page fanned out onto the same account — a Tech
+    # Pulse geopolitics reel landed there on 21 Aug, which is why the owner
+    # stopped the whole scheduler that morning. Stopping the scheduler stopped
+    # the leak AND four pages with it.
+    #
+    # A niche may post to TikTok only if it has its own session, or if it is
+    # the account's owner. Anything else skips with a reason instead of
+    # quietly borrowing someone else's audience.
+    owner = os.getenv("TIKTOK_OWNER_NICHE", "sa_pulse").strip()
+    own_session = os.getenv(f"TIKTOK_SESSION_ID_{niche}", "").strip() if niche else ""
+    if niche and niche != owner and not own_session:
+        msg = (f"'{niche}' has no TikTok account of its own — refusing to post "
+               f"it to the '{owner}' account. Add TIKTOK_SESSION_ID_{niche} to "
+               f".env to give this page its own.")
+        print(f"[TikTok] skipped: {msg}")
+        return {"platform": "tiktok", "status": "skipped", "error": msg}
+    if own_session:
+        os.environ["TIKTOK_SESSION_ID"] = own_session
+
     auth = _get_auth()
     if not auth:
         return {
