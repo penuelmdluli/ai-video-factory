@@ -906,7 +906,33 @@ async def cmd_live(a):
                   "restarts us on the new code")
             return
 
-        await asyncio.sleep(45 if live_now else 300)
+        # QUIET DAYS COST NOTHING.
+        #
+        # The watcher polled every five minutes whether or not Chiefs were
+        # playing, so on 29 August - with the next fixture nine days away - it
+        # woke 288 times to be told there was nothing to cover, and showed up
+        # in a process list as a live watcher that had been running for
+        # twenty-five minutes with no match. It did not cause the comment
+        # outage that day; it just made the machine look busy in a way that
+        # sent the investigation the wrong direction, and it is pointless work.
+        #
+        # It does NOT exit. pm2 supervises this process, so exiting means an
+        # immediate restart, and a loop of exit-and-restart is how
+        # genesis-vault once reached 36,942 restarts. Sleeping long is the
+        # cheap version of stopping.
+        if live_now:
+            nap = 45
+        else:
+            try:
+                chiefs_today = any(
+                    "chiefs" in (f.get("home_key"), f.get("away_key"))
+                    for f in await todays_fixtures())
+            except Exception:
+                chiefs_today = True          # unsure: stay alert
+            nap = 300 if chiefs_today else 1800
+            if nap == 1800:
+                print("[Live] no Chiefs fixture today — idling 30 min")
+        await asyncio.sleep(nap)
 
 
 def main():
