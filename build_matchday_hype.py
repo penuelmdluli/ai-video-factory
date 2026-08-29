@@ -139,7 +139,12 @@ def frame(t, ctx):
     # ── the question, largest type the frame will carry ──
     if t > 1.6:
         u = _ease(min(1.0, (t - 1.6) / 0.6))
-        lines = ["HOW MANY", "KAIZER CHIEFS", "FANS ARE HERE?"]
+        # The ask ROTATES. This is the page's best-performing card, and the
+        # reason it works is that it asks a supporter for something almost
+        # free - but an ask seen four times in a fortnight stops being an
+        # invitation and becomes wallpaper. Format stays, words move.
+        lines = ctx.get("ask_lines") or ["HOW MANY", "KAIZER CHIEFS",
+                                         "FANS ARE HERE?"]
         y = 1060
         for i, ln in enumerate(lines):
             f = _font(96 if i != 1 else 86)
@@ -157,7 +162,7 @@ def frame(t, ctx):
     # ── call to action ──
     if t > 3.0:
         u = _ease(min(1.0, (t - 3.0) / 0.5))
-        cta = "COMMENT  ·  SAY KHOSI"
+        cta = ctx.get("ask_cta") or "COMMENT  ·  SAY KHOSI"
         f = _font(44)
         tw = d.textlength(cta, font=f)
         d.rounded_rectangle([W // 2 - tw / 2 - 34, 1470, W // 2 + tw / 2 + 34, 1560],
@@ -214,10 +219,16 @@ async def main():
         r = 560 / max(crest.width, crest.height)
         crest = crest.resize((int(crest.width * r), int(crest.height * r)))
 
+    from modules.rollcall_asks import next_ask
+    ask_lines, ask_cta, ask_spoken = next_ask()
+    _log("ask: " + " / ".join(ask_lines))
+
     ctx = {
         "accent": tuple(CLUB_BRAND.get(a.club, {}).get("colors", {})
                         .get("primary", (255, 193, 7))),
         "crest": crest,
+        "ask_lines": ask_lines,
+        "ask_cta": ask_cta,
         "kick_line": f"{'vs' if home else 'away to'} {opp}  ·  "
                      f"{ko:%H:%M}  ·  {fx.get('venue', '')}".strip(" ·"),
     }
@@ -237,15 +248,13 @@ async def main():
         text = (f"It is matchday. {club_name} are "
                 f"{'at home to' if home else 'away to'} {opp}, "
                 f"kick off {ko:%H:%M}. "
-                f"So before anything else — how many Kaizer Chiefs fans are "
-                f"here? Drop a heart, say Khosi, and let us see the numbers. "
+                f"So before anything else — {ask_spoken} "
                 f"Amakhosi for life.")
     else:
         days = (ko.date() - now.date()).days
         when = ("tomorrow" if days == 1 else f"in {days} days")
         text = (f"No game today. So let us do something better. "
-                f"How many Kaizer Chiefs fans are here right now? "
-                f"If you love this club, drop a heart. Just a heart. "
+                f"{ask_spoken} "
                 f"We want to see how many of us there are before "
                 f"{club_name} play {opp} {when}. "
                 f"Amakhosi for life.")
