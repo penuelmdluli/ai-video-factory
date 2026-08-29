@@ -369,7 +369,10 @@ async def main():
     ap.add_argument("--club", default="chiefs")
     ap.add_argument("--opponent", default="",
                     help="override; normally resolved from the next fixture")
-    ap.add_argument("--formation", default="4-3-3")
+    # Empty means "use whatever they actually played". A value here is an
+    # explicit request and must WIN - see the note where it is applied.
+    ap.add_argument("--formation", default="",
+                    help="force a shape; omit to use the real team sheet's")
     ap.add_argument("--kickoff", default="")
     ap.add_argument("--start", default="",
                     help="comma-separated players the owner wants started; "
@@ -410,8 +413,26 @@ async def main():
     # Prefer the real team sheet; fall back to the squad only if ESPN has none.
     xi, real_formation, provenance, bench = await pick_xi_real(a.club)
     if xi:
-        a.formation = real_formation or a.formation
-        _log(f"using REAL {provenance} — formation {a.formation}")
+        # AN EXPLICIT SHAPE WINS. This line used to be
+        #     a.formation = real_formation or a.formation
+        # so the last team sheet overrode anything asked for, and --formation
+        # was silently ignored whenever ESPN had a sheet - which is almost
+        # always. The variety engine was picking 4-3-3, 4-2-3-1, 3-5-2 and
+        # 4-4-2 in turn while every single card rendered as 3-4-3, the shape
+        # of the last real match. The whole point of the rotation was being
+        # thrown away one line before it was used, and nothing logged it.
+        #
+        # Defaulting to the real shape is still right when nobody asks for
+        # one: it is honest, and it is what the coach picked. But a requested
+        # shape is our opinion, the card is already stamped GENESIS NEWS
+        # PREDICTION - NOT THE OFFICIAL TEAM SHEET, and an opinion the page
+        # states out loud is exactly what the format is for.
+        if a.formation:
+            _log(f"REAL {provenance} was {real_formation}; using requested "
+                 f"{a.formation} instead")
+        else:
+            a.formation = real_formation or "4-3-3"
+            _log(f"using REAL {provenance} — formation {a.formation}")
     else:
         _log("no published team sheet found — falling back to squad order")
         xi = pick_xi(a.club, a.formation)
