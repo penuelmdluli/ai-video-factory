@@ -51,11 +51,25 @@ DEBATE_GROUPS = ["forwards", "midfield", "defence"]
 # the fixture, not whether we had already debated something today.
 # The between-games rotation. news stays last on merit, not by rule - it
 # measured 22 against 452 for a staged lineup over 30 days.
-FREE_FORMATS = ("dreamsign", "dreamxi", "titlerace", "ourfive", "fancall",
-                "news")
+# WHAT ACTUALLY WORKS, and nothing else.
+#
+# Owner call 2026-08-28: "we already know what works - the lineups work, and
+# asking the fans. Stop the signings, focus on what works best."
+#
+# The measured top four on this page, by likes + 3x comments + 5x shares:
+#
+#     2596   roll-call: crest + HOW MANY CHIEFS FANS ARE HERE
+#     1583   position debate: six names, one shirt
+#     1210   predicted XI on the pitch
+#      935   predicted XI on the pitch
+#
+# Not one dream format appears. dreamsign, dreamxi and titlerace were built
+# on a hunch and the hunch was wrong; they are out of the rotation. The three
+# that remain all do the same thing - they hand the fan a job he wants: count
+# himself in, correct our XI, or pick between men he has opinions about.
+FREE_FORMATS = ("rollcall", "xi", "debate", "fancall", "news")
 
-ONCE_PER_DAY = ("debate", "fancall", "ourfive", "dreamxi", "dreamsign",
-                "titlerace")
+ONCE_PER_DAY = ("debate", "fancall", "rollcall", "xi")
 
 # The last hours before kickoff belong to the confirmed XI reel, which
 # matchday.py posts off the real team sheet ~75 minutes out. The same
@@ -195,7 +209,7 @@ async def decide() -> tuple[str, dict]:
         # against 5 — the collapse there was volume far past anything the
         # audience would absorb, and standing two slots down every quiet day
         # leaves the page silent from lunchtime onward.
-        quota, why = 5, "quiet week"
+        quota, why = 3, "quiet week"
     if today_count >= quota:
         _log(f"{today_count} posted today, quota {quota} ({why}) — "
              f"standing this slot down")
@@ -316,7 +330,27 @@ async def main():
     if fmt == "hype":
         rc = _run(["py", "build_matchday_hype.py", "--club", CLUB] + post)
     elif fmt == "xi":
-        rc = _run(["py", "build_lineup_video.py", "--club", CLUB] + post)
+        # A NEW SHAPE AND A NEW CALL EVERY TIME.
+        #
+        # The XI is built from the last real team sheet, so left alone it
+        # produces nearly the same side on every card - and the format only
+        # works because supporters want to correct it. There is nothing to
+        # correct in an eleven they argued about on Tuesday. lineup_variety
+        # hands out a formation and a bench player who did not start, and
+        # never repeats a pairing until it has used them all.
+        shape, calls = "4-3-3", []
+        try:
+            from modules.lineup_variety import pick as _variety
+            shape, calls = asyncio.run(_variety(CLUB))
+            _log(f"variety: {shape}" + (f" + {calls[0]} starts" if calls
+                                        else " (shape only)"))
+        except Exception as e:
+            _log(f"variety unavailable ({str(e)[:60]}) — default shape")
+        args = ["py", "build_lineup_video.py", "--club", CLUB,
+                "--formation", shape]
+        if calls:
+            args += ["--start", ",".join(calls)]
+        rc = _run(args + post)
     elif fmt == "fancall":
         rc = _run(["py", "build_fill_the_gaps.py", "--club", CLUB, "--video"]
                   + post)
@@ -330,18 +364,10 @@ async def main():
             _log("reveal build failed - falling back to the card debate")
             rc = _run(["py", "build_debate_video.py", "--club", CLUB,
                        "--group", ctx["group"]] + post)
-    elif fmt == "ourfive":
-        rc = _run(["py", "build_our_five.py", "--club", CLUB] + post)
-    elif fmt == "dreamxi":
-        rc = _run(["py", "build_dream_xi.py", "--club", CLUB] + post)
-    elif fmt == "dreamsign":
-        # 1-3 imagined signings, varied per run so two Tuesdays never match
-        import random as _r
-        rc = _run(["py", "build_dream_signing.py", "--club", CLUB,
-                   "--rival", _r.choice(["sundowns", "pirates"]),
-                   "--count", str(_r.choice([1, 2, 3]))] + post)
-    elif fmt == "titlerace":
-        rc = _run(["py", "build_title_race.py", "--club", CLUB] + post)
+    elif fmt == "rollcall":
+        # The single best-performing post this page has ever made.
+        rc = _run(["py", "build_matchday_hype.py", "--club", CLUB,
+                   "--force"] + post)
     else:
         rc = _run(["py", "build_psl_news.py"] + post)
 

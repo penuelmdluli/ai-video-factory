@@ -227,12 +227,28 @@ async def main():
     work = ROOT / "output" / f"matchday_{a.club}_{stamp}"
     work.mkdir(parents=True, exist_ok=True)
 
-    text = (f"It is matchday. {club_name} are "
-            f"{'at home to' if home else 'away to'} {opp}, "
-            f"kick off {ko:%H:%M}. "
-            f"So before anything else — how many Kaizer Chiefs fans are here? "
-            f"Drop a heart, say Khosi, and let us see the numbers. "
-            f"Amakhosi for life.")
+    # The copy must match the DAY. --force lets this run between fixtures,
+    # and the matchday script would then be a plain falsehood - "it is
+    # matchday" on a Friday with no game is exactly the class of claim this
+    # page has been burned by. So the roll-call has two versions: one for the
+    # day itself, one for every other day, and neither invents a match.
+    is_today = ko.date() == now.date()
+    if is_today:
+        text = (f"It is matchday. {club_name} are "
+                f"{'at home to' if home else 'away to'} {opp}, "
+                f"kick off {ko:%H:%M}. "
+                f"So before anything else — how many Kaizer Chiefs fans are "
+                f"here? Drop a heart, say Khosi, and let us see the numbers. "
+                f"Amakhosi for life.")
+    else:
+        days = (ko.date() - now.date()).days
+        when = ("tomorrow" if days == 1 else f"in {days} days")
+        text = (f"No game today. So let us do something better. "
+                f"How many Kaizer Chiefs fans are here right now? "
+                f"If you love this club, drop a heart. Just a heart. "
+                f"We want to see how many of us there are before "
+                f"{club_name} play {opp} {when}. "
+                f"Amakhosi for life.")
     dur = max(11.0, len(text.split()) / 2.8 + 2.5)
 
     from modules.motion_kit import _render, attach_voice
