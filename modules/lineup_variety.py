@@ -53,6 +53,33 @@ def used(club: str) -> list:
     return (_load().get(club) or {}).get("used", [])
 
 
+def record_posted(club: str, formation: str, calls) -> bool:
+    """Log a combination that ACTUALLY went out. Idempotent.
+
+    pick() records at the moment of choosing, which covers the router but not
+    a card built by hand, and counts a build that then failed before posting.
+    The builder calls this after a confirmed publish, so the ledger tracks the
+    page rather than our intentions.
+
+    The same pairing is not written twice: the router's pick() has usually
+    already logged it, and double-counting would push a shape out of the
+    rotation before it had really been used that often.
+    """
+    call = (list(calls) or [""])[0]
+    pair = [formation, call]
+    state = _load()
+    cs = state.setdefault(club, {"used": []})
+    if cs["used"] and cs["used"][-1] == pair:
+        return False                     # the router already logged this one
+    cs["used"].append(pair)
+    cs["used"] = cs["used"][-40:]
+    cs["last"] = datetime.now().isoformat()
+    _save(state)
+    print(f"[Variety] posted {formation}"
+          + (f" + {call}" if call else "") + " — logged")
+    return True
+
+
 async def pick(club: str) -> tuple:
     """(formation, [names to force in]) — a combination not used before.
 

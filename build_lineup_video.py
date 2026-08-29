@@ -756,6 +756,27 @@ async def main():
                           tags=["PSL", "KaizerChiefs", "Amakhosi",
                                 "PredictedXI", "BetwayPremiership"])
         _log(f"published: { {k: (v or {}).get('status') for k, v in r.items()} }")
+
+        # RECORD WHAT WAS PUBLISHED, not what was chosen.
+        #
+        # lineup_variety logs a combination when the router ASKS for one, so a
+        # card built by hand - or a build that fell over before posting - is
+        # invisible to it, and the next post can repeat a shape that is
+        # already on the page. A uniqueness engine that does not know what
+        # went out is not a uniqueness engine.
+        #
+        # Recorded here, after a confirmed publish, so the ledger reflects the
+        # timeline rather than our intentions. Duplicates are collapsed: the
+        # router already logged its own pick, and the same pairing must not
+        # count twice and push a shape out of rotation early.
+        if any((v or {}).get("status") == "uploaded" for v in r.values()):
+            try:
+                from modules.lineup_variety import record_posted
+                record_posted(a.club, a.formation,
+                              [w.strip() for w in (a.start or "").split(",")
+                               if w.strip()])
+            except Exception as e:
+                _log(f"variety ledger not updated: {str(e)[:80]}")
     return 0
 
 
