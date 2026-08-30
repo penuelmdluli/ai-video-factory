@@ -147,6 +147,67 @@ def _patched_post_video(page):
 _tu._post_video = _patched_post_video
 
 
+# Replace _set_interactivity entirely.
+#
+# The library hunts for three controls - Comment, Duet and Stitch - with
+#     //label[.='Comment']/following-sibling::div/input
+# and on the current TikTok Web Studio page not one of those resolves. A DOM
+# probe of the live upload form on 2026-08-30 found this instead:
+#
+#     Comment              input.Checkbox__input   (nested inside the label)
+#     Reuse of content     input.Checkbox__input
+#     Disclose post content / AI-generated content / Audience control  (switches)
+#
+# Duet and Stitch are GONE as separate toggles - TikTok folded them into
+# "Reuse of content" - and Comment moved inside its label rather than sitting
+# in a following sibling. So every lookup ran to the full 30s Playwright
+# timeout, the whole thing died on the first one, and the library logged a
+# flat "Failed to set interactivity settings" with the real cause swallowed by
+# a bare except. Thirty seconds of every upload, and any interactivity choice
+# we made was silently discarded.
+#
+# What this does NOT do is change what has been going out: the page defaults
+# are Comment on and Reuse of content on, which is what we were asking for
+# anyway. The win is that the setting is honoured instead of ignored, the
+# stall is gone, and a control that disappears next time TikTok reshuffles the
+# page says WHICH one rather than failing blind.
+def _patched_set_interactivity(page, comment=True, stitch=True, duet=True,
+                               *args, **kwargs):
+    def _toggle(label_text, want):
+        # The input is appearance:none and effectively unclickable; the label
+        # is the control a person actually hits, so click that.
+        lab = page.locator(
+            "label.Checkbox__root:has(span:text-is(\"%s\"))" % label_text)
+        try:
+            if not lab.count():
+                print("[TikTok] interactivity: no '%s' control on this page "
+                      "- skipped" % label_text, flush=True)
+                return
+            box = lab.locator("input.Checkbox__input").first
+            now = box.is_checked(timeout=4000)
+            if now != want:
+                lab.first.click(timeout=4000)
+                print("[TikTok] interactivity: %s %s -> %s"
+                      % (label_text, now, want), flush=True)
+            else:
+                print("[TikTok] interactivity: %s already %s"
+                      % (label_text, want), flush=True)
+        except Exception as e:
+            # One control we cannot set must not cost the upload. The video
+            # going out matters more than who is allowed to duet it.
+            print("[TikTok] interactivity: '%s' failed (%s)"
+                  % (label_text, str(e)[:120]), flush=True)
+
+    _toggle("Comment", bool(comment))
+    # duet and stitch no longer have their own toggles. "Reuse of content" is
+    # the permission that replaced both, so it stays on unless the caller has
+    # asked for BOTH to be off - turning it off on a request for one of them
+    # would withdraw the other silently.
+    _toggle("Reuse of content", bool(duet or stitch))
+
+_tu._set_interactivity = _patched_set_interactivity
+
+
 from tiktok_uploader.upload import upload_video
 
 # Parse schedule time if provided
