@@ -277,14 +277,34 @@ async def main():
     cover = work / "cover.jpg"
     frame(4.2, ctx).save(cover, quality=95)
 
-    title = f"MATCHDAY — {club_name} {'vs' if home else 'away to'} {opp}"
-    caption = (f"🟡 MATCHDAY 🟡\n\n{club_name} "
-               f"{'vs' if home else 'away to'} {opp} — {ko:%H:%M} tonight, "
-               f"{fx.get('venue','')}.\n\n"
-               f"HOW MANY KAIZER CHIEFS FANS ARE HERE? 👇\n"
-               f"Drop a 💛 and say KHOSI.\n\n"
-               f"#KaizerChiefs #Amakhosi #Khosi4Life #PSL "
-               f"#BetwayPremiership #MatchDay")
+    # THE CAPTION MUST MATCH THE DAY.
+    #
+    # The narration was made day-aware when --force was added; the caption was
+    # not. So two posts went out on 29 and 30 August reading "MATCHDAY —
+    # Kaizer Chiefs vs Siwelele FC, 17:30 tonight" when that match is on
+    # 6 September. A false claim, live on the page, carried by the format with
+    # the most reach on it. Fixing the spoken line and leaving the written one
+    # is exactly the half-fix this project keeps paying for.
+    #
+    # The caption also now carries whichever ask the card shows, so the
+    # picture, the voice and the text all invite the same thing.
+    if is_today:
+        title = f"MATCHDAY — {club_name} {'vs' if home else 'away to'} {opp}"
+        head = (f"🟡 MATCHDAY 🟡\n\n{club_name} "
+                f"{'vs' if home else 'away to'} {opp} — {ko:%H:%M} tonight, "
+                f"{fx.get('venue','')}.")
+        tags = "#KaizerChiefs #Amakhosi #Khosi4Life #PSL #MatchDay"
+    else:
+        _days = (ko.date() - now.date()).days
+        _when = "TOMORROW" if _days == 1 else f"IN {_days} DAYS"
+        title = f"{' '.join(ask_lines)} — {club_name}"
+        head = (f"💛 ROLL CALL 💛\n\nNo game today. "
+                f"{club_name} {'vs' if home else 'away to'} {opp} {_when} — "
+                f"{ko:%a %d %b}, {ko:%H:%M}.")
+        tags = "#KaizerChiefs #Amakhosi #Khosi4Life #PSL #BetwayPremiership"
+    caption = (f"{head}\n\n"
+               f"{' '.join(ask_lines)} 👇\n"
+               f"{ask_cta}\n\n{tags}")
 
     (work / "upload_manifest.json").write_text(json.dumps(
         {"niche": NICHE, "format_type": "short", "is_short": True,
@@ -299,10 +319,13 @@ async def main():
         r = await publish(final, title, caption, cover, niche=NICHE,
                           tags=["KaizerChiefs", "Amakhosi", "PSL", "MatchDay",
                                 "BetwayPremiership"],
-                          first_comment=("💛 KHOSI! Comment below if you are "
-                                         "here for Amakhosi tonight.\n"
-                                         "▶️ More on YouTube: "
-                                         "https://www.youtube.com/@GenesisNewsPSL"))
+                          first_comment=(
+                              ("💛 KHOSI! Comment below if you are here for "
+                               "Amakhosi tonight.\n" if is_today else
+                               "💛 KHOSI! Comment below — we are counting "
+                               "the family.\n")
+                              + "▶️ More on YouTube: "
+                                "https://www.youtube.com/@GenesisNewsPSL"))
         _log(f"published: { {k: (v or {}).get('status') for k, v in r.items()} }")
     return 0
 
