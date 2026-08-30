@@ -57,6 +57,45 @@ TONIGHT = re.compile(r"\btonight\b|\bthis evening\b", re.I)
 DEADLINE = re.compile(r"clos(e|es|ing)|deadline|still open|apply before", re.I)
 URL = re.compile(r"https?://[^\s)\]<>\"']+")
 
+# A result claim belongs to the clause that carries it, not to the whole
+# comment. The original Siwelele bug was the ENGINE saying a fixture had been
+# played when it had not; the pack was given a FIXTURE IDENTITY RULE on
+# 2026-08-27 and the engine now gets it right. This detector was never taught
+# the same rule, so it still reads a comment the way the broken engine wrote
+# one - "does the text mention the next opponent anywhere, and does it contain
+# result language anywhere" - with nothing tying the two together.
+#
+# That misfired on 2026-08-29: "Richards Bay already wrapped on Wednesday - we
+# drew 2-2, so now we're looking ahead to Siwelele next Sunday" is entirely
+# correct, and the pack agrees (Richards Bay 2-2 Chiefs FINISHED Wed 26 Aug;
+# Chiefs v Siwelele NOT PLAYED YET Sun 06 Sep). "we drew" is about Richards
+# Bay, 87 characters and two clauses away from the word Siwelele. The sweep
+# flagged it anyway, and --delete would have removed a correct reply; it also
+# cost a full unattended heal run, which is the cost this file's own header
+# warns about. A detector that cannot tell a corrected comment from the bug it
+# was written to catch will keep deleting the fix.
+#
+# So claims are matched per clause. Splitting is deliberately conservative -
+# sentence ends, dashes and a comma FOLLOWED BY a conjunction, never a bare
+# comma - because "the Siwelele game, which was on Sunday, already happened"
+# is one claim and must stay one clause.
+CLAUSE_SPLIT = re.compile(
+    r"[.!?;\n]+|\s+[—–]\s*|\s+-\s+|"
+    r",\s+(?:so|but|and|then|now|while|whereas)\b")
+
+# Language that marks a fixture as still to come. Present in the same clause
+# as the opponent, it settles the tense on its own.
+FORWARD_LOOK = re.compile(
+    r"look(ing)? ahead|coming up|next up|still to come|upcoming|ahead of|"
+    r"preview|kicks? off|will (play|face|meet)|due to (play|face)|"
+    r"next (match|game|fixture|week|sunday|monday|tuesday|wednesday|"
+    r"thursday|friday|saturday)", re.I)
+
+
+def _clauses(text):
+    """Split a comment into the units a single claim can live in."""
+    return [c.strip() for c in CLAUSE_SPLIT.split(text) if c and c.strip()]
+
 
 def _creds(niche):
     return (os.getenv("FB_PAGE_ID_" + niche, ""),
@@ -128,26 +167,44 @@ async def _football_flags(comments):
 
     flags = {}
     for c in comments:
-        m = c["message"].lower()
-        age = _age_days(c["created"])
+        probs = _claims_against(c, upcoming)
+        if probs:
+            flags[c["id"]] = probs
+    return flags
+
+
+def _claims_against(c, upcoming) -> list:
+    """Problems in one comment, given the fixtures still to be played.
+
+    Pure and offline so --selftest can prove both halves of the fix: that the
+    2026-08-29 false positive stays quiet, and that the claims this detector
+    exists to catch still fire. Neutering the detector would fix the symptom
+    and lose the reason the file was written.
+    """
+    age = _age_days(c["created"])
+    probs = []
+    for clause in _clauses(c["message"].lower()):
         for word, f in upcoming.items():
-            if word not in m:
+            # The opponent must be named in the SAME clause as the claim.
+            if word not in clause:
                 continue
             label = f["home"] + " v " + f["away"]
-            if FINISHED_CLAIM.search(m):
-                flags.setdefault(c["id"], []).append(
-                    "says the " + label + " match is finished, but it is "
-                    "not played until " + (f.get("kickoff_iso") or "?")[:10])
-            if TONIGHT.search(m) and age is not None and age >= 1:
+            if FINISHED_CLAIM.search(clause) and not FORWARD_LOOK.search(clause):
+                p = ("says the " + label + " match is finished, but it is "
+                     "not played until " + (f.get("kickoff_iso") or "?")[:10])
+                if p not in probs:
+                    probs.append(p)
+            if TONIGHT.search(clause) and age is not None and age >= 1:
                 try:
                     ko = datetime.fromisoformat(f["kickoff_iso"])
                     if ko.date() != datetime.now(SAST).date():
-                        flags.setdefault(c["id"], []).append(
-                            "says 'tonight' but " + label + " is "
-                            + ko.strftime("%a %d %b"))
+                        p = ("says 'tonight' but " + label + " is "
+                             + ko.strftime("%a %d %b"))
+                        if p not in probs:
+                            probs.append(p)
                 except Exception:
                     pass
-    return flags
+    return probs
 
 
 def _stale_deadline(c):
@@ -200,12 +257,66 @@ async def sweep(niche, do_delete=False, posts=30):
     return {"niche": niche, "checked": len(mine), "findings": findings}
 
 
+def selftest() -> int:
+    """Prove the football detector on known comments. Exit 0 = correct.
+
+    Cases 1 and 2 are the 2026-08-29 incident: a correct comment the sweep
+    flagged, and the wording of the original engine bug it was written to
+    catch. Both must keep their verdicts - a change that silences case 1 by
+    also silencing case 2 has deleted the detector, not fixed it.
+    """
+    now = datetime.now(SAST)
+    ko = now + timedelta(days=7)
+    upcoming = {"siwelele": {"home": "Kaizer Chiefs", "away": "Siwelele",
+                             "home_key": "chiefs",
+                             "kickoff_iso": ko.isoformat()}}
+    old = (now - timedelta(days=2)).isoformat()
+
+    cases = [
+        # (should_flag, created, message)
+        (False, old, "Hey Phili! That match against Richards Bay already "
+                     "wrapped on Wednesday — we drew 2-2, so now we're "
+                     "looking ahead to Siwelele next Sunday. Who'd you have "
+                     "in that lineup if you were calling it?"),
+        (True, old, "The Siwelele game already happened, we drew 2-2."),
+        (True, old, "We beat Siwelele 3-0 at the weekend, brilliant stuff."),
+        (True, old, "The Siwelele game, which was on Sunday, already played."),
+        (True, old, "Big one against Siwelele tonight, Khosi nation!"),
+        (False, old, "Looking ahead to Siwelele next Sunday."),
+        (False, old, "We drew with Richards Bay on Wednesday, tough point."),
+        (False, old, "Siwelele up next — who starts?"),
+    ]
+
+    bad = 0
+    for want, created, msg in cases:
+        got = _claims_against({"id": "t", "message": msg, "created": created},
+                              upcoming)
+        ok = bool(got) == want
+        bad += 0 if ok else 1
+        print(("  ok  " if ok else "  FAIL") + "  expected "
+              + ("FLAG " if want else "clean") + " -> "
+              + ("FLAG" if got else "clean") + "   " + msg[:64])
+        if got and not want:
+            for p in got:
+                print("          spurious: " + p)
+        if want and not got:
+            print("          missed a claim this detector exists to catch")
+    print(("\nSELFTEST PASS" if not bad else "\nSELFTEST FAIL - "
+           + str(bad) + " case(s)") + " (" + str(len(cases)) + " checked)")
+    return 1 if bad else 0
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--niche", default="")
     ap.add_argument("--delete", action="store_true")
     ap.add_argument("--posts", type=int, default=30)
+    ap.add_argument("--selftest", action="store_true",
+                    help="check the football detector offline, post nothing")
     a = ap.parse_args()
+
+    if a.selftest:
+        return selftest()
 
     total, checked = 0, 0
     for n in ([a.niche] if a.niche else PAGES):
