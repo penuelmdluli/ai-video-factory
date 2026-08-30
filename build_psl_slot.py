@@ -26,6 +26,7 @@ import asyncio
 import json
 import subprocess
 import sys
+import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -35,6 +36,7 @@ load_dotenv()
 
 ROOT = Path(__file__).parent
 STATE = ROOT / "data" / "slot_state.json"
+ALERTS = ROOT / "data" / "fail_alerts.json"
 CLUB = "chiefs"                     # the page's lead club
 XI_WINDOW_H = 14                    # predicted XI inside this many hours —
                                     # tuned so it lands on MATCHDAY MORNING for a
@@ -85,6 +87,41 @@ QUIET_BEFORE_KO_H = 3.5
 # a fan can answer and it warms the post that follows; the XI lands mid-morning
 # when team news is read; the argument runs into kickoff.
 MATCHDAY_ORDER = ["hype", "xi", "debate"]
+
+
+def _alert(problems: list, fmt: str = "") -> None:
+    """Raise a hand where something is actually watching.
+
+    On 2026-08-30 the router died on a missing debate group and took three
+    consecutive slots with it - roughly eight hours in which the only thing
+    reaching the page was the blog crosspost. Every one of those failures was
+    logged correctly and none of them was SEEN: the exit code went to
+    psl_news.log and psl_news.log is read after somebody notices the page has
+    gone quiet, which is the expensive way round.
+
+    This writes to the same data/fail_alerts.json the facts checker uses, in
+    the same shape, because self_heal.py already sweeps that file for anything
+    logged in the last 24 hours and escalates it. Reusing the channel means a
+    dead slot reaches the healer without a second notification path to
+    maintain - and self_heal folds several alerts into ONE finding, so a
+    format failing every slot all afternoon still costs a single agent run.
+    """
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    try:
+        data = json.loads(ALERTS.read_text(encoding="utf-8")) if ALERTS.exists() else []
+        if not isinstance(data, list):
+            data = []
+    except Exception:
+        data = []
+    data.append({"at": stamp, "check": "psl_slot",
+                 "format": fmt or "?", "problems": problems})
+    try:
+        ALERTS.parent.mkdir(exist_ok=True)
+        ALERTS.write_text(json.dumps(data[-60:], indent=2), encoding="utf-8")
+    except Exception as e:
+        # An alert that cannot be written must not be the thing that kills the
+        # run - the builder failure is the news here, not the bookkeeping.
+        _log(f"could not write alert ({str(e)[:60]})")
 
 
 def _log(m):
@@ -302,7 +339,21 @@ async def decide() -> tuple[str, dict]:
         pick = ranked[0]
         if pick == "news":
             return "news", {"fid": fid}
-        return pick, {"fid": fid, "day": _today()}
+        ctx = {"fid": fid, "day": _today()}
+        if pick == "debate":
+            # debate joined the free rotation on 2026-08-27, but the group it
+            # argues about was only ever attached by the two fixture-window
+            # branches above. Picked from the free list - which is every slot
+            # once the fixture is more than DEBATE_WINDOW_H away - it reached
+            # the builder with no group at all and the run died on the lookup,
+            # taking the whole slot with it. Same rule as the windows: the
+            # next group this fixture has not argued about; once all three are
+            # spent, the one it has used least, so a long gap keeps rotating
+            # instead of stalling on an empty string.
+            used = done.get("debate_groups", [])
+            ctx["group"] = next((g for g in DEBATE_GROUPS if g not in used),
+                                min(DEBATE_GROUPS, key=used.count))
+        return pick, ctx
 
     return "news", {"fid": fid}
 
@@ -317,7 +368,23 @@ async def main():
     ap.add_argument("--post", action="store_true")
     ap.add_argument("--dry", action="store_true")
     a = ap.parse_args()
+    try:
+        return await _slot(a)
+    except Exception:
+        # decide() promises never to raise and the dispatch below was assumed
+        # safe, so nothing caught a crash between them - the run simply ended
+        # with a traceback and the slot stood empty. --dry is exempt: it is
+        # how this router gets probed by hand, and a probe must not wake the
+        # healer.
+        if not a.dry:
+            _alert(["SLOT CRASHED - no post went out",
+                    traceback.format_exc().strip().splitlines()[-1]],
+                   fmt="router")
+            _log("slot crashed - alert written for the self-heal sweep")
+        raise
 
+
+async def _slot(a):
     fmt, ctx = await decide()
     _log(f"format: {fmt.upper()}" + (f" ({ctx.get('group')})" if ctx.get("group") else ""))
     if a.dry:
@@ -399,6 +466,12 @@ async def main():
         _log(f"recorded {fmt} for fixture {ctx['fid']}")
     elif rc != 0:
         _log(f"builder exited {rc} — nothing recorded, next slot will retry")
+        # Only on a posting run. A build started by hand that fails is a
+        # person watching a terminal; a posting slot that fails is a hole in
+        # the page nobody is looking at.
+        if a.post:
+            _alert([f"{fmt} builder exited {rc} - the slot posted nothing; "
+                    f"see logs/psl_news.log for the builder output"], fmt=fmt)
     return rc
 
 
