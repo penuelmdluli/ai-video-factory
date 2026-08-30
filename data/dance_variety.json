@@ -1,0 +1,15 @@
+{
+  "used": [
+    "mkhulu|walk_in|braai"
+  ],
+  "counts": {
+    "mkhulu": 1,
+    "walk_in": 1,
+    "braai": 1,
+    "mkhulu|walk_in|braai": 1
+  },
+  "last": {
+    "combo": "mkhulu|walk_in|braai",
+    "at": "2026-08-30 20:37"
+  }
+}

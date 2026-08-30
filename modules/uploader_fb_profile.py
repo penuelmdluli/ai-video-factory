@@ -194,6 +194,7 @@ with sync_playwright() as pw:
         # publishes nothing, so the dry run is allowed to reach it and stop.
         submit = None
         for aria in ("Next", "Post"):
+            # aria-label equality, never :has-text - see the note on step two.
             loc = composer.locator("div[role='button'][aria-label='%s']" % aria)
             if loc.count():
                 submit = (aria, loc.first)
@@ -215,11 +216,21 @@ with sync_playwright() as pw:
         if submit[0] == "Next":
             # Step two. Post may take a moment to render.
             log("looking for Post on step two")
+            # EXACT aria-label only, and deliberately no text fallback.
+            # ':has-text("Post")' is a case-insensitive SUBSTRING match, and on
+            # step two it resolves to SIX elements - Post audience, Scheduling
+            # options, Share to groups, Save post as draft, Boost post, and the
+            # real Post. On step one it also matches 'Add to your post', which
+            # is what a comma-separated selector actually clicked on the first
+            # real attempt: Playwright returns comma matches in DOM order, not
+            # selector order, so the wrong one won and the post never went out.
+            # One of those neighbours SPENDS MONEY and another silently saves a
+            # draft, so a loose selector here is worse than no selector.
+            # aria-label='Post' resolves to exactly 1.
             posted_btn = None
             for _ in range(10):
                 loc = page.locator(
-                    "%s div[role='button'][aria-label='Post'], "
-                    "%s div[role='button']:has-text('Post')" % (SCOPE, SCOPE))
+                    "%s div[role='button'][aria-label='Post']" % SCOPE)
                 if loc.count():
                     posted_btn = loc.first
                     break
