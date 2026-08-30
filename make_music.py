@@ -299,6 +299,17 @@ async def post(video, cfg, mtype, visual_img):
     return res
 
 def main():
+    # SPEND GATE. The RunPod credit is dedicated to the 85K profile's dancing
+    # pipeline (owner call 2026-08-30). This script POSTs straight to a RunPod
+    # endpoint rather than going through modules/runpod_*, so the gate has to
+    # sit here too - and it must sit at the ENTRY, because a job that is merely
+    # queued still spends the moment workers are re-enabled for the profile.
+    from modules.runpod_guard import is_allowed
+    if not is_allowed():
+        print("[Music] stood down - RunPod credit is reserved for the profile "
+              "dancing pipeline (set RUNPOD_PURPOSE=dance to allow)")
+        return 0
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--type", default="rotate", choices=list(CONTENT) + ["rotate"])
     ap.add_argument("--minutes", type=float, default=0)  # 0 = per-type default length

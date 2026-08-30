@@ -23,6 +23,15 @@ def _key():
 
 def generate(image_path, output_path, prompt, width=832, height=480,
              num_frames=97, steps=40, seed=7, timeout=900):
+    # SPEND GATE. The RunPod credit is dedicated to the 85K profile's dancing
+    # pipeline (owner call 2026-08-30); everything else degrades to its local
+    # path rather than billing against it. See modules/runpod_guard.py.
+    from modules.runpod_guard import is_allowed
+    if not is_allowed():
+        print("[RunPodLTX] blocked - RunPod credit is reserved for the profile "
+              "dancing pipeline (set RUNPOD_PURPOSE=dance to allow)")
+        return None
+
     key = _key()
     if not key:
         print("[RunPodLTX] no RUNPOD_API_KEY"); return None

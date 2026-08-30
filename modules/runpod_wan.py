@@ -82,6 +82,15 @@ def generate(image_path, output_path, prompt, width=832, height=480,
     # Hard kill switch. Unsetting RUNPOD_WAN_ENDPOINT_ID in the shell does NOT work
     # because config loads .env with override=True and puts it straight back — so
     # this reads a var that is deliberately NOT in .env.
+    # SPEND GATE. The RunPod credit is dedicated to the 85K profile's dancing
+    # pipeline (owner call 2026-08-30); everything else degrades to its local
+    # path rather than billing against it. See modules/runpod_guard.py.
+    from modules.runpod_guard import is_allowed
+    if not is_allowed():
+        print("[RunPodWan] blocked - RunPod credit is reserved for the profile "
+              "dancing pipeline (set RUNPOD_PURPOSE=dance to allow)")
+        return None
+
     if os.getenv("DISABLE_RUNPOD_WAN", "").lower() in ("true", "1", "yes"):
         return None
 

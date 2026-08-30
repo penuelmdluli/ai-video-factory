@@ -85,4 +85,11 @@ def populate(n=4):
 
 
 if __name__ == "__main__":
+    # SPEND GATE - see modules/runpod_guard.py. The credit belongs to the
+    # 85K profile's dancing pipeline until the owner widens it.
+    from modules.runpod_guard import is_allowed
+    if not is_allowed():
+        print("[MusicLibrary] stood down - RunPod credit is reserved for "
+              "the profile dancing pipeline (set RUNPOD_PURPOSE=dance)")
+        raise SystemExit(0)
     populate(4)

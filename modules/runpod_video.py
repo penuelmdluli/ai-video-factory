@@ -111,6 +111,15 @@ def generate(output_path, prompt="", width=480, height=832, duration=5,
     ~26GB of weights at boot — that alone can take 5-8 min. Warm clips finish in
     ~60-120s. (A models-baked-in image would make cold starts near-instant.)
     """
+    # SPEND GATE. The RunPod credit is dedicated to the 85K profile's dancing
+    # pipeline (owner call 2026-08-30); everything else degrades to its local
+    # path rather than billing against it. See modules/runpod_guard.py.
+    from modules.runpod_guard import is_allowed
+    if not is_allowed():
+        print("[RunPod] blocked - RunPod credit is reserved for the profile "
+              "dancing pipeline (set RUNPOD_PURPOSE=dance to allow)")
+        return None
+
     key, endpoint = _cfg()
     if not key:
         print("[RunPod] RUNPOD_API_KEY not set")

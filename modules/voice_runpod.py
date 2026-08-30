@@ -279,6 +279,15 @@ async def generate_voice_runpod(
     Never raises.
     """
     try:
+        # SPEND GATE. The RunPod credit is dedicated to the 85K profile's dancing
+        # pipeline (owner call 2026-08-30); everything else degrades to its local
+        # path rather than billing against it. See modules/runpod_guard.py.
+        from modules.runpod_guard import is_allowed
+        if not is_allowed():
+            print("[Voice/runpod] blocked - RunPod credit is reserved for the profile "
+                  "dancing pipeline (set RUNPOD_PURPOSE=dance to allow)")
+            return None
+
         base_url = _normalize_endpoint(endpoint)
         if not base_url or not api_key:
             return None
