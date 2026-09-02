@@ -353,11 +353,16 @@ async def main(a) -> int:
             exposed = None
             back_line = sorted(positions.items(), key=lambda kv: -kv[1][1])[1:5]
             exposed = min(back_line, key=lambda kv: kv[1][1])[0]
-            opp_deep = max(opp_positions.items(), key=lambda kv: kv[1][1])[0]
-            # Their most advanced man is the one who breaks - the striker, the
-            # player already highest up when we lose it.
-            opp_top = min(opp_positions.items(), key=lambda kv: kv[1][1])
-            runner_pid = opp_top[0]
+            # THEIR SHAPE IS MIRRORED, so their most advanced man has the
+            # HIGHEST y, not the lowest - their keeper sits at the top of the
+            # frame because their goal is up there. Taking min(y) handed the
+            # counter to Phoko, their goalkeeper, who duly ran the length of
+            # the pitch and scored. Their forwards are max(y).
+            advanced = sorted(opp_positions.items(), key=lambda kv: -kv[1][1])
+            runner_pid = advanced[0][0]
+            # The break STARTS from the man behind him, so the ball travels
+            # between two of their players rather than appearing at his feet.
+            opp_deep = advanced[1][0] if len(advanced) > 1 else runner_pid
             concede = {
                 "exposed": exposed,
                 "from": opp_positions[opp_deep],
@@ -703,6 +708,7 @@ async def main(a) -> int:
     if a.music:
         try:
             from moviepy import afx
+            from modules.sfx_manager import get_sfx_sync
             mp = Path(a.music)
             if not mp.exists():
                 raise FileNotFoundError(mp)
@@ -710,8 +716,32 @@ async def main(a) -> int:
             reps = max(1, int(dd / max(0.5, src.duration)) + 1)
             bed = concatenate_audioclips([src] * reps).subclipped(0, dd)
             tracks.append(bed.with_effects([afx.MultiplyVolume(a.music_vol)]))
-            _log(f"music: {mp.name} ({src.duration:.1f}s looped x{reps}) "
-                 f"at {a.music_vol} — all generated SFX off")
+
+            # MATCH SOUND ON TOP OF THE MUSIC. Owner 2026-09-03: "bring back
+            # the goal fan sound and also the pass ball sound as they are
+            # playing... lower the sound a bit and keep rotating it."
+            #
+            # The music-only build dropped every SFX because he had asked for
+            # his track ALONE; he has since asked for both, so the music ducks
+            # to make room rather than the effects being left out. The crowd
+            # AMBIENCE stays off - that is the one layer the music genuinely
+            # replaces, and running both would just be mud under the voice.
+            kick = get_sfx_sync("ball_kick", force=True)
+            if kick:
+                for k in kick_times:
+                    tracks.append(AudioFileClip(kick)
+                                  .with_effects([afx.MultiplyVolume(0.34)])
+                                  .with_start(min(k, dd - 0.6)))
+            roar = (get_sfx_sync("sa_goal_roar", force=True)
+                    or get_sfx_sync("goal_roar", force=True))
+            if roar:
+                for g in goal_times:
+                    tracks.append(AudioFileClip(roar)
+                                  .with_effects([afx.MultiplyVolume(0.26)])
+                                  .with_start(min(g, dd - 1.0)))
+            _log(f"music: {mp.name} at {a.music_vol} + "
+                 f"{len(kick_times)} kicks + {len(goal_times)} roars "
+                 f"(crowd bed off — the music is the room)")
         except Exception as ex:
             _log(f"music failed ({str(ex)[:80]}) — falling back to silence "
                  f"rather than the sounds you asked me to remove")
@@ -818,7 +848,7 @@ if __name__ == "__main__":
     ap.set_defaults(concede=True)
     ap.add_argument("--music", default="",
                     help="use ONLY this audio file — no generated SFX at all")
-    ap.add_argument("--music-vol", dest="music_vol", type=float, default=0.18,
+    ap.add_argument("--music-vol", dest="music_vol", type=float, default=0.13,
                     help="how loud the music sits UNDER the narration. 0.30 "
                          "buried the commentator - owner 2026-09-02: 'the "
                          "music is a bit louder, we cant hear the commentator "
