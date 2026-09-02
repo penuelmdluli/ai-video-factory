@@ -269,16 +269,54 @@ class Board:
                 # tackle, and this is our move, not theirs.
                 dx += (bx - x) * 0.45
                 dy += (by - y) * 0.45
-            out[pid] = (min(0.97, max(0.03, x + dx)),
-                        min(0.97, max(0.03, y + dy)))
+            out[pid] = self._alive(pid, (x + dx, y + dy), t)
         return out
+
+    def _alive(self, pid: str, xy, t: float, keeper: bool = False):
+        """Nobody stands still.
+
+        Owner 2026-09-03: "all players should smoothly be moving on their
+        position line, covering for each other... even a keeper is moving, no
+        player is standing still, this must be live."
+
+        Between keyframes every player was frozen, so ten men waited politely
+        while the eleventh made a pass. Real players are never still - they
+        shuffle across, adjust to the man beside them, come short, drop off.
+
+        Two sine waves at different rates, with a phase taken from the player's
+        own id, so each man wanders on his own rhythm and the eleven never fall
+        into step. Sideways travel is wider than forward travel because a line
+        holds its depth and slides across - a back four that drifted up and
+        down independently would break the offside line it exists to keep.
+
+        The keeper moves too, at a third of the amplitude: he is alive, but he
+        is not leaving his six-yard box to join in.
+        """
+        import math
+        seed = (hash(pid) % 997) / 997.0
+        ph = seed * 6.283
+        amp = 0.0045 if keeper else 0.013
+        dx = math.sin(t * 0.9 + ph) * amp
+        dy = math.sin(t * 0.63 + ph * 1.7) * amp * 0.55
+        return (min(0.97, max(0.03, xy[0] + dx)),
+                min(0.97, max(0.03, xy[1] + dy)))
 
     def _pos_at(self, t: float) -> dict:
         ks = self.keys
         if not ks:
             return {}
+
+        def live(d):
+            # The deepest man on the board is the keeper - amplitude is cut for
+            # him rather than requiring callers to tell us who he is.
+            if not d:
+                return d
+            gk = max(d.items(), key=lambda kv: kv[1][1])[0]
+            return {pid: self._alive(pid, xy, t, keeper=(pid == gk))
+                    for pid, xy in d.items()}
+
         if t <= ks[0][0]:
-            return ks[0][1]
+            return live(ks[0][1])
         for (t0, p0), (t1, p1) in zip(ks, ks[1:]):
             if t0 <= t <= t1:
                 u = _ease((t - t0) / max(t1 - t0, 1e-6))
@@ -287,8 +325,8 @@ class Board:
                     xy1 = p1.get(pid, xy0)
                     out[pid] = (xy0[0] + (xy1[0] - xy0[0]) * u,
                                 xy0[1] + (xy1[1] - xy0[1]) * u)
-                return out
-        return ks[-1][1]
+                return live(out)
+        return live(ks[-1][1])
 
     def _px(self, fx, fy):
         return (int(60 + fx * (W - 120)),
