@@ -296,7 +296,8 @@ async def recent_starts(club_key: str, matches: int = 4) -> tuple[dict, str | No
     return counts, formation
 
 
-async def recent_positions(club_key: str, matches: int = 4) -> dict:
+async def recent_positions(club_key: str, matches: int = 4,
+                           mode: str = "latest") -> dict:
     """{surname: ESPN position abbreviation} from recent real team sheets.
 
     Separate from recent_starts() rather than bolted onto its return value,
@@ -329,11 +330,30 @@ async def recent_positions(club_key: str, matches: int = 4) -> dict:
 
     from modules.psl_fixtures import official_lineups
     out: dict = {}
+    tally: dict = {}
     # Oldest first so the most recent sheet overwrites, not the other way round.
     for e in reversed(done[:matches]):
         sheet = (await official_lineups(str(e["id"]))).get(club_key)
         if sheet and sheet.get("positions"):
             out.update(sheet["positions"])
+            for sur, abbr in sheet["positions"].items():
+                tally.setdefault(sur, {})
+                tally[sur][abbr] = tally[sur].get(abbr, 0) + 1
+
+    if mode == "frequent":
+        # Where a man USUALLY plays, not where he played once.
+        #
+        # "latest" is right for a line-up card - it places him where the coach
+        # last put him. It is wrong for a role analysis: Monyane was RM in one
+        # 3-4-3 and RB in the match before, so latest-wins would teach "how a
+        # modern right winger plays" about a full back, which is precisely the
+        # wrong-position complaint this data was added to fix.
+        # Ties break towards the most recent, since `out` already holds it.
+        for sur, counts in tally.items():
+            best = max(counts.values())
+            if counts.get(out.get(sur, ""), 0) == best:
+                continue                      # latest is already a top choice
+            out[sur] = max(counts, key=lambda a: (counts[a], a == out.get(sur)))
     if out:
         print(f"[Squads] {club_key}: side data for {len(out)} players from real sheets")
     return out
