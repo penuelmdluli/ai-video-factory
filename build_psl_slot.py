@@ -69,9 +69,12 @@ DEBATE_GROUPS = ["forwards", "midfield", "defence"]
 # on a hunch and the hunch was wrong; they are out of the rotation. The three
 # that remain all do the same thing - they hand the fan a job he wants: count
 # himself in, correct our XI, or pick between men he has opinions about.
-FREE_FORMATS = ("rollcall", "xi", "debate", "fancall", "news")
+# "love" joined on 2026-09-02 (owner: "fans love to send love for the love of
+# the club"). It earns its slot like everything else - format_intel gives an
+# unproven format exactly 1.0, so it competes without being handed the week.
+FREE_FORMATS = ("rollcall", "xi", "debate", "fancall", "love", "news")
 
-ONCE_PER_DAY = ("debate", "fancall", "rollcall", "xi")
+ONCE_PER_DAY = ("debate", "fancall", "rollcall", "xi", "love")
 
 # The last hours before kickoff belong to the confirmed XI reel, which
 # matchday.py posts off the real team sheet ~75 minutes out. The same
@@ -437,6 +440,21 @@ async def _slot(a):
             _log(f"gaps verdict skipped: {str(e)[:80]}")
         rc = _run(["py", "build_fill_the_gaps.py", "--club", CLUB, "--video"]
                   + post)
+    elif fmt == "love":
+        # WALL FIRST, then the next question - the same order as fancall, and
+        # for the same reason: the card promises "the best go on a card with
+        # your name on it", so the page must never ask a second time while the
+        # first answer is still owed. The wall exits non-zero when there is no
+        # open ask or too few supporters, which is normal and must not stop the
+        # new question going out.
+        try:
+            wrc = _run(["py", "build_love_post.py", "--club", CLUB, "--wall"]
+                       + post)
+            _log("love wall posted" if wrc == 0 else
+                 "no love wall due (no open ask, or too few supporters)")
+        except Exception as e:
+            _log(f"love wall skipped: {str(e)[:80]}")
+        rc = _run(["py", "build_love_post.py", "--club", CLUB, "--ask"] + post)
     elif fmt == "debate":
         # The reveal treatment replaced the flat card sequence: same six names,
         # staged one at a time behind a loader, which is what the lineup format
