@@ -240,12 +240,21 @@ async def main(a) -> int:
     try:
         from moviepy import afx
         from modules.sfx_manager import get_sfx_sync
-        amb = get_sfx_sync("stadium_ambience", force=True)
+        # The bed rotates so consecutive simulations do not sound identical -
+        # a chant one day, drums the next, plain ambience the third. Original
+        # generated audio, not lifted from anybody's reel.
+        beds = ["terrace_chant", "chant_drums", "stadium_ambience"]
+        bed_name = a.bed if a.bed in beds else beds[datetime.now().day % len(beds)]
+        amb = get_sfx_sync(bed_name, force=True) or             get_sfx_sync("stadium_ambience", force=True)
         if amb:
             bed = AudioFileClip(amb)
             reps = max(1, int(dd / max(0.5, bed.duration)) + 1)
             bed = concatenate_audioclips([bed] * reps).subclipped(0, dd)
-            tracks.append(bed.with_effects([afx.MultiplyVolume(0.15)]))
+            # Chants carry more energy than ambience, so they sit lower under
+            # the voice - the narration is still the reel.
+            vol = 0.13 if bed_name != "stadium_ambience" else 0.15
+            tracks.append(bed.with_effects([afx.MultiplyVolume(vol)]))
+            _log(f"crowd bed: {bed_name}")
         kick = get_sfx_sync("ball_kick", force=True)
         if kick:
             for t in kick_times:
@@ -291,5 +300,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--club", default="chiefs")
     ap.add_argument("--goals", type=int, default=3)
+    ap.add_argument("--bed", default="",
+                    help="terrace_chant | chant_drums | stadium_ambience")
     ap.add_argument("--post", action="store_true")
     raise SystemExit(asyncio.run(main(ap.parse_args())))

@@ -217,6 +217,29 @@ SFX_LIBRARY = {
                   "occasional singing, distant, no music",
         "duration": 10.0,
     },
+    # TERRACE CHANTS — original, generated, ours.
+    #
+    # Owner 2026-09-02 asked to lift the music from two Facebook reels: "this
+    # music is available on Facebook, surely we can use it too." Facebook's
+    # library is licensed for use INSIDE their own tools - a person tapping
+    # "add music" in the app - and that does not extend to extracting the audio
+    # and embedding it in a file we upload through the API. The realistic
+    # outcome is muted audio, a removed post, or a restricted page, which on a
+    # page this size costs far more than silence.
+    #
+    # So the feeling is generated rather than borrowed: a stand singing, drums,
+    # no melody anybody owns. Free after the first call, and unlimited.
+    "terrace_chant": {
+        "prompt": "Large football crowd singing a rhythmic terrace chant "
+                  "together, deep male voices, hand claps and a bass drum, "
+                  "stadium reverb, no instruments, no melody",
+        "duration": 12.0,
+    },
+    "chant_drums": {
+        "prompt": "African stadium supporters drumming a steady rhythm with "
+                  "vuvuzela hum underneath, energetic, live crowd, no music",
+        "duration": 10.0,
+    },
     "crowd_gasp": {
         "prompt": "Audience crowd gasping in shock, surprised reaction",
         "duration": 1.2,
