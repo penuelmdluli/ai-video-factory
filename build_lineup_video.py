@@ -798,6 +798,16 @@ async def main():
                                if w.strip()])
             except Exception as e:
                 _log(f"variety ledger not updated: {str(e)[:80]}")
+            # The ELEVEN that went out, not just the shape and the bold call.
+            # Rotating those two moved exactly one shirt per card; charging
+            # every published name for its exposure is what actually changes
+            # the faces on the next one. Same placement, same reason: only a
+            # confirmed publish spends a player's turn.
+            try:
+                from modules.player_rotation import record_featured
+                record_featured(a.club, xi)
+            except Exception as e:
+                _log(f"rotation ledger not updated: {str(e)[:80]}")
     return 0
 
 

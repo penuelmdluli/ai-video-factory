@@ -303,7 +303,8 @@ async def predict_xi(club_key: str, formation: str | None = None,
 
 
 async def predict_xi2(club_key: str, formation: str | None = None,
-                      force_refresh: bool = False) -> tuple[list[str], str]:
+                      force_refresh: bool = False,
+                      force_in: list[str] | None = None) -> tuple[list[str], str]:
     """
     A plausible XI drawn ONLY from the current squad, ranked by RECENT REAL
     STARTS (last matches' team sheets), then shirt number. Injured/suspended
@@ -320,6 +321,27 @@ async def predict_xi2(club_key: str, formation: str | None = None,
     starts, recent_formation = await recent_starts(club_key)
     if not formation:
         formation = recent_formation or "4-3-3"
+
+    # Bold calls from modules/lineup_variety.py. Ranking is by RECENT STARTS,
+    # so a man who has not started cannot rise into the XI on merit - which is
+    # precisely what makes him a bold call, and precisely why he never appeared
+    # when the rotation asked for him. Promoting him here is the difference
+    # between a rotation that changes the card and one that only changes a
+    # label on it.
+    forced = {str(n).strip().lower() for n in (force_in or []) if str(n).strip()}
+
+    # Charge for over-exposure. Ranking on starts alone is a TOTAL ORDER over a
+    # squad that barely changes, so it returns the same ten names forever - five
+    # builds on 2 Sep differed by exactly one shirt despite five formations and
+    # five bold calls. Subtracting a penalty per recent appearance lets a squad
+    # man who has fronted nothing overtake a regular who has fronted everything,
+    # without ever picking at random: every name is still ordered by form.
+    try:
+        from modules.player_rotation import exposure_penalty
+        penalty = exposure_penalty(club_key)
+    except Exception as e:
+        print(f"[Squads] rotation penalty unavailable ({e}) — ranking on form only")
+        penalty = {}
     need = {"GK": 1}
     lines = [int(n) for n in str(formation).split("-") if n.strip().isdigit()]
     if len(lines) == 3:
@@ -336,9 +358,11 @@ async def predict_xi2(club_key: str, formation: str | None = None,
         return w[-1] if w else n
 
     def _key(p):
-        # most recent real starts first, then established shirt numbers
+        # forced picks first, then form MINUS recent exposure, then shirt number
         shirt = int(p["no"]) if p["no"].isdigit() else 99
-        return (-starts.get(surname(p["name"]).lower(), 0), shirt)
+        sn = surname(p["name"]).lower()
+        score = starts.get(sn, 0) - penalty.get(sn, 0.0)
+        return (0 if sn in forced else 1, -score, shirt)
 
     xi = []
     for pos in ("GK", "DF", "MF", "FW"):

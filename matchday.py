@@ -65,9 +65,36 @@ async def cmd_lineup(a, predicted: bool):
     elif predicted:
         from modules.psl_squads import predict_xi2
         # matchday content must never run on a stale roster — always re-pull.
-        # formation "auto" (the default) uses the club's latest REAL formation.
-        want = None if a.formation in ("", "auto") else a.formation
-        players, a.formation = await predict_xi2(a.club, want, force_refresh=True)
+        #
+        # "auto" used to mean "the club's latest REAL formation", and that is
+        # why the shape never changed: the coach keeps a shape for weeks, so
+        # every card for weeks was 3-4-3. modules/lineup_variety.py has rotated
+        # five real shapes and a bold call since 28 Aug and NOTHING on this
+        # path ever asked it — the automated router passes formation="auto",
+        # which went straight to the last team sheet. The rotation existed, ran,
+        # recorded itself, and never reached a single card.
+        #
+        # "auto" now means ROTATE. The card is stamped GENESIS NEWS PREDICTION —
+        # NOT THE OFFICIAL TEAM SHEET, so a shape we argue for is the format
+        # working as intended, and the shapes are ones Chiefs actually play,
+        # not novelty. "real" is kept as the escape hatch for anyone who wants
+        # the honest mirror of the last sheet.
+        calls = []
+        if a.formation in ("", "auto"):
+            try:
+                from modules.lineup_variety import pick as _variety_pick
+                want, calls = await _variety_pick(a.club)
+                print(f"[Matchday] variety: {want}"
+                      + (f" + bold call {', '.join(calls)}" if calls else ""))
+            except Exception as e:
+                print(f"[Matchday] variety unavailable ({e}) — using real shape")
+                want = None
+        elif a.formation == "real":
+            want = None
+        else:
+            want = a.formation
+        players, a.formation = await predict_xi2(a.club, want, force_refresh=True,
+                                                 force_in=calls)
         if not players:
             raise SystemExit(f"no live squad for '{a.club}' — pass --players manually")
     else:
