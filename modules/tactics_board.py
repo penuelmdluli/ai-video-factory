@@ -757,15 +757,33 @@ class Board:
             span = max(a["t1"] - a["t0"], 1e-6)
             u = (t - a["t0"]) / span
             for i in range(a["count"]):
-                seed = ((i * 7919) % 997) / 997.0
-                lag = seed * 0.35
+                # THREE INDEPENDENT SEEDS. One seed drove x, size AND start
+                # time, so consecutive hearts stepped right and started later
+                # together - fourteen hearts in a neat diagonal, which reads as
+                # a formation rather than a crowd. Different multipliers and
+                # moduli decorrelate the three.
+                # A multiplicative hash, not (i * prime) % prime. The
+                # modular version has a CONSTANT stride, so consecutive hearts
+                # stepped evenly across the frame however the primes were
+                # chosen - a neat diagonal first, then a neat diagonal the
+                # other way. This scatters properly.
+                def _h(k, salt):
+                    v = ((k + salt) * 2654435761) & 0xFFFFFFFF
+                    v ^= v >> 15
+                    v = (v * 2246822519) & 0xFFFFFFFF
+                    v ^= v >> 13
+                    return (v % 10000) / 10000.0
+
+                seed = _h(i, 11)                     # across
+                lag = _h(i, 733) * 0.55              # when
+                grow = _h(i, 4177)                   # how big
                 k = (u - lag) / max(1e-6, 1 - lag)
                 if k <= 0 or k >= 1:
                     continue
                 hx = 70 + seed * (W - 140)
                 hx += math.sin(k * 6.0 + seed * 6.283) * 26      # drift
                 hy = H - 240 - k * (H * 0.62)
-                sz = 30 + seed * 30
+                sz = 26 + grow * 34
                 alpha = int(210 * min(1.0, k * 4) * (1 - k) ** 0.7)
                 if alpha <= 2:
                     continue
