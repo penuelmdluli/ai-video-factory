@@ -352,6 +352,70 @@ async def main(a) -> int:
     # THE CROWD IS IN FROM THE FIRST FRAME, not just over one chapter. This is
     # a match, so it sounds like one throughout.
     tracks = [audio]
+
+    # OWNER'S OWN TRACK, and nothing else.
+    #
+    # Owner 2026-09-02: "here is my sound music, please remove all the vuvuzela
+    # sound and all you have used and only use <file>." So when --music is set
+    # every generated layer is skipped - no crowd bed, no kicks, no roar. Not
+    # reduced, SKIPPED: he asked for his track alone, and a boot sample landing
+    # over a song he chose is the opposite of what he asked for.
+    #
+    # It loops to cover the reel and sits under the narration, because the
+    # commentary is still the reel.
+    # Default to the owner's library, rotating. "From now on all our videos
+    # should use this music, both, change it around always" - so no flag is
+    # needed for the normal case; --music only overrides the choice.
+    if not a.music and not a.bed:
+        try:
+            from modules.owner_music import next_track
+            a.music = next_track()
+        except Exception as ex:
+            _log(f"music library unavailable ({str(ex)[:60]})")
+
+    if a.music:
+        try:
+            from moviepy import afx
+            mp = Path(a.music)
+            if not mp.exists():
+                raise FileNotFoundError(mp)
+            src = AudioFileClip(str(mp))
+            reps = max(1, int(dd / max(0.5, src.duration)) + 1)
+            bed = concatenate_audioclips([src] * reps).subclipped(0, dd)
+            tracks.append(bed.with_effects([afx.MultiplyVolume(a.music_vol)]))
+            _log(f"music: {mp.name} ({src.duration:.1f}s looped x{reps}) "
+                 f"at {a.music_vol} — all generated SFX off")
+        except Exception as ex:
+            _log(f"music failed ({str(ex)[:80]}) — falling back to silence "
+                 f"rather than the sounds you asked me to remove")
+        video = CompositeVideoClip(layers, size=(W, H)).with_duration(dd)
+        video = video.with_audio(CompositeAudioClip(tracks).with_duration(dd))
+        out = work / "final.mp4"
+        video.write_videofile(str(out), fps=30, codec="libx264",
+                              audio_codec="aac", logger=None,
+                              preset="medium", threads=4)
+        cover = work / "cover.png"
+        try:
+            VideoFileClip(str(clips[0])).save_frame(str(cover), t=1.2)
+        except Exception:
+            cover = None
+        write_manifest(SCRIPT, str(out), work, voice,
+                       [{"path": str(cover or clips[0]),
+                         "credit": "Genesis News", "archive_year": "",
+                         "club": a.club, "real": True}])
+        _log(f"video: {out} ({dd:.1f}s, {len(clips)} chapters)")
+        if a.post:
+            await post_to_page(work)
+            try:
+                from modules.owner_music import record_used
+                record_used(a.music)      # only after a confirmed post
+            except Exception:
+                pass
+            _log("POSTED")
+        else:
+            _log("dry run — pass --post to publish")
+        return 0
+
     try:
         from moviepy import afx
         from modules.sfx_manager import get_sfx_sync
@@ -422,6 +486,10 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--club", default="chiefs")
     ap.add_argument("--goals", type=int, default=3)
+    ap.add_argument("--music", default="",
+                    help="use ONLY this audio file — no generated SFX at all")
+    ap.add_argument("--music-vol", dest="music_vol", type=float, default=0.30,
+                    help="how loud the music sits under the narration")
     ap.add_argument("--bed", default="",
                     help="terrace_chant | chant_drums | stadium_ambience")
     ap.add_argument("--post", action="store_true")
