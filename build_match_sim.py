@@ -358,7 +358,19 @@ async def main(a) -> int:
             concede = {
                 "exposed": exposed,
                 "from": opp_positions[opp_deep],
-                "to": (positions[exposed][0], 0.90),
+                # INTO OUR NET. This was (exposed_player_x, 0.90) - short of
+                # the line and off to one side - so the "goal" was a ball
+                # rolling into empty grass. Our goal is bottom-centre, exactly
+                # as theirs is top-centre at (0.5, 0.03), and a goal that does
+                # not reach the goal is the one thing in this reel a supporter
+                # cannot forgive.
+                "through": (positions[exposed][0], 0.78),
+                # BEAT THE KEEPER, do not hit him. Dead centre put the ball
+                # on top of our goalkeeper at (0.5, 0.92) - technically in the
+                # goal, visually a comfortable save. It finishes to the far
+                # side from where the break came, which is both what a finisher
+                # actually does and what reads as a goal on a small screen.
+                "to": (0.66 if positions[exposed][0] < 0.5 else 0.34, 0.98),
                 "scorer": opp_players.get(opp_top[0], {}).get("name", ""),
                 "gap": positions[exposed],
             }
@@ -603,8 +615,14 @@ async def main(a) -> int:
                         min(0.98, gx + 0.16), min(0.98, gy + 0.12)),
                color=(235, 60, 60), label="OPEN")
         b.ring(0.2, d, concede["exposed"], color=(235, 60, 60))
-        b.ball([(d * 0.25, concede["from"]), (d * 0.80, concede["to"])])
-        b.arrow(d * 0.25, d * 0.85, concede["from"], concede["to"],
+        # Two legs, because that is how a counter actually arrives: through
+        # the space he left, and only then a finish across the keeper.
+        b.ball([(d * 0.22, concede["from"]),
+                (d * 0.58, concede["through"]),
+                (d * 0.84, concede["to"])])
+        b.arrow(d * 0.22, d * 0.62, concede["from"], concede["through"],
+                color=(235, 60, 60), label="IN BEHIND")
+        b.arrow(d * 0.58, d * 0.86, concede["through"], concede["to"],
                 color=(235, 60, 60))
         b.goal(d * 0.86, d, scorer=concede["scorer"] or opp.upper(), assist="")
         # The one we concede slows too - a warning you can actually watch land.
