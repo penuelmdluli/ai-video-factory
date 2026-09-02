@@ -461,8 +461,20 @@ async def main(a) -> int:
     video.write_videofile(str(out), fps=30, codec="libx264",
                           audio_codec="aac", logger=None,
                           preset="medium", threads=4)
+    # The cover has to be an IMAGE. clips[0] is an .mp4, so passing it here
+    # made the thumbnail engine fail every build with "cannot identify image
+    # file _c00.mp4" and the reel went out with no custom cover at all - a
+    # silent quality loss on a flagship format. Grab a frame from the opening
+    # chapter instead, which is the whole XI under the fixture header and the
+    # best single still this reel produces.
+    cover = work / "cover.png"
+    try:
+        VideoFileClip(str(clips[0])).save_frame(str(cover), t=0.6)
+    except Exception as ex:
+        _log(f"cover frame failed ({str(ex)[:60]}) — posting without one")
+        cover = None
     write_manifest(SCRIPT, str(out), work, voice,
-                   [{"path": str(clips[0]), "credit": "Genesis News",
+                   [{"path": str(cover or clips[0]), "credit": "Genesis News",
                      "archive_year": "", "club": a.club, "real": True}])
     _log(f"video: {out} ({dd:.1f}s, {len(clips)} chapters)")
 
