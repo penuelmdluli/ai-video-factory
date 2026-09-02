@@ -744,11 +744,41 @@ class Board:
                    fill=(235, 238, 242))
         return im
 
+    def slow_motion(self, t0: float, t1: float, factor: float = 0.35):
+        """Run the board in SLOW MOTION between t0 and t1.
+
+        Owner 2026-09-03: "we can show a goal slow motion."
+
+        Every broadcast slows the finish, and the reason is not decoration: the
+        moment the ball crosses the line is the only moment the viewer wants to
+        look at twice, and at full speed a 24px ball covers it in four frames.
+
+        This warps TIME rather than the animation, so the ball, all
+        twenty-two players, the arrows and the pressing defender all slow
+        together - a shot that slowed while the players carried on would look
+        broken. Board time keeps advancing at `factor` through the window and
+        continues from wherever it reached, so nothing is skipped and the
+        chapter still fills its slot.
+        """
+        self._slow = (t0, t1, max(0.05, factor))
+
+    def _warp(self, t: float) -> float:
+        """Real frame time -> board time, honouring any slow-motion window."""
+        w = getattr(self, "_slow", None)
+        if not w:
+            return t
+        t0, t1, f = w
+        if t <= t0:
+            return t
+        if t >= t1:
+            return t0 + (t1 - t0) * f + (t - t1)
+        return t0 + (t - t0) * f
+
     def render(self, out_path, duration: float, fps: int = 30) -> str:
         import numpy as np
         from moviepy import VideoClip
         clip = VideoClip(
-            lambda t: np.array(self._frame(t)), duration=duration)
+            lambda t: np.array(self._frame(self._warp(t))), duration=duration)
         clip.write_videofile(str(out_path), fps=fps, codec="libx264",
                              audio=False, logger=None, preset="medium")
         return str(out_path)

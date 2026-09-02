@@ -370,10 +370,11 @@ async def main(a) -> int:
 
     if concede:
         scenes.append({"narration":
-                       f"But here is the warning. "
+                       f"But here is the warning. Watch it again slowly. "
                        f"{players[concede['exposed']]['name'].title()} is the "
                        f"one who goes, and when he goes that space is open. "
-                       f"{opp} get in behind, and it is one back."})
+                       f"{opp} get in behind, and it is one back. Do you see "
+                       f"that happening on Sunday?"})
 
     tally_w = ["nil", "one", "two", "three", "four", "five"]
     said = (f"{tally_w[min(len(goals), 5)]} {'one' if concede else 'nil'}")
@@ -570,6 +571,18 @@ async def main(a) -> int:
                            positions[chain[k + 1]])
         b.goal(d * 0.90, d, scorer=scorer, assist=assist)
         b.stat(d * 0.94, d, f"{running}-0", scorer)
+        # SLOW MOTION on the finish. The shot and the net are the only two
+        # seconds a viewer wants to see twice, and at full speed the ball
+        # crosses the line in four frames.
+        b.slow_motion(d * 0.72, d * 0.93, factor=0.40)
+        # HOW IT HAPPENED, landed inside the slow motion. Owner: "showing how
+        # it happened, or highlight, but still engaging with the fans." The
+        # replay beat is where a viewer is already looking hardest, so it is
+        # the one moment worth spending on the build-up rather than the ball -
+        # who started it, how many touches, who finished.
+        b.stat(d * 0.74, d * 0.90,
+               f"{len(chain) - 1} PASSES",
+               f"{players[chain[0]]['name']} → {scorer}")
         goal_times.append(t0 + d * 0.90)
         clips.append(b.render(work / f"_g{i}.mp4", duration=d))
         t0 += d
@@ -594,6 +607,8 @@ async def main(a) -> int:
         b.arrow(d * 0.25, d * 0.85, concede["from"], concede["to"],
                 color=(235, 60, 60))
         b.goal(d * 0.86, d, scorer=concede["scorer"] or opp.upper(), assist="")
+        # The one we concede slows too - a warning you can actually watch land.
+        b.slow_motion(d * 0.62, d * 0.88, factor=0.45)
         b.stat(d * 0.90, d, f"{len(goals)}-1", opp.upper())
         goal_times.append(t0 + d * 0.86)
         kick_times.append(t0 + d * 0.25)
