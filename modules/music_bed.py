@@ -34,8 +34,27 @@ def add_bed(video_path, out_path, niche: str, duration: float,
     """
     video_path, out_path = Path(video_path), Path(out_path)
     try:
-        from modules.ace_music import get_ace_music_sync
-        bed = get_ace_music_sync(niche, duration=duration)
+        # THE OWNER'S OWN TRACKS COME FIRST.
+        #
+        # Owner 2026-09-02: "from now on all our videos should use this music,
+        # both, change it around always" - and then "use the music on all our
+        # videos". Every Genesis builder that scores a reel goes through this
+        # one function (lineup, official XI, matchday hype, prematch, gaps,
+        # news), so routing it here is what makes "all our videos" true rather
+        # than six separate edits that drift apart.
+        #
+        # The generated instrumental stays as the fallback for the day the
+        # library is empty - a silent reel would be worse than a generic bed.
+        bed, owner = "", False
+        try:
+            from modules.owner_music import next_track, record_used
+            bed = next_track()
+            owner = bool(bed)
+        except Exception as e:
+            log(f"[Music] owner library unavailable ({str(e)[:60]})")
+        if not bed:
+            from modules.ace_music import get_ace_music_sync
+            bed = get_ace_music_sync(niche, duration=duration)
         if not bed or not Path(bed).exists():
             log("[Music] no bed available — voice only")
             return video_path
@@ -63,7 +82,18 @@ def add_bed(video_path, out_path, niche: str, duration: float,
             str(out_path), codec="libx264", audio_codec="aac", logger=None)
         v.close()
         m.close()
-        log(f"[Music] instrumental bed mixed at {int(vol * 100)}%")
+        if owner:
+            # Recorded on a successful MIX rather than on a confirmed post,
+            # unlike the other ledgers here. add_bed has no idea whether the
+            # caller will publish, and with a two-track library the cost of a
+            # wasted turn is that the next build alternates anyway.
+            try:
+                record_used(bed)
+            except Exception:
+                pass
+            log(f"[Music] {Path(bed).name} mixed at {int(vol * 100)}%")
+        else:
+            log(f"[Music] instrumental bed mixed at {int(vol * 100)}%")
         return out_path
     except Exception as e:
         log(f"[Music] bed skipped: {str(e)[:120]}")

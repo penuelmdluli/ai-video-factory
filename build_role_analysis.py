@@ -425,6 +425,58 @@ async def main(a) -> int:
     # (the voice is the reel), and every piece is optional - a missing cache
     # file drops that sound and nothing else.
     tracks = [audio]
+
+    # THE OWNER'S MUSIC, on this format too. "Use the music on all our videos."
+    # When a track plays every generated sound is off - no crowd, no kicks, no
+    # roar - the same contract as the simulator, because he asked for his music
+    # and named the vuvuzelas specifically.
+    owner_track = ""
+    try:
+        from modules.owner_music import next_track
+        owner_track = next_track()
+    except Exception as ex:
+        _log(f"music library unavailable ({str(ex)[:60]})")
+    if owner_track:
+        try:
+            from moviepy import afx
+            src = AudioFileClip(owner_track)
+            reps = max(1, int(dd / max(0.5, src.duration)) + 1)
+            bed = concatenate_audioclips([src] * reps).subclipped(0, dd)
+            tracks.append(bed.with_effects([afx.MultiplyVolume(0.30)]))
+            _log(f"music: {Path(owner_track).name} — generated SFX off")
+        except Exception as ex:
+            _log(f"music failed ({str(ex)[:70]}) — voice only")
+        video = CompositeVideoClip(layers, size=(W, H)).with_duration(dd)
+        video = video.with_audio(CompositeAudioClip(tracks).with_duration(dd))
+        out = work / "final.mp4"
+        video.write_videofile(str(out), fps=30, codec="libx264",
+                              audio_codec="aac", logger=None,
+                              preset="medium", threads=4)
+        cover = work / "cover.png"
+        try:
+            VideoFileClip(str(clips[0])).save_frame(str(cover), t=0.6)
+        except Exception:
+            cover = None
+        write_manifest(SCRIPT, str(out), work, voice,
+                       [{"path": str(cover or clips[0]),
+                         "credit": "Genesis News", "archive_year": "",
+                         "club": a.club, "real": True}])
+        _log(f"video: {out} ({dd:.1f}s, {len(clips)} chapters)")
+        if a.post:
+            await post_to_page(work)
+            try:
+                from modules.owner_music import record_used
+                record_used(owner_track)
+            except Exception:
+                pass
+            st = _state()
+            st["done"] = (st.get("done", []) + [sn for sn, _a, _r in picks])[-60:]
+            _save(st)
+            _log("POSTED")
+        else:
+            _log("dry run — pass --post to publish")
+        return 0
+
     try:
         from moviepy import afx
         from modules.sfx_manager import get_sfx_sync
