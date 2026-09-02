@@ -758,8 +758,11 @@ async def main(a) -> int:
                     or get_sfx_sync("goal_roar", force=True))
             if roar:
                 for g in goal_times:
+                    # 0.26 still swamped the commentary at the exact moment
+                    # it names the scorer - the one line in the chapter that
+                    # carries information. A roar is a reaction, not the event.
                     tracks.append(AudioFileClip(roar)
-                                  .with_effects([afx.MultiplyVolume(0.26)])
+                                  .with_effects([afx.MultiplyVolume(0.14)])
                                   .with_start(min(g, dd - 1.0)))
             _log(f"music: {mp.name} at {a.music_vol} + "
                  f"{len(kick_times)} kicks + {len(goal_times)} roars "
@@ -830,7 +833,7 @@ async def main(a) -> int:
                 # the line naming the scorer, which is the one fact in the
                 # chapter. It sits under the voice now, not over it.
                 tracks.append(AudioFileClip(roar)
-                              .with_effects([afx.MultiplyVolume(0.28)])
+                              .with_effects([afx.MultiplyVolume(0.14)])
                               .with_start(min(t, dd - 1.0)))
         _log(f"match sound: {len(tracks) - 1} layers, crowd from 0s")
     except Exception as ex:
