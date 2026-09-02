@@ -32,6 +32,25 @@ def _font(sz, bold=True):
         f"C:/Windows/Fonts/{'arialbd.ttf' if bold else 'arial.ttf'}", sz)
 
 
+def _heart(d, cx: float, cy: float, size: float, fill):
+    """A heart, drawn rather than typed.
+
+    Owner 2026-09-03: "we can also add heart and love and peace emoji as we
+    play." LOVE AND PEACE is Kaizer Chiefs' own motto, so this is the club's
+    language rather than decoration borrowed from somewhere else.
+
+    Drawn as two lobes and a point instead of rendered from a font: PIL emoji
+    support depends on which font happens to be installed, and a reel that
+    shows a heart on one machine and a hollow box on another is worse than one
+    that shows nothing.
+    """
+    r = size / 2
+    d.ellipse([cx - r, cy - r * 0.85, cx, cy + r * 0.15], fill=fill)
+    d.ellipse([cx, cy - r * 0.85, cx + r, cy + r * 0.15], fill=fill)
+    d.polygon([(cx - r * 0.98, cy - r * 0.12), (cx + r * 0.98, cy - r * 0.12),
+               (cx, cy + r)], fill=fill)
+
+
 def _draw_football(d, cx: float, cy: float, r: float, spin: float = 0.0):
     """An actual football, not a white dot.
 
@@ -247,6 +266,17 @@ class Board:
         the ball glides through them (passes/shots like a TV replay)."""
         self.annos.append({"type": "ball",
                            "wp": sorted(waypoints, key=lambda w: w[0])})
+
+    def celebrate(self, t0, t1, count: int = 14):
+        """Hearts rising up the frame — the supporters, not the tactics.
+
+        Every other mark on this board explains something. These do not: they
+        are the crowd's reaction, and a goal that produces only a caption feels
+        analysed rather than celebrated. They rise and fade over the celebration
+        so they never sit on top of the play that earned it.
+        """
+        self.annos.append({"type": "hearts", "t0": t0, "t1": t1,
+                           "count": max(1, count)})
 
     def goal(self, t0, t1, scorer: str = "", assist: str = ""):
         """The moment the move ends in the net.
@@ -719,6 +749,28 @@ class Board:
                 px0, py0 = self._px(*ball_pos(max(0.0, t - 0.033)))
                 speed = ((bx - px0) ** 2 + (by - py0) ** 2) ** 0.5
                 _draw_football(d, bx, by, 24, spin=t * (1.0 + speed * 0.20))
+
+        # hearts — LOVE AND PEACE, rising through the celebration
+        for a in self.annos:
+            if a["type"] != "hearts" or not (a["t0"] <= t <= a["t1"]):
+                continue
+            span = max(a["t1"] - a["t0"], 1e-6)
+            u = (t - a["t0"]) / span
+            for i in range(a["count"]):
+                seed = ((i * 7919) % 997) / 997.0
+                lag = seed * 0.35
+                k = (u - lag) / max(1e-6, 1 - lag)
+                if k <= 0 or k >= 1:
+                    continue
+                hx = 70 + seed * (W - 140)
+                hx += math.sin(k * 6.0 + seed * 6.283) * 26      # drift
+                hy = H - 240 - k * (H * 0.62)
+                sz = 30 + seed * 30
+                alpha = int(210 * min(1.0, k * 4) * (1 - k) ** 0.7)
+                if alpha <= 2:
+                    continue
+                col = (*self.accent, alpha) if i % 3 else (235, 70, 90, alpha)
+                _heart(d, hx, hy, sz, col)
 
         # GOAL — a white flash, then the word, then who scored it.
         for a in self.annos:

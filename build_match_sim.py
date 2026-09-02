@@ -491,7 +491,7 @@ async def main(a) -> int:
         b.ball([(d * min(f, 0.80), tuple(xy)) for f, xy in open_wps[:-1]])
         n_open = max(1, len(open_chain) - 1)
         for k, pid in enumerate(open_chain):
-            t_at = d * 0.80 * k / n_open
+            t_at = d * 0.72 * k / n_open
             b.ring(max(0.0, t_at - 0.15), min(d, t_at + 0.40), pid)
             if k < len(open_chain) - 1:
                 kick_times.append(t0 + t_at)
@@ -591,7 +591,7 @@ async def main(a) -> int:
         b.ball([(d * f, tuple(xy)) for f, xy in wps])
         n_ch = max(1, len(chain) - 1)
         for k, pid in enumerate(chain):
-            t_at = d * 0.80 * k / n_ch
+            t_at = d * 0.72 * k / n_ch
             b.ring(max(0.0, t_at - 0.15), min(d, t_at + 0.45), pid)
             if k < len(chain) - 1:
                 kick_times.append(t0 + t_at)
@@ -611,8 +611,9 @@ async def main(a) -> int:
                            min(d, t_at + 0.90),
                            positions[chain[k - 1]], positions[pid],
                            positions[chain[k + 1]])
-        b.goal(d * 0.84, d, scorer=scorer, assist=assist)
-        b.stat(d * 0.88, d, f"{running}-0", scorer)
+        b.goal(d * 0.88, d, scorer=scorer, assist=assist)
+        b.celebrate(d * 0.88, d, count=16)
+        b.stat(d * 0.92, d, f"{running}-0", scorer)
         # SLOW MOTION on the finish. The shot and the net are the only two
         # seconds a viewer wants to see twice, and at full speed the ball
         # crosses the line in four frames.
@@ -677,13 +678,17 @@ async def main(a) -> int:
 
     d = dur[-1]
     b = Board(players, accent=GOLD, title="FULL TIME",
-              subtitle=f"OUR CALL · {ko}", club=a.club, opponent=opp_key)
+              subtitle=f"LOVE AND PEACE · {ko}", club=a.club,
+              opponent=opp_key)
     _oppose(b)
     _shapes(b, d, labelled=True)
     b.keyframe(0.0, positions)
     b.keyframe(d, positions)
     b.stat(0.3, d * 0.75, f"{len(goals)}-{1 if concede else 0}",
            f"{club_name.upper()} — PREDICTED")
+    # The motto on the closing card, and hearts under it. It is the club's own
+    # words, so it belongs here more than any sign-off we could write.
+    b.celebrate(d * 0.15, d, count=20)
     clips.append(b.render(work / "_ft.mp4", duration=d))
 
     _log("compositing…")
