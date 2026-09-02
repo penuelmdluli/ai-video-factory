@@ -28,7 +28,8 @@ def _y(pos):
 
 
 def build_move(positions: dict, players: dict, subject_pids: list,
-               passes: int = 6) -> tuple:
+               passes: int = 6, avoid: set | None = None,
+               start_pid: str = "") -> tuple:
     """A plausible build-up: (waypoints, chain, scorer, assist, moves).
 
     waypoints are (fraction_of_move, (x, y)) for Board.ball(); chain is the
@@ -48,7 +49,15 @@ def build_move(positions: dict, players: dict, subject_pids: list,
     ordered = sorted(positions.items(), key=lambda kv: -_y(kv[1]))
     # Skip the keeper as the starter when there is somebody else deep, so the
     # move opens with a defender stepping out rather than a goal kick.
-    start = ordered[1][0] if len(ordered) > 2 else ordered[0][0]
+    start = start_pid or (ordered[1][0] if len(ordered) > 2 else ordered[0][0])
+    if start not in positions:
+        start = ordered[1][0] if len(ordered) > 2 else ordered[0][0]
+
+    # A simulated MATCH needs several different moves, not the same one three
+    # times. `avoid` carries the men who have already scored, so the next goal
+    # comes from somebody else - which is what makes three goals read as three
+    # goals rather than a loop.
+    avoid = set(avoid or ())
 
     chain = [start]
     used = {start}
@@ -61,6 +70,21 @@ def build_move(positions: dict, players: dict, subject_pids: list,
         # The 0.02 tolerance is what makes a sideways ball legal.
         cands = [(pid, xy) for pid, xy in positions.items()
                  if pid not in used and _y(xy) <= _y(here) + 0.02]
+        # A man who has already scored is EXCLUDED, not merely penalised. A
+        # soft penalty was not enough: in a 3-5-2 there are two forwards, so
+        # the same striker finished all three goals and the "match" read as one
+        # move looped. He comes back only if excluding him would leave nobody.
+        if avoid:
+            fresh = [c for c in cands if c[0] not in avoid]
+            if fresh:
+                cands = fresh
+            elif len(chain) >= 3:
+                # Only previous scorers are left, and the move is already long
+                # enough to be a move: STOP here so this goal belongs to
+                # somebody new. Falling through added the same striker to the
+                # end of all three chains, because by the last pass he is the
+                # only man further forward - the filter ran and changed nothing.
+                break
         # NEVER fall back to "anyone left". The first version did, and the
         # move went Baartman (y .18) back to Mthethwa (y .43) before finishing
         # - a ball travelling backwards into midfield in the middle of an
@@ -78,7 +102,9 @@ def build_move(positions: dict, players: dict, subject_pids: list,
             # than passing square eleven times, and lean towards the men this
             # reel is actually about so they are in their own highlight.
             progress = _y(here) - _y(xy)
-            return dist - progress * 0.35 - (0.18 if pid in subject_pids else 0.0)
+            return (dist - progress * 0.35
+                    - (0.18 if pid in subject_pids else 0.0)
+                    )
         nxt = min(cands, key=score)[0]
         chain.append(nxt)
         used.add(nxt)
