@@ -415,7 +415,42 @@ NICHES = {
         # It must NOT stray into PSL football. Genesis News owns that, and two
         # of the owner's pages competing for the same story helps neither.
         "name": "Tech Pulse Africa - South African News",
-        "topic_focus": os.getenv("TECH_NEWS_TOPIC_FOCUS", ""),
+        # An EMPTY focus was the whole problem. With no focus the topic path
+        # skips the live-headline branch entirely and hands the model a bank of
+        # angles - "the big South African story everyone is talking about
+        # today" - with no story attached. It answered honestly and evergreenly:
+        # Home Affairs queues (29 Aug), a Cape Town water tariff (29 Aug), a
+        # Zimbabwean border e-visa (31 Aug). Nothing false, nothing anyone was
+        # talking about. The page needs today's argument, not this year's tips.
+        "topic_focus": os.getenv(
+            "TECH_NEWS_TOPIC_FOCUS",
+            "South African news that the country is ACTUALLY arguing about "
+            "today - politics, the economy, power, crime, grants, jobs, courts "
+            "and the movements and people driving the national conversation. "
+            "Name the real story, the real people and the real numbers from "
+            "the live headlines. Never PSL football (Genesis News owns that)."
+        ),
+        # Same contract Genesis runs on: the feed supplies the facts, the model
+        # supplies the angle. Without it a news page invents news.
+        "use_live_headlines": True,
+        "headline_module": "modules.sa_news",
+        "headline_rules": (
+            "RULES — this page names REAL, LIVING South Africans, so these are hard:\n"
+            "1. Build the topic from ONE headline above. The story must be one a "
+            "South African would recognise from their feed today.\n"
+            "2. Prefer a headline carried by MORE outlets — that number is how many "
+            "newsrooms independently stood it up.\n"
+            "3. NEVER invent a fact, figure, date, quote or accusation that is not in "
+            "the list. No inferred motives, no imagined statements.\n"
+            "4. Anything tagged REPORTED CLAIM is an allegation, not a finding — say "
+            "'reports say' or 'is accused of', never state it as established.\n"
+            "5. Attribute: name the outlet the story comes from.\n"
+            "6. REPORT the argument, do not join it. Where a story is contested or a "
+            "movement is campaigning, say who is claiming what and who disputes it. "
+            "Do not adopt any group's slogans as the page's own voice, and never "
+            "target or blame a nationality, race or religion — that is how a 10K page "
+            "gets restricted, which ends it far faster than a quiet week does."
+        ),
         # Angles, not headlines - the topic generator fills them from real
         # trending SA news. Each is written so the answer affects the viewer's
         # own week: what it costs, what it changes, what to do about it.

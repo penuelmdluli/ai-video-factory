@@ -26,9 +26,27 @@ if exist "logs\scheduler.stop" (
 )
 
 :: Singleton: another launcher already holds the lock.
-if exist "logs\scheduler.lock" (
+::
+:: The lock is only deleted at :done, so a launcher that is KILLED rather than
+:: stopped leaves it behind forever. That is not hypothetical - the console
+:: window was closed mid-upload on 29 Aug ("program aborting due to
+:: window-CLOSE event") and the orphaned lock then blocked every run from
+:: 30 Aug to 2 Sep. Four days, twelve build slots, a silent page, and nothing
+:: in the log but "another scheduler launcher is running".
+::
+:: An existence check cannot tell a live owner from a dead one, so ask the OS:
+::   exit 0 = a scheduler.py really is running, or the lock is younger than the
+::            60s restart gap (launcher alive, python momentarily down)
+::   exit 1 = no lock at all
+::   exit 2 = lock with no owner - stale, take it over
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$lock = 'logs\scheduler.lock'; if (-not (Test-Path $lock)) { exit 1 }; $live = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'python.exe' -and $_.CommandLine -like '*scheduler.py*' }).Count; if ($live -gt 0) { exit 0 }; if (((Get-Date) - (Get-Item $lock).LastWriteTime).TotalMinutes -lt 10) { exit 0 }; exit 2"
+if %ERRORLEVEL% EQU 0 (
   echo [%date% %time%] another scheduler launcher is running - exiting >> logs\scheduler_output.log
   exit /b 0
+)
+if %ERRORLEVEL% EQU 2 (
+  echo [%date% %time%] STALE LOCK - no scheduler.py running and lock older than 10min. Taking over. >> logs\scheduler_output.log
+  del "logs\scheduler.lock" 2>nul
 )
 echo %date% %time% > "logs\scheduler.lock"
 

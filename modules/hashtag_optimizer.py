@@ -37,16 +37,52 @@ HASHTAG_POOLS = {
         "niche": ["#AIMoneyMaker", "#AIFreelance", "#AIContentCreation", "#AIProductivity", "#MakeMoneyWithAI",
                   "#AIEntrepreneur", "#AIIncome", "#ChatGPTMoney", "#AIHustle", "#AIAutomationBusiness"],
     },
-    # Tech Pulse Africa is a WAR-NEWS / geopolitics page — NOT locked to any single
-    # conflict. Pools stay conflict-agnostic; story-specific tags (e.g. #Iran, #Ukraine)
-    # are injected dynamically from topic_keywords when a given story mentions them.
+    # Tech Pulse Africa is a SOUTH AFRICAN NEWS page (repointed 2026-08-28).
+    #
+    # This pool was missed by that repoint - it changed config.py, script_writer,
+    # ai_images and community_manager, but the tags kept going out as
+    # #Superpowers, #WorldOrder, #Geopolitics and #FrontlineNews on stories about
+    # SASSA payment dates. Tags are the discovery surface: war-news tags put an
+    # Eskom reel in front of an audience that came for Ukraine, which is worse
+    # than no tags, because it teaches the algorithm the wrong audience.
+    #
+    # Story-specific tags (#PhalaPhala, #Eskom) are injected from topic_keywords.
     "tech_news": {
-        "mega": ["#BreakingNews", "#WorldNews", "#War", "#Geopolitics", "#GlobalNews", "#Conflict", "#Politics"],
-        "mid": ["#WorldOrder", "#WarNews", "#GlobalCrisis", "#WorldAffairs", "#GlobalConflict",
-                "#OilPrices", "#Sanctions", "#Military", "#Airstrike", "#Ceasefire",
-                "#Diplomacy", "#Superpowers", "#Escalation", "#GlobalSecurity", "#PowerStruggle"],
-        "niche": ["#TechPulseAfrica", "#BRICS", "#NewWorldOrder", "#AfricaImpact", "#FrontlineNews",
-                  "#WarUpdate", "#GeopoliticalTensions", "#GlobalPolitics", "#ConflictZone", "#WorldStage"],
+        "mega": ["#SouthAfrica", "#Mzansi", "#SANews", "#BreakingNews",
+                 "#SouthAfricaNews", "#News", "#Nuus"],
+        "mid": ["#LoadShedding", "#Eskom", "#SASSA", "#Gauteng", "#CapeTown",
+                "#Johannesburg", "#Durban", "#Pretoria", "#RandNews",
+                "#PetrolPrice", "#SAPolitics", "#SAEconomy", "#Jobs",
+                "#ServiceDelivery", "#Parliament"],
+        "niche": ["#TechPulseAfrica", "#MzansiNews", "#SouthAfricans",
+                  "#SAToday", "#KnowYourCountry", "#Joburg", "#Soweto",
+                  "#SATaxpayers", "#MzansiMatters", "#ProudlySouthAfrican"],
+    },
+    # Genesis News — PSL & Mzansi Football. This niche had NO pool, so it fell
+    # through the silent `HASHTAG_POOLS.get(niche, ...["motivation"])` default
+    # and every Chiefs post went out tagged #UnstoppableMindset, #GrindMode and
+    # #KeepGoing. On the one page that is actually growing.
+    #
+    # Chiefs-weighted on purpose (owner call 2026-08-26): Amakhosi is the
+    # SUBJECT of this page, and the numbers back it — a median 1,066 views
+    # against 90 for everything else.
+    #
+    # Rival clubs are deliberately ABSENT from the standing pool. Under the same
+    # rule they are context, never the story, so #OrlandoPirates belongs on a
+    # derby post and nowhere else — which is exactly what topic_keywords
+    # injection already does. Putting them in the pool would tag every routine
+    # Chiefs post for a rival's fans, which is how a page teaches the algorithm
+    # it is about somebody else.
+    "sa_pulse": {
+        "mega": ["#KaizerChiefs", "#Amakhosi", "#PSL", "#BetwayPremiership",
+                 "#SouthAfricanFootball", "#Mzansi", "#Football"],
+        "mid": ["#KhosiNation", "#Naturena", "#SowetoDerby", "#MTN8",
+                "#NedbankCup", "#CarlingKnockout", "#MatchDay", "#PSLFootball",
+                "#ChiefsNation", "#StartingXI", "#MzansiFootball",
+                "#FootballSA", "#TeamNews", "#PSLTransfers", "#Soweto"],
+        "niche": ["#GenesisNewsPSL", "#Amakhosi4Life", "#ChiefsFamily",
+                  "#LoveAndPeace", "#KhosiForLife", "#AmakhosiFaithful",
+                  "#ChiefsFC", "#PSLMatchday", "#MzansiSoccer", "#KhosiPride"],
     },
     "motivation": {
         "mega": ["#Motivation", "#Success", "#Mindset", "#Goals", "#Hustle", "#Discipline", "#Inspiration"],
@@ -106,6 +142,68 @@ def _save_hashtag_perf(data: dict):
     HASHTAG_PERF_FILE.write_text(json.dumps(data, indent=2))
 
 
+def _pool_for(niche: str) -> dict:
+    """The niche's pool, saying so out loud when it has to fall back.
+
+    The fallback was silent, and sa_pulse - Genesis News - quietly inherited
+    the MOTIVATION pool for as long as it has existed, tagging Kaizer Chiefs
+    reels #GrindMode and #UnstoppableMindset. Nothing failed, nothing logged,
+    and the wrong audience was being addressed on the page that grows fastest.
+    A missing pool is now visible the first time it is used.
+    """
+    pool = HASHTAG_POOLS.get(niche)
+    if pool is None:
+        print(f"[Hashtags] WARNING: no pool for '{niche}' - falling back to "
+              f"motivation tags, which are almost certainly wrong for it. "
+              f"Add a '{niche}' entry to HASHTAG_POOLS.")
+        pool = HASHTAG_POOLS["motivation"]
+    return pool
+
+
+def _clean_tag(raw: str, from_keyword: bool = False) -> str:
+    """Normalise one candidate tag, or return '' if it is not usable.
+
+    The bar is what a human would plausibly type into a search box. A scraped
+    feed will happily hand over a whole publication title with the spaces
+    removed; nobody has ever searched that, so it buys no reach and reads as
+    automated - which is the one impression a page recovering from a dead
+    fortnight cannot afford.
+
+    from_keyword=True means the input is prose ("Eskom profit") and needs to be
+    reduced to one capitalised word. An already-formed tag keeps its own casing:
+    title-casing #LoadShedding gives #Loadshedding, which is not a fix but a
+    SECOND tag competing with the real one, and both landed in the same set.
+    """
+    if not raw:
+        return ""
+    body = raw.strip().lstrip("#")
+    if from_keyword:
+        # Keep a multi-word PROPER NOUN together. Taking only the first word
+        # turned "Orlando Pirates derby" into #Orlando - a city in Florida -
+        # and would do the same to Phala Phala, Cape Town and Kaizer Chiefs.
+        # So consume the leading run of capitalised words (up to three) and
+        # fall back to one title-cased word when the phrase is lowercase.
+        words = body.split()
+        if not words:
+            return ""
+        lead = []
+        for w in words[:3]:
+            if w[:1].isupper():
+                lead.append(w)
+            else:
+                break
+        # A lowercase phrase gets the same two-word treatment rather than one
+        # word: "load shedding stage 4" as #Load is nearly as useless as the
+        # 44-character monster this function was written to stop.
+        body = "".join(lead) if lead else "".join(w.title() for w in words[:2])
+    body = "".join(c for c in body.replace("-", "") if c.isalnum())
+    # 3-20 characters: shorter is noise ("#SA" aside, which the pools own),
+    # longer is a scrape artefact. Pure digits are a year or a count, not a tag.
+    if not (3 <= len(body) <= 20) or body.isdigit():
+        return ""
+    return f"#{body}"
+
+
 def get_optimized_hashtags(
     niche: str,
     platform: str = "tiktok",
@@ -130,7 +228,7 @@ def get_optimized_hashtags(
     Returns:
         Optimized list of hashtags for the platform
     """
-    pool = HASHTAG_POOLS.get(niche, HASHTAG_POOLS["motivation"])
+    pool = _pool_for(niche)
     limit = PLATFORM_HASHTAG_LIMITS.get(platform, 10)
 
     # Calculate counts per tier
@@ -155,8 +253,18 @@ def get_optimized_hashtags(
 
     # 4. Trending hashtags (from trend detector)
     if trending_hashtags and n_trending > 0:
-        # Filter to ones not already selected
-        available_trending = [t for t in trending_hashtags if t not in selected]
+        # These arrive UNVETTED from scraped feeds and went straight out: a real
+        # post on 31 Aug carried #BasketballEvolutionNationMagazineForNbaNews,
+        # a 44-character scrape artefact, on a South African news reel. The
+        # length guard that catches exactly this already existed one branch
+        # below, applied only to topic keywords - so the sanitiser is now shared
+        # and every source goes through it.
+        chosen = {t.lower() for t in selected}
+        available_trending = []
+        for t in (_clean_tag(t) for t in trending_hashtags):
+            if t and t.lower() not in chosen:
+                chosen.add(t.lower())
+                available_trending.append(t)
         selected.extend(available_trending[:n_trending])
 
     # 5. Topic-specific hashtags (if space remains)
@@ -164,10 +272,8 @@ def get_optimized_hashtags(
     if topic_keywords and remaining > 0:
         for kw in topic_keywords[:remaining]:
             # Only use single words as topic hashtags (avoid concatenated monsters)
-            word = kw.strip().split()[0] if kw.strip() else ""
-            tag = "#" + word.title().replace("-", "")
-            tag = "".join(c for c in tag if c.isalnum() or c == "#")
-            if tag not in selected and 3 < len(tag) <= 20:
+            tag = _clean_tag(kw, from_keyword=True)
+            if tag and tag.lower() not in {s.lower() for s in selected}:
                 selected.append(tag)
 
     # Ensure all start with #
@@ -189,7 +295,7 @@ def get_first_comment_hashtags(
 
     These complement the main hashtags without duplicating them.
     """
-    pool = HASHTAG_POOLS.get(niche, HASHTAG_POOLS["motivation"])
+    pool = _pool_for(niche)
     all_pool = pool["mega"] + pool["mid"] + pool["niche"]
 
     # Exclude main hashtags

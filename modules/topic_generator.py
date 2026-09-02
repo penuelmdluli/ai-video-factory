@@ -262,15 +262,27 @@ async def generate_trending_topic_ai(
 
                 if niche_config.get("use_live_headlines"):
                     try:
-                        from modules.psl_news import headlines_for_prompt
+                        # Which newsroom feeds this page. Football was the first
+                        # page to need live facts, so psl_news was imported by
+                        # name here; Tech Pulse Africa needs the same contract
+                        # over different feeds, so the source is now a config
+                        # key and psl_news stays the default for every page
+                        # that already relies on it.
+                        import importlib
+                        mod_name = niche_config.get("headline_module", "modules.psl_news")
+                        headlines_for_prompt = importlib.import_module(
+                            mod_name).headlines_for_prompt
                         live = await headlines_for_prompt()
                         if live:
+                            rules = niche_config.get("headline_rules") or (
+                                "RULES: build the topic from ONE of the headlines above. "
+                                "NEVER invent a scoreline, transfer, signing, injury or quote "
+                                "that is not in that list. Anything flagged REPORT/RUMOUR must "
+                                "be phrased as a report ('reports claim...'), never as fact."
+                            )
                             trending_context += (
                                 f"\n\n## LIVE HEADLINES — THE ONLY FACTS YOU MAY USE\n{live}\n\n"
-                                f"RULES: build the topic from ONE of the headlines above. "
-                                f"NEVER invent a scoreline, transfer, signing, injury or quote "
-                                f"that is not in that list. Anything flagged REPORT/RUMOUR must "
-                                f"be phrased as a report ('reports claim...'), never as fact."
+                                f"{rules}"
                             )
                         else:
                             print(f"[TopicGen] {niche}: no live headlines — using evergreen angles only")
