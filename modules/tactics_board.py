@@ -141,7 +141,7 @@ class Board:
                            "label": label, "curve": curve, "dashed": dashed})
 
     def shape_lines(self, t0, t1, rows: list, color=None, labels=None,
-                    opponent: bool = False):
+                    opponent: bool = False, dashed: bool = False):
         """Join each unit into a LINE, so a 4-4-2 reads as a 4-4-2.
 
         Owner 2026-09-03: "lets always make clear shapes, best to interest and
@@ -167,7 +167,8 @@ class Board:
         """
         self.annos.append({"type": "shape", "t0": t0, "t1": t1,
                            "rows": rows, "color": color or self.accent,
-                           "labels": labels or [], "opp": opponent})
+                           "labels": labels or [], "opp": opponent,
+                           "dashed": dashed})
 
     def set_opposition(self, players: dict, positions: dict, color=None):
         """The other team on the pitch.
@@ -775,9 +776,26 @@ class Board:
                         break
                     ax, ay = pts[i]
                     bx, by = pts[i + 1]
-                    d.line([ax, ay, ax + (bx - ax) * seg_u,
-                            ay + (by - ay) * seg_u],
-                           fill=(*a["color"], alpha), width=5)
+                    ex2, ey2 = ax + (bx - ax) * seg_u, ay + (by - ay) * seg_u
+                    if a.get("dashed"):
+                        # Owner 2026-09-03: "in some of the lines we can use
+                        # dotted lines." Theirs dotted, ours solid: the same
+                        # grammar the arrows already use, where solid is the
+                        # thing we are doing and dotted is the thing being
+                        # worked around. It also stops two shapes in two
+                        # colours competing as equals - ours is the subject.
+                        seg = math.hypot(ex2 - ax, ey2 - ay)
+                        k2 = 0.0
+                        while k2 < seg:
+                            f0 = k2 / max(seg, 1e-6)
+                            f1 = min(1.0, (k2 + 16) / max(seg, 1e-6))
+                            d.line([ax + (ex2 - ax) * f0, ay + (ey2 - ay) * f0,
+                                    ax + (ex2 - ax) * f1, ay + (ey2 - ay) * f1],
+                                   fill=(*a["color"], alpha), width=4)
+                            k2 += 28
+                    else:
+                        d.line([ax, ay, ex2, ey2],
+                               fill=(*a["color"], alpha), width=5)
                 if ri < len(a["labels"]) and a["labels"][ri] and u >= 1:
                     lbl = a["labels"][ri]
                     f = _font(26)

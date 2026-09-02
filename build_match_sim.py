@@ -206,7 +206,7 @@ async def main(a) -> int:
         """Draw both formations as SHAPES, ours in gold and theirs in theirs."""
         if opp_rows:
             board.shape_lines(0.0, dur_, opp_rows, color=opp_col,
-                              opponent=True)
+                              opponent=True, dashed=True)
         board.shape_lines(0.0, dur_, our_rows, color=GOLD,
                           labels=our_labels if labelled else None)
 
@@ -534,7 +534,8 @@ async def main(a) -> int:
         # because the thing being broken down has to stay legible to be
         # broken down.
         if opp_rows:
-            b.shape_lines(0.0, d, opp_rows, color=opp_col, opponent=True)
+            b.shape_lines(0.0, d, opp_rows, color=opp_col, opponent=True,
+                          dashed=True)
         b.keyframe(0.0, positions)
 
         # OFF-BALL RUNS. Owner: "all players move showing different shapes,
@@ -638,7 +639,8 @@ async def main(a) -> int:
                   club=a.club, opponent=opp_key)
         _oppose(b)
         if opp_rows:
-            b.shape_lines(0.0, d, opp_rows, color=opp_col, opponent=True)
+            b.shape_lines(0.0, d, opp_rows, color=opp_col, opponent=True,
+                          dashed=True)
         b.keyframe(0.0, positions)
         b.keyframe(d, positions)
         # The empty space, in red, where our man should be.
