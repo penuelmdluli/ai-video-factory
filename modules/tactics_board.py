@@ -125,10 +125,18 @@ class Board:
                         min(.97, max(.03, xy[1] + dy)))
         self.keyframe(t, new)
 
-    def arrow(self, t0, t1, a, b, color=None, label="", curve=0.0):
+    def arrow(self, t0, t1, a, b, color=None, label="", curve=0.0,
+              dashed: bool = False):
+        """An arrow. dashed=True for a RUN rather than a pass.
+
+        Owner 2026-09-03: "we can make some dotted lines." It is also the real
+        convention on every coaching board there has ever been - a solid line
+        is the ball, a dotted line is a man - so a supporter reads the two
+        apart without being told which is which.
+        """
         self.annos.append({"type": "arrow", "t0": t0, "t1": t1, "a": a,
                            "b": b, "color": color or self.accent,
-                           "label": label, "curve": curve})
+                           "label": label, "curve": curve, "dashed": dashed})
 
     def shape_lines(self, t0, t1, rows: list, color=None, labels=None,
                     opponent: bool = False):
@@ -479,7 +487,20 @@ class Board:
                 ax, ay = self._px(*a["a"])
                 bx, by = self._px(*a["b"])
                 ex, ey = ax + (bx - ax) * u, ay + (by - ay) * u
-                d.line([ax, ay, ex, ey], fill=(*a["color"], 235), width=10)
+                if a.get("dashed"):
+                    # 26px on, 18px off — long enough to read as intent at a
+                    # glance, short enough that a curved run still looks like
+                    # one line rather than a row of ticks.
+                    seg = math.hypot(ex - ax, ey - ay)
+                    step, k = 44.0, 0.0
+                    while k < seg:
+                        f0, f1 = k / seg, min(1.0, (k + 26) / seg)
+                        d.line([ax + (ex - ax) * f0, ay + (ey - ay) * f0,
+                                ax + (ex - ax) * f1, ay + (ey - ay) * f1],
+                               fill=(*a["color"], 235), width=9)
+                        k += step
+                else:
+                    d.line([ax, ay, ex, ey], fill=(*a["color"], 235), width=10)
                 ang = math.atan2(ey - ay, ex - ax)
                 for s in (-1, 1):
                     d.line([ex, ey,

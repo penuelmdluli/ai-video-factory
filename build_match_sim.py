@@ -327,8 +327,56 @@ async def main(a) -> int:
     # do you believe it" takes one word from someone who agrees and three from
     # someone who does not, and both of those are comments. The disagreement is
     # the point: a supporter who types 2-1 has written our next post for us.
+    # THE ONE WE CONCEDE.
+    #
+    # Owner 2026-09-03: "we can also allow the opponent to score, show mistake
+    # due to player out of position and all... we allow the opponent to score
+    # but we win."
+    #
+    # This is the single most credible thing in the reel. A 3-0 is a fan video;
+    # a 3-1 that names the moment we get punished is analysis, and it is the
+    # half a supporter actually trusts - everybody knows Chiefs concede, and a
+    # page that pretends otherwise is a page nobody believes about anything
+    # else either.
+    #
+    # The mistake is REAL in the model, not decoration: the man who broke
+    # furthest forward in the last move is the man whose space is empty, and
+    # the opponent counters through exactly the gap he left. That is how goals
+    # are actually conceded, and it means the warning changes whenever the
+    # shape and the runners change.
+    concede = None
+    if a.concede and opp_positions and goals:
+        try:
+            _w, last_chain, _s, _a2, _m = goals[-1]
+            # Whoever is furthest forward and NOT a forward by trade - the
+            # full back or midfielder who committed and has not got back.
+            exposed = None
+            back_line = sorted(positions.items(), key=lambda kv: -kv[1][1])[1:5]
+            exposed = min(back_line, key=lambda kv: kv[1][1])[0]
+            opp_deep = max(opp_positions.items(), key=lambda kv: kv[1][1])[0]
+            opp_top = min(opp_positions.items(), key=lambda kv: kv[1][1])
+            concede = {
+                "exposed": exposed,
+                "from": opp_positions[opp_deep],
+                "to": (positions[exposed][0], 0.90),
+                "scorer": opp_players.get(opp_top[0], {}).get("name", ""),
+                "gap": positions[exposed],
+            }
+            _log(f"conceded goal: through the space behind "
+                 f"{players[exposed]['name']}")
+        except Exception as ex:
+            _log(f"concede chapter skipped ({str(ex)[:60]})")
+            concede = None
+
+    if concede:
+        scenes.append({"narration":
+                       f"But here is the warning. "
+                       f"{players[concede['exposed']]['name'].title()} is the "
+                       f"one who goes, and when he goes that space is open. "
+                       f"{opp} get in behind, and it is one back."})
+
     tally_w = ["nil", "one", "two", "three", "four", "five"]
-    said = f"{tally_w[min(len(goals), 5)]} nil"
+    said = (f"{tally_w[min(len(goals), 5)]} {'one' if concede else 'nil'}")
     scenes.append({"narration":
                    f"So there it is. We are saying {club_name} win it, "
                    f"{said}. Now you tell us. Do you believe that score? "
@@ -344,7 +392,8 @@ async def main(a) -> int:
             f"OUR READ 📋 {club_name} v {opp}, {ko}.{nl}{nl}"
             f"Our {formation}, our eleven, and where the {len(goals)} goals "
             f"come from — {scorers}.{nl}{nl}"
-            f"We are saying {len(goals)}-0. DO YOU BELIEVE IT?{nl}{nl}"
+            f"We are saying {len(goals)}-{1 if concede else 0}. "
+            f"DO YOU BELIEVE IT?{nl}{nl}"
             f"Type YES if you see it. If you don't, drop YOUR score "
             f"and we will read them back before kick off.{nl}{nl}"
             f"#KaizerChiefs #Amakhosi #PSL #BetwayPremiership #Khosi4Life"),
@@ -473,6 +522,13 @@ async def main(a) -> int:
             runners[pid] = (0.5 + (rx - 0.5) * 0.4, max(0.12, ry - 0.30))
         if runners:
             b.keyframe_balanced(d * 0.55, runners, strength=0.30, radius=0.26)
+            # Dotted, because these are RUNS and the passes are solid. That is
+            # the convention on every coaching board there has ever been, so a
+            # supporter separates the two without being told.
+            for rpid, dest in runners.items():
+                b.arrow(d * 0.12, d * 0.75, positions[rpid], dest,
+                        dashed=True, label="RUN" if rpid == list(runners)[0]
+                        else "")
 
         for frac, change in moves:
             b.keyframe_balanced(max(0.05, d * frac), change,
@@ -518,6 +574,32 @@ async def main(a) -> int:
         clips.append(b.render(work / f"_g{i}.mp4", duration=d))
         t0 += d
 
+    if concede:
+        d = dur[len(goals) + 1]
+        b = Board(players, accent=GOLD, title="THE WARNING",
+                  subtitle=f"SPACE BEHIND {players[concede['exposed']]['name']}",
+                  club=a.club, opponent=opp_key)
+        _oppose(b)
+        if opp_rows:
+            b.shape_lines(0.0, d, opp_rows, color=opp_col, opponent=True)
+        b.keyframe(0.0, positions)
+        b.keyframe(d, positions)
+        # The empty space, in red, where our man should be.
+        gx, gy = concede["gap"]
+        b.zone(0.2, d, (max(0.02, gx - 0.16), max(0.02, gy - 0.10),
+                        min(0.98, gx + 0.16), min(0.98, gy + 0.12)),
+               color=(235, 60, 60), label="OPEN")
+        b.ring(0.2, d, concede["exposed"], color=(235, 60, 60))
+        b.ball([(d * 0.25, concede["from"]), (d * 0.80, concede["to"])])
+        b.arrow(d * 0.25, d * 0.85, concede["from"], concede["to"],
+                color=(235, 60, 60))
+        b.goal(d * 0.86, d, scorer=concede["scorer"] or opp.upper(), assist="")
+        b.stat(d * 0.90, d, f"{len(goals)}-1", opp.upper())
+        goal_times.append(t0 + d * 0.86)
+        kick_times.append(t0 + d * 0.25)
+        clips.append(b.render(work / "_concede.mp4", duration=d))
+        t0 += d
+
     d = dur[-1]
     b = Board(players, accent=GOLD, title="FULL TIME",
               subtitle=f"OUR CALL · {ko}", club=a.club, opponent=opp_key)
@@ -525,7 +607,8 @@ async def main(a) -> int:
     _shapes(b, d, labelled=True)
     b.keyframe(0.0, positions)
     b.keyframe(d, positions)
-    b.stat(0.3, d * 0.75, f"{len(goals)}-0", f"{club_name.upper()} — PREDICTED")
+    b.stat(0.3, d * 0.75, f"{len(goals)}-{1 if concede else 0}",
+           f"{club_name.upper()} — PREDICTED")
     clips.append(b.render(work / "_ft.mp4", duration=d))
 
     _log("compositing…")
@@ -685,6 +768,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--club", default="chiefs")
     ap.add_argument("--goals", type=int, default=3)
+    ap.add_argument("--no-concede", dest="concede", action="store_false",
+                    help="do not show the goal we give away")
+    ap.set_defaults(concede=True)
     ap.add_argument("--music", default="",
                     help="use ONLY this audio file — no generated SFX at all")
     ap.add_argument("--music-vol", dest="music_vol", type=float, default=0.18,
