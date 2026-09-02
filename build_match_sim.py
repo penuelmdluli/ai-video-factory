@@ -428,7 +428,22 @@ async def main(a) -> int:
                   subtitle=f"{scorer} · {len(chain) - 1} PASSES",
                   club=a.club, opponent=opp_key)
         _oppose(b)
-        _shapes(b, d)
+        # THEIR shape only, during a goal.
+        #
+        # Our full shape lines were drawn here too, and they fought the runs:
+        # the off-ball runners pull men right out of their rows, so a "back 4"
+        # line zigzagged across the pitch and the board read as tangled string.
+        # Both things the owner asked for - clear shapes AND players breaking
+        # forward - are right, they just cannot share the same three seconds.
+        #
+        # So the shape is stated where the shape IS the point (the opening and
+        # full-time boards, formations set, units named), and during a move the
+        # graphics are the ones that explain the move: the arrows, the passing
+        # triangle, and the space the runs open. THEIR block keeps its lines,
+        # because the thing being broken down has to stay legible to be
+        # broken down.
+        if opp_rows:
+            b.shape_lines(0.0, d, opp_rows, color=opp_col, opponent=True)
         b.keyframe(0.0, positions)
 
         # OFF-BALL RUNS. Owner: "all players move showing different shapes,
