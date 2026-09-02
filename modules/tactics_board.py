@@ -130,7 +130,8 @@ class Board:
                            "b": b, "color": color or self.accent,
                            "label": label, "curve": curve})
 
-    def shape_lines(self, t0, t1, rows: list, color=None, labels=None):
+    def shape_lines(self, t0, t1, rows: list, color=None, labels=None,
+                    opponent: bool = False):
         """Join each unit into a LINE, so a 4-4-2 reads as a 4-4-2.
 
         Owner 2026-09-03: "lets always make clear shapes, best to interest and
@@ -142,11 +143,21 @@ class Board:
         at the back. It is also how the formation graphic looks on television,
         which is the visual language this audience already reads fluently.
 
-        rows: [[(x, y), (x, y), ...], ...] — one list per unit, in order.
+        rows: [[pid, pid, ...], ...] — one list of PLAYER IDS per unit.
+
+        Ids, not coordinates. The first version stored fixed points, so once
+        every player started moving the lines stayed where the shape used to
+        be - gold and green lines floating in open grass with nobody on them,
+        which the owner spotted immediately. Resolving ids per frame means the
+        lines BEND as the players move, and a shape that bends is the whole
+        point: it shows the back four sliding, the midfield stretching, the
+        moment the block breaks.
+
+        opponent=True resolves against the opposition instead of our XI.
         """
         self.annos.append({"type": "shape", "t0": t0, "t1": t1,
                            "rows": rows, "color": color or self.accent,
-                           "labels": labels or []})
+                           "labels": labels or [], "opp": opponent})
 
     def set_opposition(self, players: dict, positions: dict, color=None):
         """The other team on the pitch.
@@ -609,10 +620,17 @@ class Board:
             u = _ease(min(1, (t - a["t0"]) / 0.6))
             fade = _ease(min(1, (a["t1"] - t) / 0.4))
             alpha = int(150 * u * fade)
+            live_map = self._opp_at(t) if a.get("opp") else pos
             for ri, row in enumerate(a["rows"]):
                 if len(row) < 2:
                     continue
-                pts = [self._px(*q) for q in row]
+                # Resolve ids to where those men are RIGHT NOW, and keep the
+                # line in left-to-right order so it never crosses itself when
+                # two players drift past each other.
+                here = [live_map[q] for q in row if q in live_map]
+                if len(here) < 2:
+                    continue
+                pts = [self._px(*q) for q in sorted(here)]
                 # Draw progressively so the shape assembles rather than
                 # appearing - a line that builds pulls the eye along it.
                 span = max(1, len(pts) - 1)

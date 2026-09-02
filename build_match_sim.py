@@ -153,12 +153,13 @@ async def main(a) -> int:
 
     # Rows for the shape lines: our units, and theirs.
     def _rows(pos_map, line_counts, prefix):
+        """Unit rows as PLAYER IDS, so the lines follow the men."""
         rows, i = [], 0
         for count in [1] + list(line_counts):
-            row = [pos_map[f"{prefix}{j}"] for j in range(i, i + count)
+            row = [f"{prefix}{j}" for j in range(i, i + count)
                    if f"{prefix}{j}" in pos_map]
             if len(row) > 1:                 # a lone keeper is not a line
-                rows.append(sorted(row))
+                rows.append(row)
             i += count
         return rows
 
@@ -168,11 +169,10 @@ async def main(a) -> int:
     # thing he already has an opinion about.
     our_labels = []
     for r in our_rows:
-        n = len(r)
-        our_labels.append({0: "", 1: ""}.get(n) or
-                          ("BACK " + str(n) if r[0][1] > 0.55 else
-                           "FRONT " + str(n) if r[0][1] < 0.30 else
-                           "MIDFIELD " + str(n)))
+        n, y0 = len(r), positions[r[0]][1]
+        our_labels.append("BACK " + str(n) if y0 > 0.55 else
+                          "FRONT " + str(n) if y0 < 0.30 else
+                          "MIDFIELD " + str(n))
     opp_rows = []
     if opp_positions:
         try:
@@ -187,7 +187,8 @@ async def main(a) -> int:
     def _shapes(board, dur_, labelled=False):
         """Draw both formations as SHAPES, ours in gold and theirs in theirs."""
         if opp_rows:
-            board.shape_lines(0.0, dur_, opp_rows, color=opp_col)
+            board.shape_lines(0.0, dur_, opp_rows, color=opp_col,
+                              opponent=True)
         board.shape_lines(0.0, dur_, our_rows, color=GOLD,
                           labels=our_labels if labelled else None)
 
@@ -429,10 +430,50 @@ async def main(a) -> int:
         _oppose(b)
         _shapes(b, d)
         b.keyframe(0.0, positions)
+
+        # OFF-BALL RUNS. Owner: "all players move showing different shapes,
+        # opening spaces, running still."
+        #
+        # The idle drift keeps everyone alive, but the SHAPE only changes when
+        # men who are not on the ball commit forward - and that is where the
+        # space comes from. Three players outside the passing chain make real
+        # runs during the move: the two widest go beyond the last line, and one
+        # midfielder arrives late through the middle. The 4-4-2 becomes
+        # something far more attacking by the time the ball arrives, which is
+        # exactly what happens on a pitch and exactly what a still diagram
+        # cannot show.
+        chain_set = set(chain)
+        others = [(pid, xy) for pid, xy in positions.items()
+                  if pid not in chain_set]
+        # Widest first, then whoever is highest - the men a supporter expects
+        # to see break forward.
+        wide = sorted(others, key=lambda kv: -abs(kv[1][0] - 0.5))[:2]
+        through = sorted([o for o in others if o not in wide],
+                         key=lambda kv: kv[1][1])[:1]
+        runners = {}
+        for pid, (rx, ry) in wide:
+            # Hug the touchline and go beyond - the overlap.
+            runners[pid] = (0.94 if rx > 0.5 else 0.06, max(0.10, ry - 0.34))
+        for pid, (rx, ry) in through:
+            runners[pid] = (0.5 + (rx - 0.5) * 0.4, max(0.12, ry - 0.30))
+        if runners:
+            b.keyframe_balanced(d * 0.55, runners, strength=0.30, radius=0.26)
+
         for frac, change in moves:
             b.keyframe_balanced(max(0.05, d * frac), change,
                                 strength=0.25, radius=0.20)
         b.keyframe(d, dict(b.keys[-1][1]))
+
+        # THE SPACE THAT OPENS. A pulse on the gap between their midfield and
+        # their back line - the room the runs create and the ball plays into.
+        # Naming it is the difference between "they scored" and "here is WHY".
+        if opp_positions:
+            ys = sorted({round(v[1], 2) for v in opp_positions.values()})
+            if len(ys) >= 3:
+                gap_top, gap_bot = ys[1], ys[2]
+                b.zone(d * 0.30, d * 0.85,
+                       (0.14, gap_top + 0.02, 0.86, gap_bot - 0.01),
+                       color=(255, 90, 90))
         b.ball([(d * f, tuple(xy)) for f, xy in wps])
         n_ch = max(1, len(chain) - 1)
         for k, pid in enumerate(chain):
