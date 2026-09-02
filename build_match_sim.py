@@ -95,6 +95,66 @@ async def main(a) -> int:
             positions[pid] = ((col + 1) / (count + 1), y)
             idx += 1
 
+    # THE OPPOSITION, from THEIR team sheets.
+    #
+    # Owner: "lets add the opponent shapes from their team sheets." Every move
+    # until now was played through empty grass, which makes a passing sequence
+    # look easy in a way no supporter believes. Their real recent shape is the
+    # thing our eleven has to play around, and it is the difference between a
+    # diagram of us and an argument about whether it would work.
+    #
+    # MIRRORED, not copied. Our attack runs up the frame (y=0 is their goal),
+    # so their shape is flipped: their keeper sits at the top and their back
+    # line is the first thing our forwards meet. Copying the layout unflipped
+    # would put their defenders behind their own keeper.
+    #
+    # Squeezed into the upper 55% too, because a full-length opposing eleven
+    # would sit on top of ours and the board would read as twenty-two dots.
+    opp_players, opp_positions = {}, {}
+    try:
+        opp_xi, opp_formation = await predict_xi2(opp_key)
+        if len(opp_xi) >= 11:
+            olines = [int(n) for n in str(opp_formation).split("-")
+                      if n.strip().isdigit()]
+            orows, oidx = [1] + olines, 0
+            for row_i, count in enumerate(orows):
+                # 0.06 at their keeper, down to 0.60 at their forwards.
+                oy = 0.04 + (row_i / max(1, len(orows) - 1)) * 0.46
+                for col in range(count):
+                    if oidx >= len(opp_xi):
+                        break
+                    ono, _, onm = opp_xi[oidx].partition(" ")
+                    opid = f"o{oidx}"
+                    opp_players[opid] = {"no": ono, "name": onm.upper()}
+                    # INTERLEAVED, not stacked. Sharing our column spacing put
+                    # their defenders directly behind our forwards' name
+                    # plates - four of their eleven were invisible and the rest
+                    # looked like shadows of ours. (col + 0.5)/count sits them
+                    # in the GAPS between our men, which is both readable and
+                    # what a defender actually does: he marks the space, not
+                    # the same blade of grass.
+                    opp_positions[opid] = ((col + 0.5) / count, oy)
+                    oidx += 1
+            _log(f"opposition: {opp} in {opp_formation} from their sheets")
+    except Exception as ex:
+        _log(f"opponent shape unavailable ({str(ex)[:70]}) — empty pitch")
+
+    opp_col = None
+    try:
+        from modules.club_brand import CLUB_BRAND as _CB
+        opp_col = tuple(_CB.get(opp_key, {}).get("colors", {})
+                        .get("primary", (150, 158, 168)))
+        # If their primary is close to our gold the two sides become one blur,
+        # so fall back to neutral grey rather than trusting the brand colour.
+        if abs(opp_col[0] - GOLD[0]) + abs(opp_col[1] - GOLD[1])                 + abs(opp_col[2] - GOLD[2]) < 140:
+            opp_col = (150, 158, 168)
+    except Exception:
+        pass
+
+    def _oppose(board):
+        if opp_positions:
+            board.set_opposition(opp_players, opp_positions, opp_col)
+
     # Each goal starts from a different man at the back, so the three moves do
     # not all open the same way.
     deep = [pid for pid, _ in sorted(positions.items(), key=lambda kv: -kv[1][1])]
@@ -282,6 +342,7 @@ async def main(a) -> int:
     d = dur[0]
     b = Board(players, accent=GOLD, title="THE ANALYSIS",
               subtitle=f"{formation} · {ko}", club=a.club, opponent=opp_key)
+    _oppose(b)
     # THE PLAY STARTS AT FRAME ONE. Owner: "the play should start from the
     # beginning." The opening chapter used to be a static board for seven
     # seconds while the voice set the scene - a still picture at exactly the
@@ -328,6 +389,7 @@ async def main(a) -> int:
         b = Board(players, accent=GOLD, title=f"GOAL {running}",
                   subtitle=f"{scorer} · {len(chain) - 1} PASSES",
                   club=a.club, opponent=opp_key)
+        _oppose(b)
         b.keyframe(0.0, positions)
         for frac, change in moves:
             b.keyframe_balanced(max(0.05, d * frac), change,
@@ -365,6 +427,7 @@ async def main(a) -> int:
     d = dur[-1]
     b = Board(players, accent=GOLD, title="FULL TIME",
               subtitle=f"OUR CALL · {ko}", club=a.club, opponent=opp_key)
+    _oppose(b)
     b.keyframe(0.0, positions)
     b.keyframe(d, positions)
     b.stat(0.3, d * 0.75, f"{len(goals)}-0", f"{club_name.upper()} — PREDICTED")

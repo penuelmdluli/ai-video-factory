@@ -84,6 +84,11 @@ class Board:
         self.subtitle = subtitle
         self.club = club
         self.opponent = opponent
+        # The opposition, from THEIR team sheets. Static - they are the shape
+        # our move has to play through, not a side we are animating.
+        self.opp_players: dict = {}
+        self.opp_positions: dict = {}
+        self.opp_color = (150, 158, 168)
         self.keys: list[tuple[float, dict]] = []
         self.annos: list[dict] = []
 
@@ -124,6 +129,24 @@ class Board:
         self.annos.append({"type": "arrow", "t0": t0, "t1": t1, "a": a,
                            "b": b, "color": color or self.accent,
                            "label": label, "curve": curve})
+
+    def set_opposition(self, players: dict, positions: dict, color=None):
+        """The other team on the pitch.
+
+        Owner 2026-09-02: "lets add the opponent shapes from their team
+        sheets." Until now every move was played through empty grass, which
+        makes a passing sequence look easy in a way no supporter believes. A
+        real block to play around is the difference between a diagram of our
+        eleven and an argument about whether it would actually work.
+
+        They are drawn UNDER our tokens, smaller, in their own colour and
+        without name plates. This is our page: the men whose names matter are
+        ours, and eleven more labels would turn the board into a car park.
+        """
+        self.opp_players = dict(players or {})
+        self.opp_positions = dict(positions or {})
+        if color:
+            self.opp_color = tuple(color)
 
     def triangle(self, t0, t1, a, b, c, label=""):
         """The passing triangle between three men.
@@ -342,6 +365,18 @@ class Board:
                     d.text((ex - lw / 2, ey - 64), a["label"],
                            font=_font(28), fill=(255, 255, 255))
 
+        # opposition tokens — under ours, smaller, no name plates
+        for opid, (ofx, ofy) in self.opp_positions.items():
+            ox, oy = self._px(ofx, ofy)
+            d.ellipse([ox - 34, oy - 34, ox + 34, oy + 34],
+                      fill=(*self.opp_color, 210),
+                      outline=(240, 240, 240, 180), width=2)
+            ono = self.opp_players.get(opid, {}).get("no", "")
+            if ono:
+                ow = d.textlength(ono, font=_font(26))
+                d.text((ox - ow / 2, oy - 16), ono, font=_font(26),
+                       fill=(20, 20, 24))
+
         # player tokens
         for pid, (fx, fy) in pos.items():
             p = self.players.get(pid, {})
@@ -480,7 +515,17 @@ class Board:
             scale = 1.25 - 0.25 * u_in
             fade = _ease(min(1, (a["t1"] - t) / 0.4))
             alpha = int(255 * u_in * fade)
-            big = _font(int(96 * scale))
+            # FIT THE FRAME. The size was fixed at 96px, and the stamp is
+            # centred at (W - tw) / 2 - so any text wider than the board got a
+            # NEGATIVE start and was cut off at both edges. "KAIZER CHIEFS V
+            # SIWELELE" is 24 characters and lost its first and last words in
+            # the opening chapter of every reel. Shrink until it fits, with the
+            # punch-in scale applied after so the animation is unchanged.
+            base = 96
+            while base > 40 and d.textlength(
+                    a["text"], font=_font(base)) > W - 150:
+                base -= 4
+            big = _font(int(base * scale))
             tw = d.textlength(a["text"], font=big)
             cy = 760
             d.rounded_rectangle([(W - tw) / 2 - 44, cy - 40,
