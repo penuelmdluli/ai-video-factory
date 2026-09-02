@@ -89,6 +89,7 @@ class Board:
         self.opp_players: dict = {}
         self.opp_positions: dict = {}
         self.opp_runs: list = []
+        self.bench: list = []
         self.opp_color = (150, 158, 168)
         self.keys: list[tuple[float, dict]] = []
         self.annos: list[dict] = []
@@ -185,6 +186,22 @@ class Board:
         self.opp_positions = dict(positions or {})
         if color:
             self.opp_color = tuple(color)
+
+    def set_bench(self, names: list):
+        """The substitutes, along the side of the pitch.
+
+        Owner 2026-09-03: "can we show the bench by the side of the field?"
+
+        It costs nothing and answers the question every supporter asks at a
+        line-up graphic - "who is left?" - which is also the question that
+        starts arguments, because the man he wanted starting is sitting in
+        this row. The bench comes off the same ESPN team sheet as the XI, so
+        it is real rather than a guess.
+
+        Numbers only, and small. Eleven starters carry names; thirteen more
+        name plates would bury the pitch.
+        """
+        self.bench = [str(n) for n in (names or [])][:9]
 
     def opp_run(self, pid: str, t0: float, t1: float, a, b):
         """One opponent BREAKS - he carries the ball and scores it.
@@ -817,12 +834,31 @@ class Board:
                 d.text(((W - sw2) / 2, cy + 116), a["sub"], font=sf,
                        fill=(*self.accent, alpha))
 
+        # the bench, in the band between the pitch and the subtitle
+        sub_y = 1760
+        if self.bench:
+            sub_y = 1848
+            f_b = _font(24)
+            lw = d.textlength("BENCH", font=f_b)
+            d.text((44, 1752), "BENCH", font=f_b, fill=(150, 156, 164))
+            x = 44 + lw + 26
+            for entry in self.bench:
+                no = entry.split()[0] if entry.split() else ""
+                if x + 52 > W - 40:
+                    break
+                d.ellipse([x, 1740, x + 46, 1786],
+                          fill=(38, 42, 48), outline=(120, 126, 134), width=2)
+                nw = d.textlength(no, font=f_b)
+                d.text((x + 23 - nw / 2, 1752), no, font=f_b,
+                       fill=(225, 228, 232))
+                x += 56
+
         if self.subtitle:
             sw = d.textlength(self.subtitle, font=_font(30))
-            d.rounded_rectangle([(W - sw) / 2 - 20, 1760,
-                                 (W + sw) / 2 + 20, 1820], radius=14,
+            d.rounded_rectangle([(W - sw) / 2 - 20, sub_y,
+                                 (W + sw) / 2 + 20, sub_y + 60], radius=14,
                                 fill=(10, 10, 12, 220))
-            d.text(((W - sw) / 2, 1770), self.subtitle, font=_font(30),
+            d.text(((W - sw) / 2, sub_y + 10), self.subtitle, font=_font(30),
                    fill=(235, 238, 242))
         return im
 
@@ -845,20 +881,41 @@ class Board:
         self._slow = (t0, t1, max(0.05, factor))
 
     def _warp(self, t: float) -> float:
-        """Real frame time -> board time, honouring any slow-motion window."""
+        """Real frame time -> board time, honouring any slow-motion window.
+
+        The window must GIVE THE TIME BACK. The first version ran at `factor`
+        through the window and then at normal speed, so board time finished
+        short by (t1 - t0) * (1 - factor): with a 0.72->0.93 window at 0.40,
+        a chapter ended at board time 0.874. The ball still arrived, but the
+        GOAL card at 0.90 and the scoreline at 0.94 never fired - so the first
+        goal went in and the reel never said so, which is exactly what the
+        owner saw.
+
+        After the window the board now runs slightly FAST, at whatever rate
+        lands it on the full duration at the final frame. That reads as
+        normal, because by then the ball is already in the net and the only
+        thing left to do is show the card.
+        """
         w = getattr(self, "_slow", None)
         if not w:
             return t
         t0, t1, f = w
         if t <= t0:
             return t
-        if t >= t1:
-            return t0 + (t1 - t0) * f + (t - t1)
-        return t0 + (t - t0) * f
+        if t < t1:
+            return t0 + (t - t0) * f
+        at_t1 = t0 + (t1 - t0) * f
+        dur = getattr(self, "_dur", None)
+        if not dur or dur <= t1:
+            return at_t1 + (t - t1)
+        # catch up so board time reaches `dur` exactly at the last frame
+        rate = (dur - at_t1) / (dur - t1)
+        return at_t1 + (t - t1) * rate
 
     def render(self, out_path, duration: float, fps: int = 30) -> str:
         import numpy as np
         from moviepy import VideoClip
+        self._dur = float(duration)
         clip = VideoClip(
             lambda t: np.array(self._frame(self._warp(t))), duration=duration)
         clip.write_videofile(str(out_path), fps=fps, codec="libx264",

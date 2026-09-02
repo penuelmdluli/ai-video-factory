@@ -180,9 +180,27 @@ async def main(a) -> int:
         except Exception:
             opp_rows = []
 
+    # The real bench, off the same team sheet as the XI. Men already in our
+    # starting eleven are dropped: the sheet's bench is from the LAST match,
+    # and a man we have picked to start cannot also be sitting down.
+    bench_names = []
+    try:
+        from modules.psl_fixtures import last_lineup
+        sheet = await last_lineup(a.club)
+        starting = {nm.lower() for nm in
+                    (x.partition(" ")[2].lower() for x in xi_list)}
+        bench_names = [x for x in ((sheet or {}).get("bench") or [])
+                       if x.partition(" ")[2].lower() not in starting]
+        if bench_names:
+            _log(f"bench: {len(bench_names)} named from the team sheet")
+    except Exception as ex:
+        _log(f"bench unavailable ({str(ex)[:60]})")
+
     def _oppose(board):
         if opp_positions:
             board.set_opposition(opp_players, opp_positions, opp_col)
+        if bench_names:
+            board.set_bench(bench_names)
 
     def _shapes(board, dur_, labelled=False):
         """Draw both formations as SHAPES, ours in gold and theirs in theirs."""
@@ -592,18 +610,20 @@ async def main(a) -> int:
                            min(d, t_at + 0.90),
                            positions[chain[k - 1]], positions[pid],
                            positions[chain[k + 1]])
-        b.goal(d * 0.90, d, scorer=scorer, assist=assist)
-        b.stat(d * 0.94, d, f"{running}-0", scorer)
+        b.goal(d * 0.84, d, scorer=scorer, assist=assist)
+        b.stat(d * 0.88, d, f"{running}-0", scorer)
         # SLOW MOTION on the finish. The shot and the net are the only two
         # seconds a viewer wants to see twice, and at full speed the ball
         # crosses the line in four frames.
-        b.slow_motion(d * 0.72, d * 0.93, factor=0.40)
+        # Window and factor chosen so the catch-up afterwards stays gentle -
+        # a violent speed-up on the celebration would undo the slow motion.
+        b.slow_motion(d * 0.60, d * 0.82, factor=0.50)
         # HOW IT HAPPENED, landed inside the slow motion. Owner: "showing how
         # it happened, or highlight, but still engaging with the fans." The
         # replay beat is where a viewer is already looking hardest, so it is
         # the one moment worth spending on the build-up rather than the ball -
         # who started it, how many touches, who finished.
-        b.stat(d * 0.74, d * 0.90,
+        b.stat(d * 0.62, d * 0.82,
                f"{len(chain) - 1} PASSES",
                f"{players[chain[0]]['name']} → {scorer}")
         goal_times.append(t0 + d * 0.90)
@@ -642,8 +662,10 @@ async def main(a) -> int:
                   concede["runner_from"],
                   (concede["to"][0], min(0.99, concede["to"][1] - 0.14)))
         b.goal(d * 0.86, d, scorer=concede["scorer"] or opp.upper(), assist="")
+        # (ball reaches our net at board 0.697, inside the slow-motion window,
+        #  so the finish itself is what slows - then the card lands after it)
         # The one we concede slows too - a warning you can actually watch land.
-        b.slow_motion(d * 0.62, d * 0.88, factor=0.45)
+        b.slow_motion(d * 0.58, d * 0.80, factor=0.50)
         b.stat(d * 0.90, d, f"{len(goals)}-1", opp.upper())
         goal_times.append(t0 + d * 0.86)
         kick_times.append(t0 + d * 0.25)
