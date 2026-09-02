@@ -32,14 +32,58 @@ def _font(sz, bold=True):
         f"C:/Windows/Fonts/{'arialbd.ttf' if bold else 'arial.ttf'}", sz)
 
 
+def _draw_football(d, cx: float, cy: float, r: float, spin: float = 0.0):
+    """An actual football, not a white dot.
+
+    Owner 2026-09-02: "the ball must be a real ball." The old one was a circle
+    with a single arc across it, which at 24px reads as a bubble. A ball is
+    recognisable from two things and only two: the black pentagon at its centre
+    and the seams running off it. Both are drawn here, and the whole panel
+    pattern ROTATES with travel, because a ball that slides across a pitch
+    without spinning is the thing that makes an animation look cheap.
+    """
+    import math
+    d.ellipse([cx - r, cy - r, cx + r, cy + r],
+              fill=(252, 252, 252), outline=(18, 18, 20), width=2)
+
+    # Centre pentagon, spinning.
+    pent = []
+    for k in range(5):
+        ang = spin + k * (2 * math.pi / 5) - math.pi / 2
+        pent.append((cx + math.cos(ang) * r * 0.42,
+                     cy + math.sin(ang) * r * 0.42))
+    d.polygon(pent, fill=(22, 22, 26))
+
+    # Seams out to the rim from each pentagon corner.
+    for k in range(5):
+        ang = spin + k * (2 * math.pi / 5) - math.pi / 2 + math.pi / 5
+        d.line([(cx + math.cos(ang) * r * 0.44, cy + math.sin(ang) * r * 0.44),
+                (cx + math.cos(ang) * r * 0.96, cy + math.sin(ang) * r * 0.96)],
+               fill=(30, 30, 34), width=max(2, int(r * 0.10)))
+
+    # A soft highlight so it reads as a sphere and not a sticker.
+    d.ellipse([cx - r * 0.55, cy - r * 0.62, cx - r * 0.05, cy - r * 0.16],
+              fill=(255, 255, 255))
+
+
 class Board:
     def __init__(self, players: dict, accent=(255, 193, 7),
-                 title: str = "", subtitle: str = ""):
-        """players: {pid: {"no": "16", "name": "LEANER"}}"""
+                 title: str = "", subtitle: str = "",
+                 club: str = "", opponent: str = ""):
+        """players: {pid: {"no": "16", "name": "LEANER"}}
+
+        club/opponent draw the CRESTS. Owner 2026-09-02: "can adding the crest
+        in the field for both teams bring the spark?" It can, and the way it
+        does is by answering "who is this?" before a word is spoken - the same
+        job the crest does on a real broadcast's centre circle. Both are
+        optional and a missing badge simply is not drawn.
+        """
         self.players = players
         self.accent = accent
         self.title = title
         self.subtitle = subtitle
+        self.club = club
+        self.opponent = opponent
         self.keys: list[tuple[float, dict]] = []
         self.annos: list[dict] = []
 
@@ -95,6 +139,17 @@ class Board:
         self.annos.append({"type": "ball",
                            "wp": sorted(waypoints, key=lambda w: w[0])})
 
+    def goal(self, t0, t1, scorer: str = "", assist: str = ""):
+        """The moment the move ends in the net.
+
+        Owner 2026-09-02: "when they score a goal let it show THIS IS A GOAL,
+        this must be a game, they must feel like they are watching the boys."
+        A passing move that simply stops is a diagram; the same move with the
+        net bulging is a highlight, and a highlight is what a supporter shares.
+        """
+        self.annos.append({"type": "goal", "t0": t0, "t1": t1,
+                           "scorer": scorer, "assist": assist})
+
     def stat(self, t0, t1, text, sub=""):
         """Big broadcast stat stamp that punches in ("2-0 · SEEMA 64'")."""
         self.annos.append({"type": "stat", "t0": t0, "t1": t1,
@@ -123,6 +178,56 @@ class Board:
                 int(PITCH_TOP + fy * (PITCH_BOT - PITCH_TOP - 120)))
 
     # ── drawing ───────────────────────────────────────────────────────────
+    def _crests(self, img):
+        """Home crest ghosted into the centre circle, both crests in a VS bar.
+
+        The centre one is faint on purpose - about a tenth opacity. A solid
+        badge under eleven tokens and a moving ball is clutter, and the tokens
+        are the content; at this weight it reads as turf marking, which is
+        exactly how a stadium centre circle looks on camera.
+        """
+        from PIL import Image
+        try:
+            from modules.motion_kit import _crest
+        except Exception:
+            return
+        if self.club:
+            big = _crest(self.club, 520)
+            if big:
+                ghost = big.copy()
+                ghost.putalpha(ghost.getchannel("A").point(lambda v: int(v * 0.10)))
+                cx, cy = self._px(0.5, 0.5)
+                img.paste(ghost, (int(cx - ghost.width / 2),
+                                  int(cy - ghost.height / 2)), ghost)
+
+    def _matchup(self, img):
+        """Both crests in the HEADER, not on the grass.
+
+        The first version put them at y=258, which is inside the top penalty
+        area - two badges sitting in the six-yard box, over the pitch markings,
+        in the exact space the attacking phase of every move needs. The header
+        is where a broadcast puts the fixture, and it is the one band of the
+        frame with nothing else competing for it.
+        """
+        from PIL import ImageDraw
+        try:
+            from modules.motion_kit import _crest
+        except Exception:
+            return
+        if not (self.club and self.opponent):
+            return
+        a, b = _crest(self.club, 74), _crest(self.opponent, 74)
+        if not (a and b):
+            return
+        y = 108
+        img.paste(a, (int(W / 2 + 120 - a.width / 2), int(y - a.height / 2)), a)
+        img.paste(b, (int(W / 2 + 280 - b.width / 2), int(y - b.height / 2)), b)
+        dd = ImageDraw.Draw(img, "RGBA")
+        f = _font(34)
+        w = dd.textlength("V", font=f)
+        dd.text((W / 2 + 200 - w / 2, y - 20), "V", font=f,
+                fill=(*self.accent, 255))
+
     def _draw_pitch(self, d):
         d.rectangle([0, 0, W, H], fill=(10, 30, 16))
         for i in range(8):                     # mow stripes
@@ -152,11 +257,15 @@ class Board:
         im = Image.new("RGB", (W, H), (10, 30, 16))
         d = ImageDraw.Draw(im, "RGBA")
         self._draw_pitch(d)
+        self._crests(im)
+        d = ImageDraw.Draw(im, "RGBA")   # paste() invalidates the old handle
 
         # header
         d.rectangle([0, 0, W, 200], fill=(10, 10, 12))
         d.text((44, 44), "GENESIS NEWS", font=_font(40),
                fill=(255, 200, 0))
+        self._matchup(im)
+        d = ImageDraw.Draw(im, "RGBA")
         d.text((44, 100), "TACTICS BOARD", font=_font(26, False),
                fill=(200, 205, 210))
         if self.title:
@@ -261,10 +370,36 @@ class Board:
                     d.ellipse([bx - r, by - r, bx + r, by + r],
                               fill=(255, 255, 255, alpha))
                 bx, by = self._px(*ball_pos(t))
-                d.ellipse([bx - 22, by - 22, bx + 22, by + 22],
-                          fill=(255, 255, 255), outline=(20, 20, 20), width=3)
-                d.arc([bx - 22, by - 22, bx + 22, by + 22], 30, 210,
-                      fill=(20, 20, 20), width=3)
+                _draw_football(d, bx, by, 24, spin=t * 5.0)
+
+        # GOAL — a white flash, then the word, then who scored it.
+        for a in self.annos:
+            if a["type"] != "goal" or not (a["t0"] <= t <= a["t1"]):
+                continue
+            u = (t - a["t0"]) / max(a["t1"] - a["t0"], 1e-6)
+            # Flash on the first 12% only. Longer reads as a render fault
+            # rather than a net rippling.
+            if u < 0.12:
+                d.rectangle([0, 0, W, H],
+                            fill=(255, 255, 255, int(190 * (1 - u / 0.12))))
+            pop = _ease(min(1, u / 0.18))
+            fade = _ease(min(1, (1 - u) / 0.15))
+            alpha = int(255 * pop * fade)
+            big = _font(int(150 * (1.3 - 0.3 * pop)))
+            word = "GOAL!"
+            tw = d.textlength(word, font=big)
+            d.text(((W - tw) / 2 + 5, 700 + 5), word, font=big,
+                   fill=(10, 10, 12, int(alpha * 0.6)))
+            d.text(((W - tw) / 2, 700), word, font=big,
+                   fill=(*self.accent, alpha))
+            line = a["scorer"].upper()
+            if a["assist"]:
+                line += f"  ·  {a['assist'].upper()}"
+            if line:
+                sf = _font(46)
+                lw = d.textlength(line, font=sf)
+                d.text(((W - lw) / 2, 880), line, font=sf,
+                       fill=(255, 255, 255, alpha))
 
         # stat stamps — punch in with overshoot, hold, fade
         for a in self.annos:

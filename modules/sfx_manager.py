@@ -197,6 +197,26 @@ SFX_LIBRARY = {
         "prompt": "Futuristic laser beam zap sound, sci-fi energy pulse",
         "duration": 0.6,
     },
+    # Football, for the Genesis tactics reels. Owner 2026-09-02: "let's have
+    # the ball kick sound or goal and more, make it feel live." A move drawn in
+    # silence is a diagram; the same move with a boot striking leather and a
+    # stand reacting is a match. Generated once and cached, like everything
+    # else here.
+    "ball_kick": {
+        "prompt": "Football boot striking a leather ball hard, single clean "
+                  "kick, close and punchy, no music",
+        "duration": 1.0,
+    },
+    "goal_roar": {
+        "prompt": "Large football stadium crowd erupting in a huge roar as a "
+                  "goal is scored, celebration, no music",
+        "duration": 4.0,
+    },
+    "stadium_ambience": {
+        "prompt": "Football stadium crowd ambience, steady murmur and "
+                  "occasional singing, distant, no music",
+        "duration": 10.0,
+    },
     "crowd_gasp": {
         "prompt": "Audience crowd gasping in shock, surprised reaction",
         "duration": 1.2,
@@ -276,17 +296,24 @@ def _cache_key(sfx_type: str) -> str:
     return f"sfx_{sfx_type}.mp3"
 
 
-def get_sfx_sync(sfx_type: str) -> str | None:
+def get_sfx_sync(sfx_type: str, force: bool = False) -> str | None:
     """
     Synchronous SFX/bed fetch (for the assembler's sync music picker).
     Returns a cached path, generating once via ElevenLabs if missing.
+
+    force=True bypasses the global ENABLE_SFX switch for a caller that has been
+    asked for a specific sound by name. ENABLE_SFX is off for the whole system,
+    and flipping it on so the Genesis tactics reels could have a kick and a
+    crowd would silently add sound effects to every other page's videos too.
+    A cached file is returned either way, so a forced sound is generated once
+    and costs nothing after that.
     """
     if sfx_type not in SFX_LIBRARY:
         return None
     cache_path = SFX_CACHE_DIR / _cache_key(sfx_type)
     if cache_path.exists() and cache_path.stat().st_size > 0:
         return str(cache_path)
-    if not ENABLE_SFX or not ELEVENLABS_API_KEY:
+    if (not ENABLE_SFX and not force) or not ELEVENLABS_API_KEY:
         return None
     try:
         import requests

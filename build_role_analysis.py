@@ -139,6 +139,38 @@ async def main(a) -> int:
         return 1
     _log("analysing: " + ", ".join(f"{sn.title()} ({rk})" for sn, _ab, rk in picks))
 
+    # THE FIXTURE FRAMES EVERYTHING.
+    #
+    # Owner: "this must sound like US analysing Chiefs against the upcoming
+    # game." The first edition was a coaching lesson that could have been
+    # published in any month of any season - true, useful, and with no reason
+    # to watch it TODAY. Every other format on this page names the opponent
+    # ("6 defenders in the frame vs Siwelele"), and that is what makes a
+    # supporter stop.
+    #
+    # The frame is the only part that becomes fixture-specific. The teaching
+    # stays general, because we do not have Siwelele's shape and inventing
+    # "they will press high" would be exactly the made-up claim this format was
+    # designed to avoid. Naming the match is a FACT off the fixture feed;
+    # predicting the opponent's tactics would not be.
+    fx = None
+    try:
+        from modules.psl_fixtures import next_fixture
+        fx = await next_fixture(a.club)
+    except Exception as e:
+        _log(f"fixture lookup failed ({str(e)[:60]}) — no match frame")
+    if fx:
+        opp = (fx["away"] if fx.get("home_key") == a.club else fx["home"])
+        at_home = fx.get("home_key") == a.club
+        venue = fx.get("venue", "")
+        ko = fx.get("kickoff_sast", "")
+        match_line = (f"{'at home to' if at_home else 'away to'} {opp}"
+                      + (f" at {venue}" if venue and at_home else "")
+                      + (f", {ko}" if ko else ""))
+        _log(f"fixture: {match_line}")
+    else:
+        opp, venue, ko, match_line = "", "", "", ""
+
     # ROTATE THE SHAPE. The owner's standing complaint about every Genesis
     # format is that it looks the same twice, and modules/lineup_variety.py
     # exists for exactly that. Without this the reel inherits whatever
@@ -195,14 +227,16 @@ async def main(a) -> int:
 
     lead_role = describe(picks[0][2])
     chapters, scenes = [], []
+    when = f"Chiefs are {match_line}." if match_line else ""
     if len(picks) > 1:
-        opening = (f"Three jobs, one team. Today we look at {who}, and what "
-                   f"each of them is actually being asked to do for Kaizer "
-                   f"Chiefs.")
+        opening = ((f"{when} " if when else "")
+                   + f"{'Two' if len(picks) == 2 else 'Three'} shirts decide "
+                     f"how they play it. "
+                     f"{who}. Here is the job each of them has to do.")
     else:
-        opening = (f"{lead_role['title'].replace('THE ', 'The ').lower()}. "
-                   f"{lead_role['job']} At Kaizer Chiefs, that shirt belongs "
-                   f"to {names[0]}.")
+        opening = ((f"{when} " if when else "")
+                   + f"{lead_role['title'].replace('THE ', 'The ').lower()}. "
+                     f"{lead_role['job']} That shirt belongs to {names[0]}.")
     scenes.append({"narration": opening})
     chapters.append(("intro", None))
 
@@ -218,24 +252,51 @@ async def main(a) -> int:
             scenes.append({"narration": beat["say"]})
             chapters.append(("beat", (sn, rk, beat)))
 
-    closer = ("Are they" if len(picks) > 1 else f"Is {names[0]}")
+    # THE ASK IS A MATCHDAY DECISION, not a school report.
+    #
+    # "Is he doing it?" invites a yes or a no and most people scroll past both.
+    # "Do you want him in that shirt on Sunday?" is a team-selection argument
+    # with a deadline, which is the thing this page's supporters reliably turn
+    # up for - the same reason the gaps format works. Naming the opponent and
+    # the kickoff makes it a decision they can be proved right or wrong about
+    # in a few days.
+    if match_line:
+        ask = (f"So here is the one that matters. {opp}, {ko}. "
+               f"{'Do you want these men in those shirts' if len(picks) > 1 else f'Do you want {names[0]} in that shirt'}? "
+               f"And if not, who? Name your pick in the comments.")
+    else:
+        ask = (f"So the question for you is simple. "
+               f"{'Are they' if len(picks) > 1 else 'Is ' + names[0]} doing it? "
+               f"Name your pick in the comments.")
+    # THE MOVE. The lesson, played out by the men whose names are on the
+    # shirts, finishing in the net. Owner: "this must be a game - they must
+    # feel like they are watching the boys." A diagram gets a nod; a move that
+    # ends with GOAL on screen gets shared.
     scenes.append({"narration":
-                   f"That is the job. So the question for you is simple. "
-                   f"{closer} doing it? Tell us in the comments, and follow "
-                   f"Genesis News for the next one."})
+                   "So put it together. This is how it should look when the "
+                   "shape works - the ball moving forward, every man doing "
+                   "his job, and it finishes where it is supposed to."})
+    chapters.append(("move", None))
+
+    scenes.append({"narration": ask + " Follow Genesis News for the next one."})
     chapters.append(("outro", None))
 
     head = (lead_role["title"] if len(picks) == 1
-            else f"{len(picks)} ROLES, ONE TEAM")
+            else f"{len(picks)} SHIRTS, ONE GAME")
     nl = chr(10)
-    jobs = " ".join(f"{sn.title()}: {describe(rk)['job']}"
-                    for sn, _a, rk in picks)
+    jobs = f"{nl}".join(f"{sn.title()} — {describe(rk)['job']}"
+                        for sn, _a, rk in picks)
+    vs = f" vs {opp}" if opp else ""
     SCRIPT = {
-        "title": f"{head} — {who} | Kaizer Chiefs",
-        "caption": (f"{head} 📋 {who}.{nl}{nl}{jobs}{nl}{nl}"
-                    f"Are they doing it? 👇⚽{nl}"
-                    f"#KaizerChiefs #Amakhosi #PSL #BetwayPremiership "
-                    f"#Khosi4Life"),
+        "title": f"{head}{vs} — {who} | Kaizer Chiefs",
+        "caption": (
+            f"{head}{vs.upper()} 📋{nl}{nl}"
+            + (f"Chiefs are {match_line}. These are the jobs that decide "
+               f"it:{nl}{nl}" if match_line else f"{who}:{nl}{nl}")
+            + f"{jobs}{nl}{nl}"
+            + (f"Do you want them in those shirts {ko}? If not, who? 👇⚽{nl}{nl}"
+               if ko else f"Are they doing it? 👇⚽{nl}{nl}")
+            + f"#KaizerChiefs #Amakhosi #PSL #BetwayPremiership #Khosi4Life"),
         "scenes": scenes,
     }
 
@@ -247,7 +308,7 @@ async def main(a) -> int:
     from modules.script_writer import get_full_narration
     from moviepy import (AudioFileClip, ImageClip, VideoFileClip,
                          CompositeVideoClip, CompositeAudioClip,
-                         concatenate_videoclips)
+                         concatenate_videoclips, concatenate_audioclips)
 
     tag = "_".join(sn.lower() for sn, _a, _r in picks)[:40]
     work = ROOT / "output" / f"role_{a.club}_{tag}_{datetime.now():%Y%m%d_%H%M%S}"
@@ -262,17 +323,53 @@ async def main(a) -> int:
     _log(f"narration {total:.1f}s across {len(dur)} chapters")
 
     clips = []
-    for i, (kind, payload) in enumerate(chapters):
-        d = dur[i]
+    move_audio = {}
+    for i2, (kind, payload) in enumerate(chapters):
+        i = i2
+        d = dur[i2]
         if kind in ("intro", "outro"):
             title = head if kind == "intro" else "ARE THEY DOING IT?"
-            sub = (f"{who.upper()} · {formation}" if kind == "intro"
-                   else "TELL US BELOW")
+            sub = (f"{('VS ' + opp.upper() + ' · ') if opp else ''}"
+                   f"{formation}" if kind == "intro"
+                   else (f"{opp.upper()} {ko} · WHO STARTS?" if opp
+                         else "TELL US BELOW"))
             b = Board(players, accent=GOLD, title=title, subtitle=sub)
             b.keyframe(0.0, positions)
             b.keyframe(d, positions)
             for sn, _a, _r in picks:
                 b.ring(0.4, d, pid_of[sn.lower()])
+        elif kind == "move":
+            from modules.move_builder import build_move
+            subj_pids = [pid_of[sn.lower()] for sn, _a, _r in picks]
+            wps, chain, scorer, assist, moves = build_move(
+                positions, players, subj_pids, passes=6)
+            b = Board(players, accent=GOLD, title="THE MOVE",
+                      subtitle=(f"{len(chain) - 1} PASSES · "
+                                f"{scorer or 'FINISH'}"))
+            b.keyframe(0.0, positions)
+            # Each passer strides into his pass and each receiver comes to meet
+            # it; keyframe_balanced so the rest of the side shifts in sympathy
+            # rather than standing still around a moving ball.
+            for frac, change in moves:
+                b.keyframe_balanced(max(0.05, d * frac), change,
+                                    strength=0.25, radius=0.20)
+            b.keyframe(d, dict(b.keys[-1][1]))
+            b.ball([(d * f, tuple(xy)) for f, xy in wps])
+            # Ring each man as the ball reaches him, so the eye follows it.
+            n_ch = max(1, len(chain) - 1)
+            for i, pid in enumerate(chain):
+                t_at = d * 0.80 * i / n_ch
+                b.ring(max(0.0, t_at - 0.15), min(d, t_at + 0.45), pid)
+            if scorer:
+                b.goal(d * 0.92, d, scorer=scorer, assist=assist)
+            # Times, in the FINISHED video, for the kick and roar audio.
+            move_audio["start"] = sum(dur[:i2])
+            move_audio["len"] = d
+            move_audio["kicks"] = [d * 0.80 * k / n_ch
+                                   for k in range(len(chain) - 1)]
+            move_audio["goal_at"] = d * 0.92 if scorer else None
+            clips.append(b.render(work / f"_c{i2:02d}.mp4", duration=d))
+            continue
         elif kind == "title":
             sn, rk = payload
             b = Board(players, accent=GOLD, title=describe(rk)["title"],
@@ -301,7 +398,7 @@ async def main(a) -> int:
             if beat.get("ball_from"):
                 b.ball([(d * 0.45, tuple(beat["ball_from"])),
                         (d * 0.80, tuple(beat["to"]))])
-        clips.append(b.render(work / f"_c{i:02d}.mp4", duration=d))
+        clips.append(b.render(work / f"_c{i2:02d}.mp4", duration=d))
 
     _log("compositing…")
     base = concatenate_videoclips([VideoFileClip(str(c)) for c in clips])
@@ -322,8 +419,44 @@ async def main(a) -> int:
         _log(f"captions skipped: {ex}")
 
     dd = max(base.duration, total)
+
+    # LIVE SOUND over the move: a boot on every pass, a stand under all of it,
+    # a roar on the goal. Owner: "make it feel live." Mixed UNDER the narration
+    # (the voice is the reel), and every piece is optional - a missing cache
+    # file drops that sound and nothing else.
+    tracks = [audio]
+    try:
+        from moviepy import afx
+        from modules.sfx_manager import get_sfx_sync
+        m0, mlen = move_audio.get("start"), move_audio.get("len")
+        if m0 is not None:
+            amb = get_sfx_sync("stadium_ambience", force=True)
+            if amb:
+                bed = AudioFileClip(amb)
+                # Loop the bed to cover the chapter, then duck it right down:
+                # this sits behind a voice, it is not the point.
+                reps = max(1, int(mlen / max(0.5, bed.duration)) + 1)
+                bed = concatenate_audioclips([bed] * reps).subclipped(0, mlen)
+                tracks.append(bed.with_effects([afx.MultiplyVolume(0.16)])
+                              .with_start(m0))
+            kick = get_sfx_sync("ball_kick", force=True)
+            if kick:
+                for k in move_audio.get("kicks", []):
+                    tracks.append(AudioFileClip(kick)
+                                  .with_effects([afx.MultiplyVolume(0.45)])
+                                  .with_start(m0 + k))
+            if move_audio.get("goal_at") is not None:
+                roar = get_sfx_sync("goal_roar", force=True)
+                if roar:
+                    tracks.append(AudioFileClip(roar)
+                                  .with_effects([afx.MultiplyVolume(0.55)])
+                                  .with_start(m0 + move_audio["goal_at"]))
+            _log(f"live sound: {len(tracks) - 1} layers over the move")
+    except Exception as ex:
+        _log(f"match sound skipped: {str(ex)[:90]}")
+
     video = CompositeVideoClip(layers, size=(W, H)).with_duration(dd)
-    video = video.with_audio(CompositeAudioClip([audio]).with_duration(dd))
+    video = video.with_audio(CompositeAudioClip(tracks).with_duration(dd))
     out = work / "final.mp4"
     video.write_videofile(str(out), fps=30, codec="libx264",
                           audio_codec="aac", logger=None,
