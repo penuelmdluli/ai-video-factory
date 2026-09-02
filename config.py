@@ -567,9 +567,16 @@ NICHES = {
                            "African football supporters", "vuvuzela stadium crowd",
                            "South African flag", "Johannesburg Soweto streets",
                            "football boots pitch", "packed stadium aerial"],
-        "hashtags": ["#PSL", "#BetwayPremiership", "#KaizerChiefs", "#Amakhosi",
-                     "#OrlandoPirates", "#Buccaneers", "#MamelodiSundowns",
-                     "#Masandawana", "#SowetoDerby", "#Mzansi"],
+        # Chiefs-weighted, rivals OUT. build_psl_news reads THIS list (not the
+        # tiered pool in modules/hashtag_optimizer), so a role analysis about
+        # Monyane went out on 2 Sep tagged #OrlandoPirates - a rival's tag on a
+        # Chiefs post, putting our reel in front of their fans and breaking the
+        # owner's standing rule that rivals are context and never the subject.
+        # #SowetoDerby stays: it is the fixture, not a club.
+        "hashtags": ["#KaizerChiefs", "#Amakhosi", "#PSL",
+                     "#BetwayPremiership", "#Khosi4Life", "#KhosiNation",
+                     "#SowetoDerby", "#Mzansi", "#MzansiFootball",
+                     "#GenesisNewsPSL"],
         "cpm_estimate": 14,
         "generate_charts": False,
         # VOICE: this page uses the SAME female voice as Tech Pulse — Kokoro af_heart

@@ -1144,6 +1144,26 @@ def _seed_youtube_comments(video_id: str, story_comment: str):
         _log(f"YouTube comment seed failed: {str(e)[:100]}")
 
 
+def _tiktok_desc(manifest: dict, limit: int = 150) -> str:
+    """The caption, cut at a SENTENCE or word boundary rather than mid-word.
+
+    A hard [:150] slice sent "Three things the job demands - and Monyane is the
+    man Chiefs put there. Is he " to TikTok on 2 Sep, stopping mid-question. In
+    that format the question IS the call to action, so the slice removed the one
+    line asking for a comment.
+    """
+    text = " ".join((manifest.get("caption")
+                     or manifest.get("title") or "").split())
+    if len(text) <= limit:
+        return text
+    window = text[:limit]
+    for stop in (". ", "! ", "? "):
+        cut = window.rfind(stop)
+        if cut > limit * 0.5:
+            return window[:cut + 1].strip()
+    return window.rsplit(" ", 1)[0].rstrip(",;:-") + "..."
+
+
 async def post_to_page(work: Path) -> dict | None:
     """
     Post the built reel DIRECTLY to the Genesis News page (no YouTube/TikTok
@@ -1245,7 +1265,7 @@ async def post_to_page(work: Path) -> dict | None:
         from modules.uploader_tiktok import upload_to_tiktok
         tt = await upload_to_tiktok(
             video_path=manifest["video_path"],
-            description=manifest.get("caption", manifest["title"])[:150],
+            description=_tiktok_desc(manifest),
             hashtags=manifest.get("tags", [])[:5], niche=NICHE)
         _log(f"TikTok: {(tt or {}).get('status')}")
     except Exception as e:

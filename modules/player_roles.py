@@ -35,6 +35,7 @@ ROLES = {
         "home": (0.86, 0.72),
         "beats": [
             {"label": "OVERLAP", "from": (0.86, 0.72), "to": (0.88, 0.26),
+             "ball_from": (0.62, 0.46),
              "say": "First, he has to get up the pitch. A modern right back is "
                     "the widest attacker on his side, and when the winger comes "
                     "inside, that whole touchline is his to run."},
@@ -56,6 +57,7 @@ ROLES = {
         "home": (0.14, 0.72),
         "beats": [
             {"label": "OVERLAP", "from": (0.14, 0.72), "to": (0.12, 0.26),
+             "ball_from": (0.38, 0.46),
              "say": "First, he has to get up the pitch. A modern left back is "
                     "the widest attacker on his side, and when the winger cuts "
                     "inside, that touchline belongs to him."},
@@ -86,6 +88,7 @@ ROLES = {
                     "covers behind him. Two centre backs attacking the same "
                     "ball is how a striker ends up running into an empty half."},
             {"label": "BREAK THE LINE", "from": (0.30, 0.82), "to": (0.46, 0.48),
+             "ball_from": (0.30, 0.82),
              "say": "And when he has it, the first look is forward. A pass that "
                     "takes out one opponent is worth more than five that take "
                     "out none."},
@@ -102,10 +105,12 @@ ROLES = {
                     "Not a man, a space. If that pocket is empty, the other "
                     "team's best player is standing in it."},
             {"label": "RECEIVE", "from": (0.50, 0.70), "to": (0.36, 0.66),
+             "ball_from": (0.50, 0.86),
              "say": "He drops to take the ball off the defenders so they are "
                     "never trapped. Every good side has one player who always "
                     "shows for it when nobody else wants it."},
             {"label": "SWITCH", "from": (0.36, 0.66), "to": (0.74, 0.56),
+             "ball_from": (0.36, 0.66),
              "say": "Then he changes the picture. One pass across the pitch "
                     "moves eight opponents. That is the pass that turns a "
                     "blocked attack into a two on one."},
@@ -121,11 +126,13 @@ ROLES = {
                     "before the ball arrives and he can play forward. Take it "
                     "flat and his only option is backwards."},
             {"label": "THIRD MAN", "from": (0.44, 0.58), "to": (0.56, 0.36),
+             "ball_from": (0.44, 0.58),
              "say": "He is rarely the man who plays the killer pass. He is the "
                     "one who makes it possible, then runs past to collect the "
                     "return."},
             {"label": "ARRIVE", "from": (0.56, 0.36), "to": (0.52, 0.20),
              "zone": (0.34, 0.10, 0.66, 0.30),
+             "ball_from": (0.78, 0.22),
              "say": "And late, he arrives in the box. Defenders track the "
                     "striker. The midfielder running in behind them is the one "
                     "nobody picks up."},
@@ -142,9 +149,11 @@ ROLES = {
                     "defence. Stand there and nobody knows whose job he is. "
                     "That confusion is the whole position."},
             {"label": "TURN", "from": (0.52, 0.32), "to": (0.48, 0.24),
+             "ball_from": (0.50, 0.50),
              "say": "The moment he gets it facing forward, the game changes. "
                     "One turn takes four opponents out of the picture."},
             {"label": "RELEASE", "from": (0.48, 0.24), "to": (0.68, 0.16),
+             "ball_from": (0.48, 0.24),
              "say": "Then the ball goes early. A ten who takes a touch too many "
                     "gives the defence the second it needed."},
         ],
@@ -159,11 +168,13 @@ ROLES = {
                     "and still looks lazy and is not: it drags a defender out "
                     "and opens the whole middle for everyone else."},
             {"label": "CUT INSIDE", "from": (0.90, 0.32), "to": (0.64, 0.20),
+             "ball_from": (0.88, 0.44),
              "say": "Then he goes inside, onto his stronger foot, into the "
                     "shooting angle. That is why the full back behind him has "
                     "to overlap - somebody must take the outside."},
             {"label": "BACK POST", "from": (0.64, 0.20), "to": (0.74, 0.10),
              "zone": (0.58, 0.04, 0.92, 0.20),
+             "ball_from": (0.18, 0.18),
              "say": "And when the attack goes the other way, he attacks the "
                     "back post. Most crosses from the far side end up there, "
                     "and most wingers are still watching."},
@@ -179,11 +190,13 @@ ROLES = {
                     "still is not lazy - it drags a defender out and opens the "
                     "middle for everybody else."},
             {"label": "CUT INSIDE", "from": (0.10, 0.32), "to": (0.36, 0.20),
+             "ball_from": (0.12, 0.44),
              "say": "Then inside, onto the stronger foot, into the shooting "
                     "angle. Which is exactly why the full back behind him must "
                     "overlap: somebody has to take the outside."},
             {"label": "BACK POST", "from": (0.36, 0.20), "to": (0.26, 0.10),
              "zone": (0.08, 0.04, 0.42, 0.20),
+             "ball_from": (0.82, 0.18),
              "say": "And when it goes the other way he attacks the back post. "
                     "That is where far side crosses land, and where most "
                     "wingers are still watching."},
@@ -200,10 +213,12 @@ ROLES = {
                     "occupied is a second the midfield runs into space he will "
                     "never touch. Most of his work never reaches the highlights."},
             {"label": "BEND THE RUN", "from": (0.50, 0.20), "to": (0.30, 0.12),
+             "ball_from": (0.62, 0.34),
              "say": "The run is bent, not straight. Across the defender's face "
                     "he is onside a fraction longer and the goalkeeper cannot "
                     "see him."},
             {"label": "ATTACK THE SIX", "from": (0.30, 0.12), "to": (0.48, 0.07),
+             "ball_from": (0.80, 0.20),
              "say": "And he ends up in the six yard box. Not admiring the "
                     "cross. In front of the man marking him, where the tap in "
                     "lives."},
@@ -224,6 +239,7 @@ ROLES = {
                     "forward. A keeper still moving when the ball is struck is "
                     "diving after it, not to it."},
             {"label": "PLAY OUT", "from": (0.50, 0.88), "to": (0.22, 0.74),
+             "ball_from": (0.50, 0.88),
              "say": "And he is the first passer. The team that beats a press "
                     "usually does it because the goalkeeper was brave enough to "
                     "be an option."},

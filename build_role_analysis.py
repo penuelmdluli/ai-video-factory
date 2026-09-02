@@ -88,75 +88,154 @@ async def choose(club: str, want: str = "") -> tuple:
     return sn, ab, role_for(ab)
 
 
+async def choose_many(club: str, n: int = 2, want: str = "") -> list:
+    """n players, least-analysed first, each in a DIFFERENT role.
+
+    Different roles on purpose. Two centre backs in one reel is the same
+    lesson twice, and the whole point of a multi-player edition is that the
+    viewer sees how the jobs connect - the full back overlaps because the
+    winger came inside, so showing both in one video explains each better than
+    either alone.
+    """
+    from modules.psl_squads import recent_positions
+    from modules.player_roles import role_for, describe
+
+    pos = await recent_positions(club, mode="frequent")
+    playable = [(sn, ab, role_for(ab)) for sn, ab in pos.items()
+                if describe(role_for(ab))]
+    if not playable:
+        return []
+    done = _state().get("done", [])
+    playable.sort(key=lambda p: (done.count(p[0]), p[0]))
+
+    picked, used_roles = [], set()
+    if want:
+        for cand in playable:
+            if cand[0].lower() == want.lower():
+                picked.append(cand)
+                used_roles.add(cand[2])
+                break
+    for cand in playable:
+        if len(picked) >= n:
+            break
+        if cand[2] in used_roles or cand in picked:
+            continue
+        picked.append(cand)
+        used_roles.add(cand[2])
+    # If the squad has fewer distinct roles than asked for, take what exists
+    # rather than repeating a lesson to hit a number.
+    return picked
+
+
 async def main(a) -> int:
     from modules.player_roles import describe
     from modules.tactics_board import Board
     from modules.psl_squads import predict_xi2
     from modules.motion_kit import GOLD, W, H
 
-    surname, abbrev, role_key = await choose(a.club, a.player)
-    if not role_key:
+    picks = await choose_many(a.club, max(1, min(3, a.players)), a.player)
+    if not picks:
         _log("no published positions — cannot build a role analysis")
         return 1
-    role = describe(role_key)
-    _log(f"{surname.title()} — ESPN {abbrev} -> {role_key} ({role['title']})")
+    _log("analysing: " + ", ".join(f"{sn.title()} ({rk})" for sn, _ab, rk in picks))
 
-    # The real XI, so the man is shown inside the side he actually plays in.
-    xi_list, formation = await predict_xi2(a.club, force_refresh=False)
+    # ROTATE THE SHAPE. The owner's standing complaint about every Genesis
+    # format is that it looks the same twice, and modules/lineup_variety.py
+    # exists for exactly that. Without this the reel inherits whatever
+    # predict_xi2 defaults to, which is the LAST REAL formation and therefore
+    # the same shape for weeks on end. The board is a clearly-labelled
+    # prediction, so a shape we argue for is the format working as intended.
+    shape, calls = None, []
+    try:
+        from modules.lineup_variety import pick as _variety
+        shape, calls = await _variety(a.club)
+        _log(f"shape: {shape}" + (f" + bold call {calls[0]}" if calls else ""))
+    except Exception as e:
+        _log(f"variety unavailable ({str(e)[:60]}) — using the real shape")
+
+    xi_list, formation = await predict_xi2(a.club, shape, force_in=calls)
     if len(xi_list) < 11:
         _log("no usable XI")
         return 1
 
-    players, positions, subject_pid = {}, {}, ""
+    # Lay the XI onto the board in formation rows.
+    players, positions, pid_of = {}, {}, {}
     lines = [int(n) for n in str(formation).split("-") if n.strip().isdigit()]
-    rows = [1] + lines
-    idx = 0
+    rows, idx = [1] + lines, 0
     for row_i, count in enumerate(rows):
-        # y: 0.92 at the keeper, climbing towards the opponent goal.
         y = 0.92 - (row_i / max(1, len(rows) - 1)) * 0.74
         for col in range(count):
             if idx >= len(xi_list):
                 break
-            entry = xi_list[idx]
-            no, _, nm = entry.partition(" ")
+            no, _, nm = xi_list[idx].partition(" ")
             pid = f"p{idx}"
             players[pid] = {"no": no, "name": nm.upper()}
-            x = (col + 1) / (count + 1)
-            positions[pid] = (x, y)
-            if nm.lower() == surname.lower():
-                subject_pid = pid
+            positions[pid] = ((col + 1) / (count + 1), y)
+            pid_of[nm.lower()] = pid
             idx += 1
 
-    if not subject_pid:
-        # He is not in today's predicted XI. Put him on the board anyway, in
-        # the role's home position - the lesson is about the position, and a
-        # squad player is exactly who supporters argue about.
-        subject_pid = "subject"
-        players[subject_pid] = {"no": "", "name": surname.upper()}
-        positions[subject_pid] = role["home"]
-        _log(f"{surname.title()} is not in the predicted XI — shown at the "
-             f"role's home position")
+    for sn, _ab, rk in picks:
+        if sn.lower() not in pid_of:
+            # Not in today's XI — shown anyway, at the role's home slot. A
+            # squad man is exactly who supporters argue about.
+            pid = f"sub_{sn.lower()}"
+            players[pid] = {"no": "", "name": sn.upper()}
+            positions[pid] = describe(rk)["home"]
+            pid_of[sn.lower()] = pid
+            _log(f"{sn.title()} not in the XI — shown at the role's home slot")
 
-    beats = role["beats"]
-    scenes = [{"narration":
-               f"{role['title'].replace('THE ', 'The ').lower()}. "
-               f"{role['job']} At {('Kaizer Chiefs')}, that shirt belongs to "
-               f"{surname.title()}."}]
-    scenes += [{"narration": b["say"]} for b in beats]
+    # BEATS PER PLAYER. Three each is right for a single subject; with two or
+    # three subjects that is nine chapters and a two-minute reel nobody
+    # finishes, so the lesson tightens to the two beats that carry it.
+    per = 3 if len(picks) == 1 else 2
+
+    names = [sn.title() for sn, _a, _r in picks]
+    who = names[0] if len(names) == 1 else \
+        ", ".join(names[:-1]) + " and " + names[-1]
+
+    lead_role = describe(picks[0][2])
+    chapters, scenes = [], []
+    if len(picks) > 1:
+        opening = (f"Three jobs, one team. Today we look at {who}, and what "
+                   f"each of them is actually being asked to do for Kaizer "
+                   f"Chiefs.")
+    else:
+        opening = (f"{lead_role['title'].replace('THE ', 'The ').lower()}. "
+                   f"{lead_role['job']} At Kaizer Chiefs, that shirt belongs "
+                   f"to {names[0]}.")
+    scenes.append({"narration": opening})
+    chapters.append(("intro", None))
+
+    for sn, _ab, rk in picks:
+        role = describe(rk)
+        if len(picks) > 1:
+            scenes.append({"narration":
+                           f"{sn.title()}. "
+                           f"{role['title'].replace('THE ', 'The ').lower()}. "
+                           f"{role['job']}"})
+            chapters.append(("title", (sn, rk)))
+        for beat in role["beats"][:per]:
+            scenes.append({"narration": beat["say"]})
+            chapters.append(("beat", (sn, rk, beat)))
+
+    closer = ("Are they" if len(picks) > 1 else f"Is {names[0]}")
     scenes.append({"narration":
-                   f"That is the job. Three things, every match. So the "
-                   f"question for you is simple. Is {surname.title()} doing "
-                   f"them? Tell us in the comments, and follow Genesis News "
-                   f"for the next one."})
+                   f"That is the job. So the question for you is simple. "
+                   f"{closer} doing it? Tell us in the comments, and follow "
+                   f"Genesis News for the next one."})
+    chapters.append(("outro", None))
 
+    head = (lead_role["title"] if len(picks) == 1
+            else f"{len(picks)} ROLES, ONE TEAM")
+    nl = chr(10)
+    jobs = " ".join(f"{sn.title()}: {describe(rk)['job']}"
+                    for sn, _a, rk in picks)
     SCRIPT = {
-        "title": f"{role['title']} — and the Chiefs man who plays it",
-        "caption": (
-            f"{role['title']} 📋 {role['job']}\n\n"
-            f"Three things the job demands — and {surname.title()} is the man "
-            f"Chiefs put there.\n\n"
-            f"Is he doing them? 👇⚽\n"
-            f"#KaizerChiefs #Amakhosi #PSL #BetwayPremiership #Khosi4Life"),
+        "title": f"{head} — {who} | Kaizer Chiefs",
+        "caption": (f"{head} 📋 {who}.{nl}{nl}{jobs}{nl}{nl}"
+                    f"Are they doing it? 👇⚽{nl}"
+                    f"#KaizerChiefs #Amakhosi #PSL #BetwayPremiership "
+                    f"#Khosi4Life"),
         "scenes": scenes,
     }
 
@@ -170,62 +249,66 @@ async def main(a) -> int:
                          CompositeVideoClip, CompositeAudioClip,
                          concatenate_videoclips)
 
-    work = ROOT / "output" / f"role_{a.club}_{surname.lower()}_{datetime.now():%Y%m%d_%H%M%S}"
+    tag = "_".join(sn.lower() for sn, _a, _r in picks)[:40]
+    work = ROOT / "output" / f"role_{a.club}_{tag}_{datetime.now():%Y%m%d_%H%M%S}"
     work.mkdir(parents=True, exist_ok=True)
 
     _log("voice…")
     voice = await make_voice(SCRIPT, work)
     audio = AudioFileClip(voice["audio_path"])
     total = float(audio.duration) + 0.6
-
-    # Chapter lengths proportional to word count, so the board is showing the
-    # movement the voice is describing (the sync bug this pipeline already hit).
     wc = [len(s["narration"].split()) for s in SCRIPT["scenes"]]
-    dur = [max(4.5, total * w / sum(wc)) for w in wc]
+    dur = [max(3.5, total * w / sum(wc)) for w in wc]
     _log(f"narration {total:.1f}s across {len(dur)} chapters")
 
     clips = []
-    # Chapter 1: the whole side, the man ringed.
-    b0 = Board(players, accent=GOLD, title=role["title"],
-               subtitle=f"{surname.upper()} · {formation}")
-    b0.keyframe(0.0, positions)
-    b0.keyframe(dur[0], positions)
-    b0.ring(0.6, dur[0], subject_pid)
-    clips.append(b0.render(work / "_c0.mp4", duration=dur[0]))
-
-    # One chapter per beat: he makes the movement, the board draws it.
-    for i, beat in enumerate(beats):
-        d = dur[i + 1]
-        b = Board(players, accent=GOLD, title=beat["label"],
-                  subtitle=role["title"])
-        start = dict(positions)
-        start[subject_pid] = beat["from"]
-        b.keyframe(0.0, start)
-        # keyframe_balanced so the rest of the side drifts in sympathy rather
-        # than standing still while one man runs.
-        b.keyframe_balanced(d * 0.75, {subject_pid: beat["to"]})
-        b.keyframe(d, dict(b.keys[-1][1]))
-        b.ring(0.0, d, subject_pid)
-        b.arrow(0.3, d, beat["from"], beat["to"], label=beat["label"])
-        if beat.get("zone"):
-            b.zone(d * 0.35, d, beat["zone"], label="")
-        clips.append(b.render(work / f"_c{i+1}.mp4", duration=d))
-
-    # Closing chapter: back to the shape, question on screen.
-    bz = Board(players, accent=GOLD, title="IS HE DOING IT?",
-               subtitle=f"{surname.upper()} · TELL US BELOW")
-    bz.keyframe(0.0, positions)
-    bz.keyframe(dur[-1], positions)
-    bz.ring(0.2, dur[-1], subject_pid)
-    clips.append(bz.render(work / "_cz.mp4", duration=dur[-1]))
+    for i, (kind, payload) in enumerate(chapters):
+        d = dur[i]
+        if kind in ("intro", "outro"):
+            title = head if kind == "intro" else "ARE THEY DOING IT?"
+            sub = (f"{who.upper()} · {formation}" if kind == "intro"
+                   else "TELL US BELOW")
+            b = Board(players, accent=GOLD, title=title, subtitle=sub)
+            b.keyframe(0.0, positions)
+            b.keyframe(d, positions)
+            for sn, _a, _r in picks:
+                b.ring(0.4, d, pid_of[sn.lower()])
+        elif kind == "title":
+            sn, rk = payload
+            b = Board(players, accent=GOLD, title=describe(rk)["title"],
+                      subtitle=sn.upper())
+            b.keyframe(0.0, positions)
+            b.keyframe(d, positions)
+            b.ring(0.2, d, pid_of[sn.lower()])
+        else:
+            sn, rk, beat = payload
+            pid = pid_of[sn.lower()]
+            b = Board(players, accent=GOLD, title=beat["label"],
+                      subtitle=f"{sn.upper()} · {describe(rk)['title']}")
+            start_pos = dict(positions)
+            start_pos[pid] = beat["from"]
+            b.keyframe(0.0, start_pos)
+            b.keyframe_balanced(d * 0.75, {pid: beat["to"]})
+            b.keyframe(d, dict(b.keys[-1][1]))
+            b.ring(0.0, d, pid)
+            b.arrow(0.3, d, beat["from"], beat["to"], label=beat["label"])
+            if beat.get("zone"):
+                b.zone(d * 0.35, d, beat["zone"])
+            # THE BALL, on the beats that are actually about it. Timed to
+            # ARRIVE as he finishes the run, so the graphic shows a pass
+            # meeting a movement rather than two unrelated dots sliding
+            # around the pitch.
+            if beat.get("ball_from"):
+                b.ball([(d * 0.45, tuple(beat["ball_from"])),
+                        (d * 0.80, tuple(beat["to"]))])
+        clips.append(b.render(work / f"_c{i:02d}.mp4", duration=d))
 
     _log("compositing…")
-    parts = [VideoFileClip(str(c)) for c in clips]
-    base = concatenate_videoclips(parts)
+    base = concatenate_videoclips([VideoFileClip(str(c)) for c in clips])
     layers = [base]
     try:
-        sub = _subscribe_strip(work)
-        layers.append(ImageClip(sub).with_start(max(0, base.duration - 4.0))
+        strip = _subscribe_strip(work)
+        layers.append(ImageClip(strip).with_start(max(0, base.duration - 4.0))
                       .with_duration(min(4.0, base.duration))
                       .with_position(("center", 1730)))
     except Exception:
@@ -233,14 +316,14 @@ async def main(a) -> int:
     try:
         segments = parse_subtitle_to_segments(voice["subtitle_path"])
         segments = align_captions(get_full_narration(SCRIPT), segments)
-        phrases = group_words_into_phrases(segments, max_words=4)
-        layers += _caption_clips(phrases, W, work)
+        layers += _caption_clips(
+            group_words_into_phrases(segments, max_words=4), W, work)
     except Exception as ex:
         _log(f"captions skipped: {ex}")
 
-    d = max(base.duration, total)
-    video = CompositeVideoClip(layers, size=(W, H)).with_duration(d) \
-        .with_audio(CompositeAudioClip([audio]).with_duration(d))
+    dd = max(base.duration, total)
+    video = CompositeVideoClip(layers, size=(W, H)).with_duration(dd)
+    video = video.with_audio(CompositeAudioClip([audio]).with_duration(dd))
     out = work / "final.mp4"
     video.write_videofile(str(out), fps=30, codec="libx264",
                           audio_codec="aac", logger=None,
@@ -248,12 +331,12 @@ async def main(a) -> int:
     write_manifest(SCRIPT, str(out), work, voice,
                    [{"path": str(clips[0]), "credit": "Genesis News",
                      "archive_year": "", "club": a.club, "real": True}])
-    _log(f"video: {out} ({d:.1f}s)")
+    _log(f"video: {out} ({dd:.1f}s, {len(clips)} chapters)")
 
     if a.post:
         await post_to_page(work)
         st = _state()
-        st["done"] = (st.get("done", []) + [surname])[-60:]
+        st["done"] = (st.get("done", []) + [sn for sn, _a, _r in picks])[-60:]
         _save(st)
         _log("POSTED")
     else:
@@ -265,5 +348,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--club", default="chiefs")
     ap.add_argument("--player", default="", help="surname, e.g. monyane")
+    ap.add_argument("--players", type=int, default=2,
+                    help="how many players to analyse (1-3)")
     ap.add_argument("--post", action="store_true")
     raise SystemExit(asyncio.run(main(ap.parse_args())))

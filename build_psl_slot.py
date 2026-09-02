@@ -72,9 +72,9 @@ DEBATE_GROUPS = ["forwards", "midfield", "defence"]
 # "love" joined on 2026-09-02 (owner: "fans love to send love for the love of
 # the club"). It earns its slot like everything else - format_intel gives an
 # unproven format exactly 1.0, so it competes without being handed the week.
-FREE_FORMATS = ("rollcall", "xi", "debate", "fancall", "love", "news")
+FREE_FORMATS = ("rollcall", "xi", "debate", "fancall", "love", "role", "news")
 
-ONCE_PER_DAY = ("debate", "fancall", "rollcall", "xi", "love")
+ONCE_PER_DAY = ("debate", "fancall", "rollcall", "xi", "love", "role")
 
 # The last hours before kickoff belong to the confirmed XI reel, which
 # matchday.py posts off the real team sheet ~75 minutes out. The same
@@ -440,6 +440,15 @@ async def _slot(a):
             _log(f"gaps verdict skipped: {str(e)[:80]}")
         rc = _run(["py", "build_fill_the_gaps.py", "--club", CLUB, "--video"]
                   + post)
+    elif fmt == "role":
+        # THE ROLE: teach a position, then name the Chiefs man who plays it.
+        # Two players per edition by default - different roles, so the viewer
+        # sees how the jobs connect rather than the same lesson twice - and the
+        # shape comes from lineup_variety, so the board is not the same
+        # formation every week. build_role_analysis rotates the subjects itself
+        # on a least-analysed-first ledger.
+        rc = _run(["py", "build_role_analysis.py", "--club", CLUB,
+                   "--players", "2"] + post)
     elif fmt == "love":
         # WALL FIRST, then the next question - the same order as fancall, and
         # for the same reason: the card promises "the best go on a card with
