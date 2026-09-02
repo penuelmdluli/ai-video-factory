@@ -521,6 +521,21 @@ class Board:
         d.line([40, my, W - 40, my], fill=ln, width=3)
         d.ellipse([W // 2 - 130, my - 130, W // 2 + 130, my + 130],
                   outline=ln, width=3)
+        # THE NETS. Owner 2026-09-03: "should we add a net and indicate the
+        # goal line?" Without one the goal line is just the edge of the pitch
+        # rectangle, so a ball 34px past it reads as a ball that has run out of
+        # play rather than a goal. A hatched box behind each line makes the
+        # crossing unmistakable, which is the whole point of the moment.
+        for gy, s in ((PITCH_TOP, -1), (PITCH_BOT, 1)):
+            nx0, nx1 = W // 2 - 150, W // 2 + 150
+            ny0, ny1 = min(gy, gy + s * 52), max(gy, gy + s * 52)
+            d.rectangle([nx0, ny0, nx1, ny1], fill=(255, 255, 255, 26),
+                        outline=(255, 255, 255, 120), width=3)
+            for gx in range(nx0 + 15, nx1, 15):          # net mesh
+                d.line([gx, ny0, gx, ny1], fill=(255, 255, 255, 45), width=1)
+            for gyy in range(ny0 + 13, ny1, 13):
+                d.line([nx0, gyy, nx1, gyy], fill=(255, 255, 255, 45), width=1)
+
         for gy in (PITCH_TOP, PITCH_BOT):
             s = 1 if gy == PITCH_TOP else -1
             d.rectangle([W // 2 - 220, min(gy, gy + s * 170),
@@ -842,19 +857,22 @@ class Board:
         # the bench, in the band between the pitch and the subtitle
         sub_y = 1760
         if self.bench:
-            sub_y = 1848
+            sub_y = 1858
             f_b = _font(24)
             lw = d.textlength("BENCH", font=f_b)
-            d.text((44, 1752), "BENCH", font=f_b, fill=(150, 156, 164))
+            # 1740 put the bench directly over our own net at y=1753, so a
+            # conceded goal went in BEHIND the substitutes and could not be
+            # seen at all. It drops below the net band.
+            d.text((44, 1812), "BENCH", font=f_b, fill=(150, 156, 164))
             x = 44 + lw + 26
             for entry in self.bench:
                 no = entry.split()[0] if entry.split() else ""
                 if x + 52 > W - 40:
                     break
-                d.ellipse([x, 1740, x + 46, 1786],
+                d.ellipse([x, 1800, x + 46, 1846],
                           fill=(38, 42, 48), outline=(120, 126, 134), width=2)
                 nw = d.textlength(no, font=f_b)
-                d.text((x + 23 - nw / 2, 1752), no, font=f_b,
+                d.text((x + 23 - nw / 2, 1812), no, font=f_b,
                        fill=(225, 228, 232))
                 x += 56
 
