@@ -240,6 +240,23 @@ SFX_LIBRARY = {
                   "vuvuzela hum underneath, energetic, live crowd, no music",
         "duration": 10.0,
     },
+    # SOUTH AFRICAN supporters specifically. Owner: "get sound for South
+    # African fans." A generic stadium bed could be anywhere on earth, and a
+    # Chiefs supporter knows the difference in about two seconds - the vuvuzela
+    # drone and the call-and-response singing are not decoration here, they are
+    # what a PSL ground actually sounds like.
+    "sa_stadium": {
+        "prompt": "South African football stadium crowd, vuvuzela horns "
+                  "droning, supporters singing in call and response, "
+                  "whistles, packed terraces, live ambience, no music",
+        "duration": 12.0,
+    },
+    "sa_goal_roar": {
+        "prompt": "South African football crowd erupting as a goal goes in, "
+                  "vuvuzelas blaring, ululating and cheering, packed stadium, "
+                  "no music",
+        "duration": 4.0,
+    },
     "crowd_gasp": {
         "prompt": "Audience crowd gasping in shock, surprised reaction",
         "duration": 1.2,

@@ -219,13 +219,19 @@ class Board:
         a, b = _crest(self.club, 74), _crest(self.opponent, 74)
         if not (a and b):
             return
+        # Sit in the middle of the header, not against the right edge. At
+        # W/2+120 and W/2+280 the away badge ended at x=857 and the title is
+        # right-aligned to x=1036 - so anything longer than about eleven
+        # characters ran straight into it. The title lane is now protected
+        # below and the crests keep to their own.
         y = 108
-        img.paste(a, (int(W / 2 + 120 - a.width / 2), int(y - a.height / 2)), a)
-        img.paste(b, (int(W / 2 + 280 - b.width / 2), int(y - b.height / 2)), b)
+        self._crest_right = int(W / 2 + 90)
+        img.paste(a, (int(W / 2 - 70 - a.width / 2), int(y - a.height / 2)), a)
+        img.paste(b, (int(W / 2 + 50 - b.width / 2), int(y - b.height / 2)), b)
         dd = ImageDraw.Draw(img, "RGBA")
         f = _font(34)
         w = dd.textlength("V", font=f)
-        dd.text((W / 2 + 200 - w / 2, y - 20), "V", font=f,
+        dd.text((W / 2 - 10 - w / 2, y - 20), "V", font=f,
                 fill=(*self.accent, 255))
 
     def _draw_pitch(self, d):
@@ -269,8 +275,14 @@ class Board:
         d.text((44, 100), "TACTICS BOARD", font=_font(26, False),
                fill=(200, 205, 210))
         if self.title:
-            tw = d.textlength(self.title, font=_font(34))
-            d.text((W - 44 - tw, 60), self.title, font=_font(34),
+            # Shrink to fit the space the crests leave. A fixed 34pt title
+            # overlapped the badges the moment it grew past "THE MOVE".
+            limit = W - 44 - (getattr(self, "_crest_right", 0) + 26)
+            size = 34
+            while size > 20 and d.textlength(self.title, font=_font(size)) > limit:
+                size -= 2
+            tw = d.textlength(self.title, font=_font(size))
+            d.text((W - 44 - tw, 60), self.title, font=_font(size),
                    fill=(255, 255, 255))
 
         pos = self._pos_at(t)
@@ -350,11 +362,28 @@ class Board:
                 continue
 
             def ball_pos(tt):
+                """Where the ball is - struck, not dragged.
+
+                This used _ease() across the whole gap between waypoints, which
+                eases IN as well as out: the ball crept away from every player,
+                hit full speed halfway, then crept into the next man. That is
+                cursor motion, and it is exactly why the owner said it does not
+                move like a ball.
+
+                A kicked ball does the opposite - it leaves the boot at its
+                fastest and slows under friction, then SITS at the receiver's
+                feet until he plays it. So each gap splits: the pass takes the
+                first 62% on an ease-OUT curve, and the rest is the ball at
+                rest. That pause is the rhythm of a move: strike, travel,
+                settle, strike again.
+                """
                 if tt <= wp[0][0]:
                     return wp[0][1]
                 for (ta, pa), (tb, pb) in zip(wp, wp[1:]):
                     if ta <= tt <= tb:
-                        u = _ease((tt - ta) / max(tb - ta, 1e-6))
+                        span = max(tb - ta, 1e-6)
+                        k = min(1.0, (tt - ta) / (span * 0.45))
+                        u = 1 - (1 - k) ** 2.2
                         return (pa[0] + (pb[0] - pa[0]) * u,
                                 pa[1] + (pb[1] - pa[1]) * u)
                 return wp[-1][1]
@@ -370,7 +399,12 @@ class Board:
                     d.ellipse([bx - r, by - r, bx + r, by + r],
                               fill=(255, 255, 255, alpha))
                 bx, by = self._px(*ball_pos(t))
-                _draw_football(d, bx, by, 24, spin=t * 5.0)
+                # Spin from actual SPEED, so it whips off the boot and slows as
+                # the ball settles. A ball spinning at a constant rate while
+                # sitting still was the other half of what looked wrong.
+                px0, py0 = self._px(*ball_pos(max(0.0, t - 0.033)))
+                speed = ((bx - px0) ** 2 + (by - py0) ** 2) ** 0.5
+                _draw_football(d, bx, by, 24, spin=t * (1.0 + speed * 0.20))
 
         # GOAL — a white flash, then the word, then who scored it.
         for a in self.annos:

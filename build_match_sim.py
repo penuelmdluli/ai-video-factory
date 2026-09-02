@@ -116,32 +116,120 @@ async def main(a) -> int:
         return 1
 
     where = f"at {venue}" if venue and at_home else f"away to {opp}"
-    scenes = [{"narration":
-               f"{club_name} against {opp}, {ko}. This is Genesis News "
-               f"simulating it. Our shape, our eleven, and how it could go if "
-               f"they play this way."}]
-    ordinal = ["The first", "The second", "The third", "The fourth"]
+    # NEVER SAY "SIMULATION". Owner: "stop saying this is simulation, here we
+    # are analysing" - and then, when I asked nothing: "we doing the simulation
+    # while we analysing." Both are true and they are not in conflict: the
+    # SIMULATOR is the engine, ANALYSIS is what the page is doing. A supporter
+    # came for a read on Sunday's game, not for a demo of our software, and
+    # naming the machinery makes the reel about us instead of about Chiefs.
+    def _say_shape(f: str) -> str:
+        """"4-2-3-1" spoken, not spelled.
+
+        The voice read the hyphens as MINUS signs and swallowed the leading
+        digit - "set up in the minus two minus three minus one". Every shape in
+        the rotation has hyphens, so this was wrong in every reel.
+        """
+        words = {"1": "one", "2": "two", "3": "three", "4": "four",
+                 "5": "five", "6": "six"}
+        return " ".join(words.get(n, n) for n in str(f).split("-") if n.strip())
+
+    def _say_time(t: str) -> str:
+        """"Sun 17:30" spoken as "Sunday, half past five"."""
+        import re as _re
+        days = {"mon": "Monday", "tue": "Tuesday", "wed": "Wednesday",
+                "thu": "Thursday", "fri": "Friday", "sat": "Saturday",
+                "sun": "Sunday"}
+        out = str(t or "").strip()
+        m = _re.match(r"([A-Za-z]{3})\w*\s+(\d{1,2}):(\d{2})", out)
+        if not m:
+            return out
+        day = days.get(m.group(1).lower(), m.group(1))
+        hh, mm = int(m.group(2)), int(m.group(3))
+        # Spell the hour too. "half past 5" still left a numeral in the line,
+        # and a TTS reading digits mid-sentence is the thing that makes a
+        # commentary track sound like a computer.
+        num = ["twelve", "one", "two", "three", "four", "five", "six",
+               "seven", "eight", "nine", "ten", "eleven", "twelve"]
+        h12 = hh % 12 or 12
+        hw = num[h12]
+        if mm == 0:
+            clock = f"{hw} o'clock"
+        elif mm == 30:
+            clock = f"half past {hw}"
+        elif mm == 15:
+            clock = f"quarter past {hw}"
+        elif mm == 45:
+            clock = f"quarter to {num[(h12 % 12) + 1]}"
+        else:
+            clock = f"{hw} {mm:02d}"
+        return f"{day}, {clock}"
+
+    say_shape, say_ko = _say_shape(formation), _say_time(ko)
+
+    # LIVE COMMENTARY, not a lecture.
+    #
+    # Owner: "this must be like a live analysis while showing possible goals
+    # happening, engaging with the fans, this must feel real and nice to come
+    # back, also comment and share."
+    #
+    # So the voice CALLS the move as it runs - present tense, men named as they
+    # play it, the finish landing as the ball hits the net - instead of
+    # describing a diagram after the fact. "Frosler, into Maboe, Ighodaro,
+    # that is the one" is a match. "The first one, three passes through the
+    # shape" is a caption read aloud.
+    #
+    # And the fans are spoken to DURING it, not only in a call to action at the
+    # end. Someone addressed twice in thirty seconds is watching a game with
+    # you, which is what brings them back.
+    opener = (f"{club_name} against {opp}, {say_ko}"
+              + (f", {venue}. " if venue and at_home else ". ")
+              + f"This is how it opens if they set up in the {say_shape}. "
+                f"Watch the shape.")
+    scenes = [{"narration": opener}]
+
+    def _call(chain, scorer, assist, index, total):
+        """One goal, called as it happens."""
+        names = [players[pid]["name"].title() for pid in chain]
+        run = names[:-1][-3:]     # three men max, or the line outruns the move
+        body = ", into ".join(run) if run else "Out from the back"
+        openers = ["Here it comes.", "Again.", "And there it is again.",
+                   "Once more."]
+        finishes = [f"{scorer.title()}, that is the one.",
+                    f"{scorer.title()}, and it is in.",
+                    f"{scorer.title()} finishes it.",
+                    f"And {scorer.title()} does the rest."]
+        line = f"{openers[min(index, 3)]} {body}"
+        if assist and assist.title() not in run:
+            line += f", {assist.title()} slides it across"
+        line += f". {finishes[min(index, 3)]}"
+        if index == 0:
+            line += " One nil."
+        elif index == total - 1:
+            line += f" That is {total}."
+        else:
+            line += f" {index + 1} nil."
+        if index == 1:
+            line += " Tell me you have not seen them score that goal before."
+        return line
+
     for i, (_w, chain, scorer, assist, _m) in enumerate(goals):
-        line = (f"{ordinal[min(i, 3)]} one. {len(chain) - 1} passes through "
-                f"the shape")
-        if assist:
-            line += f", {assist.title()} the last ball"
-        line += f", and {scorer.title()} finishes it."
-        scenes.append({"narration": line})
+        scenes.append({"narration": _call(chain, scorer, assist, i, len(goals))})
+
     scenes.append({"narration":
-                   f"{len(goals)} nil. That is the simulation, not the result. "
-                   f"So tell us. Do you see {club_name} winning {ko}, and who "
-                   f"scores first? Drop it in the comments."})
+                   f"{len(goals)} nil, and that is our call, not the result. "
+                   f"So do you see it? {club_name} to win on {say_ko}, and who gets "
+                   f"the first one? Put your score in the comments, and send "
+                   f"this to the one who says they never score first."})
 
     nl = chr(10)
     scorers = ", ".join(g[2].title() for g in goals)
     SCRIPT = {
-        "title": f"SIMULATION: {club_name} {len(goals)}-0 {opp} | {formation}",
+        "title": f"THE ANALYSIS: {club_name} v {opp} | {formation}",
         "caption": (
-            f"WE SIMULATED IT 🎮 {club_name} v {opp}, {ko}.{nl}{nl}"
-            f"Our {formation}, our eleven, and {len(goals)} goals — "
-            f"{scorers}.{nl}{nl}"
-            f"This is a PREDICTION, not a result. Do you see it going this "
+            f"OUR READ 📋 {club_name} v {opp}, {ko}.{nl}{nl}"
+            f"Our {formation}, our eleven, and where the {len(goals)} goals "
+            f"come from — {scorers}.{nl}{nl}"
+            f"This is our PREDICTION, not a result. Do you see it going this "
             f"way? Who scores first? 👇⚽{nl}{nl}"
             f"#KaizerChiefs #Amakhosi #PSL #BetwayPremiership #Khosi4Life"),
         "scenes": scenes,
@@ -173,11 +261,34 @@ async def main(a) -> int:
     # first frame, which is the owner's point about the upgrades starting at
     # the start rather than arriving at the end.
     d = dur[0]
-    b = Board(players, accent=GOLD, title="THE SIMULATION",
+    b = Board(players, accent=GOLD, title="THE ANALYSIS",
               subtitle=f"{formation} · {ko}", club=a.club, opponent=opp_key)
+    # THE PLAY STARTS AT FRAME ONE. Owner: "the play should start from the
+    # beginning." The opening chapter used to be a static board for seven
+    # seconds while the voice set the scene - a still picture at exactly the
+    # moment a scroller decides whether to stay. It now carries a build-up of
+    # its own: the ball moving, men stepping into passes, no goal, so the first
+    # GOAL card still lands as the first goal.
     b.keyframe(0.0, positions)
-    b.keyframe(d, positions)
-    b.stat(0.5, min(d, 3.2), f"{club_name.upper()} v {opp.upper()}", ko)
+    open_wps, open_chain, _os, _oa, open_moves = build_move(
+        positions, players, [], passes=5, start_pid=deep[0])
+    if open_chain:
+        for frac, change in open_moves:
+            b.keyframe_balanced(max(0.05, d * frac), change,
+                                strength=0.22, radius=0.20)
+        b.keyframe(d, dict(b.keys[-1][1]))
+        # Stop the ball at the last man rather than running it into the net -
+        # this is the build-up, the goals come after.
+        b.ball([(d * min(f, 0.80), tuple(xy)) for f, xy in open_wps[:-1]])
+        n_open = max(1, len(open_chain) - 1)
+        for k, pid in enumerate(open_chain):
+            t_at = d * 0.80 * k / n_open
+            b.ring(max(0.0, t_at - 0.15), min(d, t_at + 0.40), pid)
+            if k < len(open_chain) - 1:
+                kick_times.append(t0 + t_at)
+    else:
+        b.keyframe(d, positions)
+    b.stat(0.3, min(d, 2.6), f"{club_name.upper()} v {opp.upper()}", ko)
     clips.append(b.render(work / "_c0.mp4", duration=d))
     t0 += d
 
@@ -208,7 +319,7 @@ async def main(a) -> int:
 
     d = dur[-1]
     b = Board(players, accent=GOLD, title="FULL TIME",
-              subtitle=f"OUR PREDICTION · {ko}", club=a.club, opponent=opp_key)
+              subtitle=f"OUR CALL · {ko}", club=a.club, opponent=opp_key)
     b.keyframe(0.0, positions)
     b.keyframe(d, positions)
     b.stat(0.3, d * 0.75, f"{len(goals)}-0", f"{club_name.upper()} — PREDICTED")
@@ -243,7 +354,10 @@ async def main(a) -> int:
         # The bed rotates so consecutive simulations do not sound identical -
         # a chant one day, drums the next, plain ambience the third. Original
         # generated audio, not lifted from anybody's reel.
-        beds = ["terrace_chant", "chant_drums", "stadium_ambience"]
+        # South African first. A generic stadium bed could be anywhere on
+        # earth and a PSL supporter clocks that immediately; the vuvuzela
+        # drone is what tells him this is his league.
+        beds = ["sa_stadium", "terrace_chant", "chant_drums"]
         bed_name = a.bed if a.bed in beds else beds[datetime.now().day % len(beds)]
         amb = get_sfx_sync(bed_name, force=True) or             get_sfx_sync("stadium_ambience", force=True)
         if amb:
@@ -252,7 +366,7 @@ async def main(a) -> int:
             bed = concatenate_audioclips([bed] * reps).subclipped(0, dd)
             # Chants carry more energy than ambience, so they sit lower under
             # the voice - the narration is still the reel.
-            vol = 0.13 if bed_name != "stadium_ambience" else 0.15
+            vol = 0.15 if bed_name == "sa_stadium" else 0.13
             tracks.append(bed.with_effects([afx.MultiplyVolume(vol)]))
             _log(f"crowd bed: {bed_name}")
         kick = get_sfx_sync("ball_kick", force=True)
@@ -261,11 +375,15 @@ async def main(a) -> int:
                 tracks.append(AudioFileClip(kick)
                               .with_effects([afx.MultiplyVolume(0.42)])
                               .with_start(min(t, dd - 0.6)))
-        roar = get_sfx_sync("goal_roar", force=True)
+        roar = (get_sfx_sync("sa_goal_roar", force=True)
+                or get_sfx_sync("goal_roar", force=True))
         if roar:
             for t in goal_times:
+                # 0.55 was too loud against the narration - the roar buried
+                # the line naming the scorer, which is the one fact in the
+                # chapter. It sits under the voice now, not over it.
                 tracks.append(AudioFileClip(roar)
-                              .with_effects([afx.MultiplyVolume(0.55)])
+                              .with_effects([afx.MultiplyVolume(0.28)])
                               .with_start(min(t, dd - 1.0)))
         _log(f"match sound: {len(tracks) - 1} layers, crowd from 0s")
     except Exception as ex:
