@@ -202,12 +202,16 @@ async def main(a) -> int:
         if assist and assist.title() not in run:
             line += f", {assist.title()} slides it across"
         line += f". {finishes[min(index, 3)]}"
-        if index == 0:
-            line += " One nil."
-        elif index == total - 1:
-            line += f" That is {total}."
+        # SPELL THE SCORE. A bare digit mid-sentence gets swallowed by the
+        # voice: goal two came out "and it is in. nil." with the 2 gone
+        # entirely, and goal three as "That is 3. nil." Every other number in
+        # this script is already spelled for the same reason.
+        tally = ["nil", "one", "two", "three", "four", "five"]
+        n = min(index + 1, 5)
+        if index == total - 1 and total > 1:
+            line += f" That is {tally[n]}."
         else:
-            line += f" {index + 1} nil."
+            line += f" {tally[n].title()} nil."
         if index == 1:
             line += " Tell me you have not seen them score that goal before."
         return line
