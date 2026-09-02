@@ -459,10 +459,23 @@ async def run_build_phase(slot: int | None = None):
     # Single-page mode: only build the active page(s) (default: Tech Pulse Africa).
     try:
         from config import BUILD_NICHES
-        filtered = [n for n in niche_order if n in BUILD_NICHES]
+        # Order by BUILD_NICHES, not by heat.
+        #
+        # This filtered the heat ranking while PRESERVING its order, so the
+        # listed order bought nothing: on 2 Sep, BUILD_NICHES was
+        # "tech_news,health_wellness" and health_wellness still built first
+        # because it won that morning's heat score. Tech Pulse Africa - the
+        # page that had been silent for four days and the reason the list names
+        # it first - sat behind a herb video for a full render.
+        #
+        # Heat still decides among niches the list does not mention; it just no
+        # longer overrules the owner writing them down in priority order.
+        filtered = [n for n in BUILD_NICHES if n in niche_order]
+        filtered += [n for n in niche_order if n in BUILD_NICHES and n not in filtered]
         if filtered:
             niche_order = filtered
-            print(f"[Scheduler] Single-page build: {', '.join(niche_order)}")
+            print(f"[Scheduler] Single-page build (BUILD_NICHES order): "
+                  f"{', '.join(niche_order)}")
     except Exception:
         pass
 
