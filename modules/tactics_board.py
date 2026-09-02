@@ -88,6 +88,7 @@ class Board:
         # our move has to play through, not a side we are animating.
         self.opp_players: dict = {}
         self.opp_positions: dict = {}
+        self.opp_runs: list = []
         self.opp_color = (150, 158, 168)
         self.keys: list[tuple[float, dict]] = []
         self.annos: list[dict] = []
@@ -185,6 +186,22 @@ class Board:
         if color:
             self.opp_color = tuple(color)
 
+    def opp_run(self, pid: str, t0: float, t1: float, a, b):
+        """One opponent BREAKS - he carries the ball and scores it.
+
+        Owner 2026-09-03: "the conceded is not the opponent player who scores,
+        it is just an arrow."
+
+        He was right and it was the emptiest thing in the reel: the ball and a
+        red arrow travelled the length of the pitch while all eleven of their
+        players stood in their block, so the goal was scored by nobody. The
+        block reacting to the ball is correct for a team defending; it is not
+        enough for a team attacking. This overrides one man so he runs the
+        counter with the ball, and he is the one whose name goes on the GOAL
+        card.
+        """
+        self.opp_runs.append({"pid": pid, "t0": t0, "t1": t1, "a": a, "b": b})
+
     def triangle(self, t0, t1, a, b, c, label=""):
         """The passing triangle between three men.
 
@@ -278,10 +295,38 @@ class Board:
             dist = math.hypot(x - bx, y - by)
             if dist < best:
                 nearest, best = pid, dist
+        # MARKING. Owner 2026-09-03: "the opponent must also try to mark, all
+        # must be clean on how the goal came."
+        #
+        # Sliding and squeezing is what a BLOCK does; marking is what a
+        # DEFENDER does, and without it our attackers ran into space nobody had
+        # tried to occupy - which makes a goal look unearned. Each of their men
+        # picks up the nearest of ours who is ahead of him and moves GOAL-SIDE
+        # of him: between that man and their own net, which is the whole idea
+        # of marking and the reason a runner beating his marker means anything.
+        #
+        # Partial, not absolute. A defender who arrives exactly on his man
+        # would make every move impossible and every goal a lie; at 0.35 he is
+        # visibly trying and visibly beaten, which is what "clean on how the
+        # goal came" actually requires.
+        ours = self._pos_at(t)
         out = {}
         for pid, (x, y) in self.opp_positions.items():
             dx = (bx - 0.5) * 0.09                 # slide to the ball's side
             dy = (0.34 - by) * 0.10                # squeeze as the ball comes on
+            # the man he is responsible for: nearest of ours in front of him
+            mark = None
+            mbest = 0.34
+            for opid, (ox, oy) in ours.items():
+                if oy < y:                          # only men ahead of him
+                    dist = math.hypot(ox - x, oy - y)
+                    if dist < mbest:
+                        mark, mbest = (ox, oy), dist
+            if mark:
+                # goal-side: a little nearer their own goal than the man is
+                gx, gy = mark[0], mark[1] - 0.045
+                dx += (gx - x) * 0.35
+                dy += (gy - y) * 0.35
             if pid == nearest and best < 0.30:
                 # He goes to the ball, but never all the way onto it - a
                 # defender arriving exactly on the ball would read as a
@@ -289,6 +334,19 @@ class Board:
                 dx += (bx - x) * 0.45
                 dy += (by - y) * 0.45
             out[pid] = self._alive(pid, (x + dx, y + dy), t)
+
+        # A breaking runner overrides the block entirely - he has left it.
+        for r in self.opp_runs:
+            if r["pid"] not in out:
+                continue
+            if t <= r["t0"]:
+                out[r["pid"]] = r["a"]
+            elif t >= r["t1"]:
+                out[r["pid"]] = r["b"]
+            else:
+                u = _ease((t - r["t0"]) / max(r["t1"] - r["t0"], 1e-6))
+                out[r["pid"]] = (r["a"][0] + (r["b"][0] - r["a"][0]) * u,
+                                 r["a"][1] + (r["b"][1] - r["a"][1]) * u)
         return out
 
     def _alive(self, pid: str, xy, t: float, keeper: bool = False):
@@ -346,6 +404,30 @@ class Board:
                                 xy0[1] + (xy1[1] - xy0[1]) * u)
                 return live(out)
         return live(ks[-1][1])
+
+    @staticmethod
+    def net(top: bool = True, depth: int = 34) -> float:
+        """The fy that puts the ball IN the net, not near it.
+
+        Owner 2026-09-03: "the ball must go into the net."
+
+        The mapping in _px is PITCH_TOP + fy * (PITCH_BOT - PITCH_TOP - 120) -
+        note the MINUS 120, which exists to leave room for the name plate under
+        the deepest player. The consequence nobody had noticed: fy=1.0 lands
+        120px SHORT of our goal line, so no fraction between 0 and 1 can reach
+        the net at all. Our finishes at fy=0.03 were stopping 40px inside the
+        six-yard box and the conceded one stopped further out still - every
+        goal in every reel was a ball rolling up near the goal while a GOAL
+        card flashed over it.
+
+        Solved by asking the geometry instead of guessing a number: this
+        returns the fy that lands `depth` pixels PAST the line, which is
+        outside 0..1 at the bottom end and negative at the top, and both are
+        fine because the ball is not clamped the way players are.
+        """
+        span = PITCH_BOT - PITCH_TOP
+        usable = span - 120
+        return (-depth / usable) if top else ((span + depth) / usable)
 
     def _px(self, fx, fy):
         return (int(60 + fx * (W - 120)),

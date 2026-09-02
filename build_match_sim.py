@@ -354,7 +354,10 @@ async def main(a) -> int:
             back_line = sorted(positions.items(), key=lambda kv: -kv[1][1])[1:5]
             exposed = min(back_line, key=lambda kv: kv[1][1])[0]
             opp_deep = max(opp_positions.items(), key=lambda kv: kv[1][1])[0]
+            # Their most advanced man is the one who breaks - the striker, the
+            # player already highest up when we lose it.
             opp_top = min(opp_positions.items(), key=lambda kv: kv[1][1])
+            runner_pid = opp_top[0]
             concede = {
                 "exposed": exposed,
                 "from": opp_positions[opp_deep],
@@ -370,8 +373,11 @@ async def main(a) -> int:
                 # goal, visually a comfortable save. It finishes to the far
                 # side from where the break came, which is both what a finisher
                 # actually does and what reads as a goal on a small screen.
-                "to": (0.66 if positions[exposed][0] < 0.5 else 0.34, 0.98),
-                "scorer": opp_players.get(opp_top[0], {}).get("name", ""),
+                "to": (0.66 if positions[exposed][0] < 0.5 else 0.34,
+                       Board.net(top=False)),
+                "scorer": opp_players.get(runner_pid, {}).get("name", ""),
+                "runner": runner_pid,
+                "runner_from": opp_positions[runner_pid],
                 "gap": positions[exposed],
             }
             _log(f"conceded goal: through the space behind "
@@ -624,6 +630,12 @@ async def main(a) -> int:
                 color=(235, 60, 60), label="IN BEHIND")
         b.arrow(d * 0.58, d * 0.86, concede["through"], concede["to"],
                 color=(235, 60, 60))
+        # HE runs it. The ball and the man arrive together, and he finishes
+        # just short of the line so the ball is the thing that crosses it -
+        # a player standing in the net reads as a mistake in the graphic.
+        b.opp_run(concede["runner"], d * 0.20, d * 0.84,
+                  concede["runner_from"],
+                  (concede["to"][0], min(0.99, concede["to"][1] - 0.14)))
         b.goal(d * 0.86, d, scorer=concede["scorer"] or opp.upper(), assist="")
         # The one we concede slows too - a warning you can actually watch land.
         b.slow_motion(d * 0.62, d * 0.88, factor=0.45)

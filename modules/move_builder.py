@@ -149,8 +149,13 @@ def build_move(positions: dict, players: dict, subject_pids: list,
             t_next = 0.80 * (i + 1) / max(1, n - 1)
             wps.append((t_here + (t_next - t_here) * 0.45, drive))
             carry_end[pid] = (t_here + (t_next - t_here) * 0.45, drive)
-    # The finish: into the top of the frame, which is the opponent goal.
-    wps.append((0.92, (0.5, 0.03)))
+    # The finish: INTO their net. 0.03 stopped the ball 40px inside the
+    # six-yard box - near the goal, never in it. Board.net() resolves the
+    # fraction that actually lands past the line, and the shot is placed off
+    # centre so it beats the keeper rather than hitting him.
+    from modules.tactics_board import Board as _B
+    side = 0.38 if positions[scorer_pid][0] > 0.5 else 0.62
+    wps.append((0.92, (side, _B.net(top=True))))
 
     # THE MEN MOVE WITH IT.
     #
