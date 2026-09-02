@@ -680,7 +680,7 @@ class Board:
                 for (ta, pa), (tb, pb) in zip(wp, wp[1:]):
                     if ta <= tt <= tb:
                         span = max(tb - ta, 1e-6)
-                        k = min(1.0, (tt - ta) / (span * 0.45))
+                        k = min(1.0, (tt - ta) / (span * 0.72))
                         u = 1 - (1 - k) ** 2.2
                         return (pa[0] + (pb[0] - pa[0]) * u,
                                 pa[1] + (pb[1] - pa[1]) * u)
@@ -819,7 +819,12 @@ class Board:
                 base -= 4
             big = _font(int(base * scale))
             tw = d.textlength(a["text"], font=big)
-            cy = 760
+            # OFF THE MIDDLE. Owner 2026-09-03: "the text in the centre of the
+            # video must be removed." At cy=760 the stamp sat dead centre over
+            # the pitch, on top of the exact area where the move is happening -
+            # a caption covering the thing it is captioning. It now sits just
+            # under the header, where the play almost never reaches.
+            cy = 300
             d.rounded_rectangle([(W - tw) / 2 - 44, cy - 40,
                                  (W + tw) / 2 + 44, cy + 106], radius=26,
                                 fill=(10, 10, 12, min(alpha, 235)))

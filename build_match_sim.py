@@ -623,9 +623,10 @@ async def main(a) -> int:
         # replay beat is where a viewer is already looking hardest, so it is
         # the one moment worth spending on the build-up rather than the ball -
         # who started it, how many touches, who finished.
-        b.stat(d * 0.62, d * 0.82,
-               f"{len(chain) - 1} PASSES",
-               f"{players[chain[0]]['name']} → {scorer}")
+        # The mid-move "X PASSES" stamp is GONE. It ran while the ball was
+        # still travelling, so it covered the move it was describing. The same
+        # information is already in the chapter subtitle and in the
+        # commentary, which name every man as he plays it.
         goal_times.append(t0 + d * 0.90)
         clips.append(b.render(work / f"_g{i}.mp4", duration=d))
         t0 += d
