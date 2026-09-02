@@ -459,8 +459,18 @@ async def fetch_visuals_for_scenes(
         return None
 
     async def _try_wavespeed(scene_num, visual_desc, narration, duration):
-        """FLUX war image -> sharp WaveSpeed cloud clip. None if it fails/over-budget."""
+        """FLUX image -> sharp WaveSpeed cloud clip. None if blocked/fails/over-budget."""
         import asyncio as _aio
+        # Refuse BEFORE generating the AI still. The still is itself a paid
+        # image call, so checking after it would spend money to produce an
+        # input for a clip we are not allowed to make. Returning None (rather
+        # than raising) lets the caller fall through to stock footage, which is
+        # what these pages should have been using anyway.
+        from modules.wavespeed_guard import is_allowed as _ws_allowed
+        if not _ws_allowed():
+            print("[WaveSpeed] blocked — budget is reserved for the profile "
+                  "dance pipeline. Falling back to stock footage.")
+            return None
         # 1) generate the AI still (reuse the AI-image path)
         ai = await _try_ai_image(scene_num, visual_desc, narration, duration)
         if not ai or not ai.get("local_path"):

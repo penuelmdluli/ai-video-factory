@@ -93,6 +93,13 @@ def generate(
     poll_timeout: int = 300,
 ) -> str | None:
     """Generate one i2v clip on WaveSpeed. Returns output path or None."""
+    # Spend gate. The budget is reserved for the Penuel Mdluli profile's dance
+    # pipeline (owner call 2026-09-02); everything else must fall back to stock.
+    # This sits ABOVE the budget check on purpose - "can we afford it" is the
+    # wrong question when the money is not ours to spend.
+    from modules.wavespeed_guard import check as _spend_check
+    _spend_check(f"i2v clip -> {output_path}")
+
     key = _key()
     if not key:
         print("[WaveSpeed] WAVESPEED_API_KEY not set")
