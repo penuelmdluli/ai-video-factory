@@ -829,6 +829,48 @@ async def scheduler_loop():
                 # After long upload, catch up on any missed engagement slots
                 await _check_and_run_engagement(completed_phases, today)
 
+        # ── YOU PICK (once daily, 11:00 — Tech Pulse Africa) ──
+        #
+        # The page's only photo format. scheduler.py builds reels through
+        # main.create_video, so a still-image question had no way in; Genesis
+        # has build_psl_slot for this and tech_news has nothing equivalent.
+        #
+        # WALL BEFORE ASK, the same order as the Genesis fan formats and for
+        # the same reason: the ask card promises "we will count them and post
+        # South Africa's pick", so the page must never ask a second seat while
+        # the first answer is still owed. The wall answers YESTERDAY's thread,
+        # which has had a full day to collect replies, and the new question
+        # goes out straight after it.
+        #
+        # 11:00 because the headline feed is fresh by then and the question
+        # still has the whole day to gather answers before it is counted.
+        cab_key = (today, 11, "cabinet", 0)
+        if current_hour >= 11 and cab_key not in completed_phases:
+            print("")
+            print(f"[Scheduler] {now.strftime('%H:%M')} — YOU PICK (Tech Pulse Africa)")
+            import subprocess as _sp
+            for step, args in (("wall", ["--wall", "--post"]),
+                               ("ask", ["--ask", "--post"])):
+                try:
+                    r = _sp.run([sys.executable, "-X", "utf8",
+                                 "build_your_cabinet.py"] + args,
+                                cwd=str(Path(__file__).parent),
+                                capture_output=True, text=True, timeout=900)
+                    if r.returncode == 0:
+                        print(f"[Scheduler] cabinet {step}: posted")
+                    elif step == "wall" and r.returncode in (1, 2):
+                        # Normal, not a failure: nothing to answer yet, or too
+                        # few people voted to call it South Africa's pick.
+                        print(f"[Scheduler] cabinet wall: nothing to answer yet")
+                    else:
+                        print(f"[Scheduler] cabinet {step} failed: "
+                              f"{(r.stderr or r.stdout)[-300:]}")
+                        await _send_alert(f"cabinet {step} failed: "
+                                          f"{(r.stderr or r.stdout)[-200:]}")
+                except Exception as e:
+                    print(f"[Scheduler] cabinet {step} error: {e}")
+            completed_phases.add(cab_key)
+
         # ── MUSIC VIDEO (once daily at noon — AlphaZone Sounds channel) ──
         music_key = (today, 12, "music", 0)
         if current_hour >= 12 and music_key not in completed_phases:
