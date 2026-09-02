@@ -101,7 +101,14 @@ TRUSTED_SOURCES = [
 # Genesis News owns football. A Chiefs story reaching this page is a bug, not
 # a bonus, so it is dropped before ranking rather than argued with in a prompt.
 FOOTBALL_MARKERS = re.compile(
-    r"\b(psl|premier soccer league|betway premiership|kaizer chiefs|orlando "
+    # BARE CLUB NAMES TOO. The list held only the full names, so "Chiefs
+    # drop points: Da Cruz on injuries and Petersen" walked onto Tech Pulse
+    # Africa on 2 Sep - a football story on the page explicitly walled off
+    # from football, and the owner had to ask for it to be deleted.
+    # Newsrooms write "Kaizer Chiefs" once and then Chiefs, Pirates,
+    # Sundowns for the rest of the piece.
+    r"\b(chiefs|pirates|sundowns|amakhosi|buccaneers|masandawana|"
+    r"psl|premier soccer league|betway premiership|kaizer chiefs|orlando "
     r"pirates|mamelodi sundowns|bafana|banyana|caf|afcon|nedbank cup|carling "
     r"knockout|soccer|striker|midfielder|goalkeeper|transfer window|"
     r"stellenbosch fc|supersport united|sekhukhune|richards bay|"
