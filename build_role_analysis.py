@@ -442,7 +442,7 @@ async def main(a) -> int:
             src = AudioFileClip(owner_track)
             reps = max(1, int(dd / max(0.5, src.duration)) + 1)
             bed = concatenate_audioclips([src] * reps).subclipped(0, dd)
-            tracks.append(bed.with_effects([afx.MultiplyVolume(0.30)]))
+            tracks.append(bed.with_effects([afx.MultiplyVolume(0.18)]))
             _log(f"music: {Path(owner_track).name} — generated SFX off")
         except Exception as ex:
             _log(f"music failed ({str(ex)[:70]}) — voice only")

@@ -125,6 +125,20 @@ class Board:
                            "b": b, "color": color or self.accent,
                            "label": label, "curve": curve})
 
+    def triangle(self, t0, t1, a, b, c, label=""):
+        """The passing triangle between three men.
+
+        Owner 2026-09-02: "make shape triangle and all that fans want to see."
+        He is right that it is the graphic supporters read fastest - a triangle
+        is how every coach on television draws a team keeping the ball, and it
+        says "these three are connected" in a way three separate arrows do not.
+
+        Drawn as a filled shape at low alpha with a bright edge, so it reads
+        underneath the tokens rather than boxing them in.
+        """
+        self.annos.append({"type": "triangle", "t0": t0, "t1": t1,
+                           "pts": [a, b, c], "label": label})
+
     def zone(self, t0, t1, rect, color=(220, 60, 60), label=""):
         self.annos.append({"type": "zone", "t0": t0, "t1": t1,
                            "rect": rect, "color": color, "label": label})
@@ -434,6 +448,29 @@ class Board:
                 lw = d.textlength(line, font=sf)
                 d.text(((W - lw) / 2, 880), line, font=sf,
                        fill=(255, 255, 255, alpha))
+
+        # passing triangles — the shape three connected men make
+        for a in self.annos:
+            if a["type"] != "triangle" or not (a["t0"] <= t <= a["t1"]):
+                continue
+            u = _ease(min(1, (t - a["t0"]) / 0.45))
+            fade = _ease(min(1, (a["t1"] - t) / 0.35))
+            alpha = int(210 * u * fade)
+            pts = [self._px(*q) for q in a["pts"]]
+            d.polygon(pts, fill=(*self.accent, int(alpha * 0.16)))
+            for i in range(3):
+                d.line([pts[i], pts[(i + 1) % 3]],
+                       fill=(*self.accent, alpha), width=5)
+            if a["label"]:
+                cx = sum(q[0] for q in pts) / 3
+                cy = sum(q[1] for q in pts) / 3
+                f = _font(30)
+                lw = d.textlength(a["label"], font=f)
+                d.rounded_rectangle([cx - lw / 2 - 12, cy - 24,
+                                     cx + lw / 2 + 12, cy + 24],
+                                    radius=10, fill=(10, 10, 12, alpha))
+                d.text((cx - lw / 2, cy - 16), a["label"], font=f,
+                       fill=(*self.accent, alpha))
 
         # stat stamps — punch in with overshoot, hold, fade
         for a in self.annos:

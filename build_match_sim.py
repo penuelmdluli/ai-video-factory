@@ -219,11 +219,25 @@ async def main(a) -> int:
     for i, (_w, chain, scorer, assist, _m) in enumerate(goals):
         scenes.append({"narration": _call(chain, scorer, assist, i, len(goals))})
 
+    # ASK ABOUT THE SCORE WE JUST SHOWED.
+    #
+    # Owner: "we should ask the fans based on the simulated score if they
+    # believe it will be on the score." The old close asked "do you see it?"
+    # AND "who scores first?" - two open questions at once, which is one more
+    # than anybody answers while scrolling.
+    #
+    # A NAMED NUMBER is a better question than an open one. "We say three nil,
+    # do you believe it" takes one word from someone who agrees and three from
+    # someone who does not, and both of those are comments. The disagreement is
+    # the point: a supporter who types 2-1 has written our next post for us.
+    tally_w = ["nil", "one", "two", "three", "four", "five"]
+    said = f"{tally_w[min(len(goals), 5)]} nil"
     scenes.append({"narration":
-                   f"{len(goals)} nil, and that is our call, not the result. "
-                   f"So do you see it? {club_name} to win on {say_ko}, and who gets "
-                   f"the first one? Put your score in the comments, and send "
-                   f"this to the one who says they never score first."})
+                   f"So there it is. We are saying {club_name} win it, "
+                   f"{said}. Now you tell us. Do you believe that score? "
+                   f"Type yes if you see it. And if you do not, put YOUR "
+                   f"score in the comments, and we will read them back "
+                   f"before kick off."})
 
     nl = chr(10)
     scorers = ", ".join(g[2].title() for g in goals)
@@ -233,8 +247,9 @@ async def main(a) -> int:
             f"OUR READ 📋 {club_name} v {opp}, {ko}.{nl}{nl}"
             f"Our {formation}, our eleven, and where the {len(goals)} goals "
             f"come from — {scorers}.{nl}{nl}"
-            f"This is our PREDICTION, not a result. Do you see it going this "
-            f"way? Who scores first? 👇⚽{nl}{nl}"
+            f"We are saying {len(goals)}-0. DO YOU BELIEVE IT?{nl}{nl}"
+            f"Type YES if you see it. If you don't, drop YOUR score "
+            f"and we will read them back before kick off.{nl}{nl}"
             f"#KaizerChiefs #Amakhosi #PSL #BetwayPremiership #Khosi4Life"),
         "scenes": scenes,
     }
@@ -290,6 +305,16 @@ async def main(a) -> int:
             b.ring(max(0.0, t_at - 0.15), min(d, t_at + 0.40), pid)
             if k < len(open_chain) - 1:
                 kick_times.append(t0 + t_at)
+                b.arrow(t_at, min(d, t_at + d * 0.80 / n_open + 0.30),
+                        positions[pid], positions[open_chain[k + 1]])
+            if 0 < k < len(open_chain) - 1:
+                # Owner: "let's make this spectacular from the opening." The
+                # first triangle is labelled, so the very first thing a viewer
+                # sees is the idea the whole reel is built on.
+                b.triangle(max(0.0, t_at - 0.10), min(d, t_at + 0.90),
+                           positions[open_chain[k - 1]], positions[pid],
+                           positions[open_chain[k + 1]],
+                           label="THE TRIANGLE" if k == 1 else "")
     else:
         b.keyframe(d, positions)
     b.stat(0.3, min(d, 2.6), f"{club_name.upper()} v {opp.upper()}", ko)
@@ -315,6 +340,22 @@ async def main(a) -> int:
             b.ring(max(0.0, t_at - 0.15), min(d, t_at + 0.45), pid)
             if k < len(chain) - 1:
                 kick_times.append(t0 + t_at)
+                # AN ARROW ON EVERY PASS. Owner: "lets also put the arrow."
+                # It draws as the ball travels and holds after, so the finished
+                # frame shows the whole move as a line of arrows rather than a
+                # ball that has already left.
+                nxt = chain[k + 1]
+                b.arrow(t_at, min(d, t_at + d * 0.80 / n_ch + 0.35),
+                        positions[pid], positions[nxt])
+            # THE TRIANGLE the three connected men make. Owner: "make shape
+            # triangle and all that fans want to see" - it is the graphic a
+            # supporter reads fastest, because it is how every coach on
+            # television draws a side keeping the ball.
+            if 0 < k < len(chain) - 1:
+                b.triangle(max(0.0, t_at - 0.10),
+                           min(d, t_at + 0.90),
+                           positions[chain[k - 1]], positions[pid],
+                           positions[chain[k + 1]])
         b.goal(d * 0.90, d, scorer=scorer, assist=assist)
         b.stat(d * 0.94, d, f"{running}-0", scorer)
         goal_times.append(t0 + d * 0.90)
@@ -488,8 +529,12 @@ if __name__ == "__main__":
     ap.add_argument("--goals", type=int, default=3)
     ap.add_argument("--music", default="",
                     help="use ONLY this audio file — no generated SFX at all")
-    ap.add_argument("--music-vol", dest="music_vol", type=float, default=0.30,
-                    help="how loud the music sits under the narration")
+    ap.add_argument("--music-vol", dest="music_vol", type=float, default=0.18,
+                    help="how loud the music sits UNDER the narration. 0.30 "
+                         "buried the commentator - owner 2026-09-02: 'the "
+                         "music is a bit louder, we cant hear the commentator "
+                         "well'. The voice is the reel; the music is the room "
+                         "it is in.")
     ap.add_argument("--bed", default="",
                     help="terrace_chant | chant_drums | stadium_ambience")
     ap.add_argument("--post", action="store_true")

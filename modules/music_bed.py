@@ -22,7 +22,7 @@ from pathlib import Path
 
 # 0.18 was barely there under the narration — the owner wants the
 # bed audible so a lineup reel feels like a broadcast, not a slideshow.
-DEFAULT_VOL = 0.34
+DEFAULT_VOL = 0.22
 
 
 def add_bed(video_path, out_path, niche: str, duration: float,
