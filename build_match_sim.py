@@ -110,11 +110,11 @@ async def main(a) -> int:
     #
     # Squeezed into the upper 55% too, because a full-length opposing eleven
     # would sit on top of ours and the board would read as twenty-two dots.
-    opp_players, opp_positions = {}, {}
+    opp_players, opp_positions, olines = {}, {}, []
     try:
         opp_xi, opp_formation = await predict_xi2(opp_key)
         if len(opp_xi) >= 11:
-            olines = [int(n) for n in str(opp_formation).split("-")
+            olines[:] = [int(n) for n in str(opp_formation).split("-")
                       if n.strip().isdigit()]
             orows, oidx = [1] + olines, 0
             for row_i, count in enumerate(orows):
@@ -151,9 +151,45 @@ async def main(a) -> int:
     except Exception:
         pass
 
+    # Rows for the shape lines: our units, and theirs.
+    def _rows(pos_map, line_counts, prefix):
+        rows, i = [], 0
+        for count in [1] + list(line_counts):
+            row = [pos_map[f"{prefix}{j}"] for j in range(i, i + count)
+                   if f"{prefix}{j}" in pos_map]
+            if len(row) > 1:                 # a lone keeper is not a line
+                rows.append(sorted(row))
+            i += count
+        return rows
+
+    our_rows = _rows(positions, lines, "p")
+    # Labelled by what each unit IS, not by its number - "BACK 4" is what a
+    # supporter calls it, and naming it is what turns a row of dots into a
+    # thing he already has an opinion about.
+    our_labels = []
+    for r in our_rows:
+        n = len(r)
+        our_labels.append({0: "", 1: ""}.get(n) or
+                          ("BACK " + str(n) if r[0][1] > 0.55 else
+                           "FRONT " + str(n) if r[0][1] < 0.30 else
+                           "MIDFIELD " + str(n)))
+    opp_rows = []
+    if opp_positions:
+        try:
+            opp_rows = _rows(opp_positions, olines, "o")
+        except Exception:
+            opp_rows = []
+
     def _oppose(board):
         if opp_positions:
             board.set_opposition(opp_players, opp_positions, opp_col)
+
+    def _shapes(board, dur_, labelled=False):
+        """Draw both formations as SHAPES, ours in gold and theirs in theirs."""
+        if opp_rows:
+            board.shape_lines(0.0, dur_, opp_rows, color=opp_col)
+        board.shape_lines(0.0, dur_, our_rows, color=GOLD,
+                          labels=our_labels if labelled else None)
 
     # Each goal starts from a different man at the back, so the three moves do
     # not all open the same way.
@@ -343,6 +379,7 @@ async def main(a) -> int:
     b = Board(players, accent=GOLD, title="THE ANALYSIS",
               subtitle=f"{formation} · {ko}", club=a.club, opponent=opp_key)
     _oppose(b)
+    _shapes(b, d, labelled=True)   # the opening names the units
     # THE PLAY STARTS AT FRAME ONE. Owner: "the play should start from the
     # beginning." The opening chapter used to be a static board for seven
     # seconds while the voice set the scene - a still picture at exactly the
@@ -390,6 +427,7 @@ async def main(a) -> int:
                   subtitle=f"{scorer} · {len(chain) - 1} PASSES",
                   club=a.club, opponent=opp_key)
         _oppose(b)
+        _shapes(b, d)
         b.keyframe(0.0, positions)
         for frac, change in moves:
             b.keyframe_balanced(max(0.05, d * frac), change,
@@ -428,6 +466,7 @@ async def main(a) -> int:
     b = Board(players, accent=GOLD, title="FULL TIME",
               subtitle=f"OUR CALL · {ko}", club=a.club, opponent=opp_key)
     _oppose(b)
+    _shapes(b, d, labelled=True)
     b.keyframe(0.0, positions)
     b.keyframe(d, positions)
     b.stat(0.3, d * 0.75, f"{len(goals)}-0", f"{club_name.upper()} — PREDICTED")

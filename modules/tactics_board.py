@@ -130,6 +130,24 @@ class Board:
                            "b": b, "color": color or self.accent,
                            "label": label, "curve": curve})
 
+    def shape_lines(self, t0, t1, rows: list, color=None, labels=None):
+        """Join each unit into a LINE, so a 4-4-2 reads as a 4-4-2.
+
+        Owner 2026-09-03: "lets always make clear shapes, best to interest and
+        catch the fan eye, and more diagram and all."
+
+        Eleven separate dots is a seating plan. A back four drawn as one line,
+        a midfield four as another, is a SHAPE - and the shape is the thing a
+        supporter is actually arguing about when he says they should play three
+        at the back. It is also how the formation graphic looks on television,
+        which is the visual language this audience already reads fluently.
+
+        rows: [[(x, y), (x, y), ...], ...] — one list per unit, in order.
+        """
+        self.annos.append({"type": "shape", "t0": t0, "t1": t1,
+                           "rows": rows, "color": color or self.accent,
+                           "labels": labels or []})
+
     def set_opposition(self, players: dict, positions: dict, color=None):
         """The other team on the pitch.
 
@@ -193,6 +211,68 @@ class Board:
                            "text": text, "sub": sub})
 
     # ── geometry ──────────────────────────────────────────────────────────
+    def _ball_at(self, t: float):
+        """Where the ball is at t, or None if none is animated."""
+        for a in self.annos:
+            if a["type"] != "ball" or not a.get("wp"):
+                continue
+            wp = a["wp"]
+            if t <= wp[0][0]:
+                return wp[0][1]
+            for (ta, pa), (tb, pb) in zip(wp, wp[1:]):
+                if ta <= t <= tb:
+                    span = max(tb - ta, 1e-6)
+                    k = min(1.0, (t - ta) / (span * 0.45))
+                    u = 1 - (1 - k) ** 2.2
+                    return (pa[0] + (pb[0] - pa[0]) * u,
+                            pa[1] + (pb[1] - pa[1]) * u)
+            return wp[-1][1]
+        return None
+
+    def _opp_at(self, t: float) -> dict:
+        """The opposing block, SHIFTED for where the ball is.
+
+        Owner 2026-09-03: "lets make more best movement in all teams as the
+        ball is being played." A defence that stands still while the ball moves
+        across it is the last thing that makes this read as a diagram rather
+        than a match - real blocks slide, squeeze and press, and a supporter
+        knows that better than he knows any of our arrows.
+
+        Three real behaviours, none of them keyframed by hand:
+          SLIDE    the whole block shifts towards the ball's side
+          SQUEEZE  it steps up as the ball goes back, drops as it comes on
+          PRESS    the nearest man breaks out to close the ball down
+
+        Deriving it from the ball means it stays correct for any move, any
+        formation and any XI, which eleven hand-placed keyframes would not.
+        """
+        import math
+        if not self.opp_positions:
+            return {}
+        ball = self._ball_at(t)
+        if ball is None:
+            return dict(self.opp_positions)
+        bx, by = ball
+        # Nearest man presses; everyone else slides and squeezes.
+        nearest, best = None, 9e9
+        for pid, (x, y) in self.opp_positions.items():
+            dist = math.hypot(x - bx, y - by)
+            if dist < best:
+                nearest, best = pid, dist
+        out = {}
+        for pid, (x, y) in self.opp_positions.items():
+            dx = (bx - 0.5) * 0.09                 # slide to the ball's side
+            dy = (0.34 - by) * 0.10                # squeeze as the ball comes on
+            if pid == nearest and best < 0.30:
+                # He goes to the ball, but never all the way onto it - a
+                # defender arriving exactly on the ball would read as a
+                # tackle, and this is our move, not theirs.
+                dx += (bx - x) * 0.45
+                dy += (by - y) * 0.45
+            out[pid] = (min(0.97, max(0.03, x + dx)),
+                        min(0.97, max(0.03, y + dy)))
+        return out
+
     def _pos_at(self, t: float) -> dict:
         ks = self.keys
         if not ks:
@@ -365,8 +445,8 @@ class Board:
                     d.text((ex - lw / 2, ey - 64), a["label"],
                            font=_font(28), fill=(255, 255, 255))
 
-        # opposition tokens — under ours, smaller, no name plates
-        for opid, (ofx, ofy) in self.opp_positions.items():
+        # opposition tokens — under ours, smaller, no name plates, and MOVING
+        for opid, (ofx, ofy) in self._opp_at(t).items():
             ox, oy = self._px(ofx, ofy)
             d.ellipse([ox - 34, oy - 34, ox + 34, oy + 34],
                       fill=(*self.opp_color, 210),
@@ -483,6 +563,42 @@ class Board:
                 lw = d.textlength(line, font=sf)
                 d.text(((W - lw) / 2, 880), line, font=sf,
                        fill=(255, 255, 255, alpha))
+
+        # formation shape lines — each unit joined, so the shape reads
+        for a in self.annos:
+            if a["type"] != "shape" or not (a["t0"] <= t <= a["t1"]):
+                continue
+            u = _ease(min(1, (t - a["t0"]) / 0.6))
+            fade = _ease(min(1, (a["t1"] - t) / 0.4))
+            alpha = int(150 * u * fade)
+            for ri, row in enumerate(a["rows"]):
+                if len(row) < 2:
+                    continue
+                pts = [self._px(*q) for q in row]
+                # Draw progressively so the shape assembles rather than
+                # appearing - a line that builds pulls the eye along it.
+                span = max(1, len(pts) - 1)
+                for i in range(span):
+                    seg_u = min(1.0, max(0.0, u * span - i))
+                    if seg_u <= 0:
+                        break
+                    ax, ay = pts[i]
+                    bx, by = pts[i + 1]
+                    d.line([ax, ay, ax + (bx - ax) * seg_u,
+                            ay + (by - ay) * seg_u],
+                           fill=(*a["color"], alpha), width=5)
+                if ri < len(a["labels"]) and a["labels"][ri] and u >= 1:
+                    lbl = a["labels"][ri]
+                    f = _font(26)
+                    lw = d.textlength(lbl, font=f)
+                    # 26px of clearance was not enough: a token is 42px in
+                    # radius, so "MIDFIELD 4" ran under the first shirt and
+                    # lost its number. Clear the circle, not just the centre.
+                    lx = min(p[0] for p in pts) - lw - 72
+                    ly = sum(p[1] for p in pts) / len(pts) - 14
+                    if lx < 12:
+                        lx = max(p[0] for p in pts) + 72
+                    d.text((lx, ly), lbl, font=f, fill=(*a["color"], alpha))
 
         # passing triangles — the shape three connected men make
         for a in self.annos:
