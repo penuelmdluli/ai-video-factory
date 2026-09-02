@@ -184,6 +184,31 @@ def _display(player_line: str) -> str:
     return f"{no} {fix_surname(nm.strip()) if ' ' not in nm.strip() else fix_name(nm.strip())}"
 
 
+def side_of(pos: str) -> int:
+    """How far across the pitch a published ESPN position sits.
+
+        LB -3 | CD-L -1 | CD 0 | CD-R +1 | RB +3
+
+    Hoisted out of official_lineups so the PREDICTED XI can order its lines the
+    same way the OFFICIAL one already does. It could not before: predict_xi2
+    rebuilds the side from the squad cache, where every defender is just "DF",
+    so the side information ESPN publishes was thrown away and Monyane - who is
+    always at one end of his line on the real sheets - landed wherever the sort
+    happened to put him. Two cards of the same club in the same week disagreed
+    about which flank he plays.
+    """
+    pos = (pos or "").upper()
+    if pos.startswith(("LB", "LWB", "LM", "LW")):
+        return -3
+    if pos.startswith(("RB", "RWB", "RM", "RW")):
+        return 3
+    if pos.endswith("-L"):
+        return -1
+    if pos.endswith("-R"):
+        return 1
+    return 0
+
+
 async def official_lineups(event_id: str) -> dict:
     """
     The CONFIRMED starting XI from the match summary feed, once the clubs
@@ -224,16 +249,7 @@ async def official_lineups(event_id: str) -> dict:
             # (CD-L/CD-R), so they cannot share a rank or Monyane ends up
             # inside Macheke. Order across the pitch:
             #   LB -3 | CD-L -1 | CD 0 | CD-R +1 | RB +3
-            if pos.startswith(("LB", "LWB", "LM", "LW")):
-                side = -3
-            elif pos.startswith(("RB", "RWB", "RM", "RW")):
-                side = 3
-            elif pos.endswith("-L"):
-                side = -1
-            elif pos.endswith("-R"):
-                side = 1
-            else:
-                side = 0
+            side = side_of(pos)
             fp = p.get("formationPlace")
             return (depth, side, int(fp) if str(fp).isdigit() else 99)
         starters.sort(key=_ord)
@@ -262,7 +278,25 @@ async def official_lineups(event_id: str) -> dict:
             no = str(p.get("jersey") or ath.get("jersey") or "").strip()
             bench.append(f"{no} {nm[-1]}".strip())
 
-        out[key] = {"formation": side.get("formation") or "4-3-3",
+        # The side data ESPN publishes, kept rather than consumed and dropped.
+        # This is the only place in the repo that knows Monyane is a right back
+        # and Mmodi a left back; the squad cache says "DF" for both.
+        positions = {}
+        for p in starters[:11]:
+            ath = p.get("athlete") or {}
+            from modules.psl_squads import fix_name
+            nm = fix_name((ath.get("displayName") or "").strip()).split()
+            if not nm:
+                continue
+            sur = (" ".join(nm[-2:]) if len(nm) > 1 and nm[-2].lower() in
+                   ("du", "de", "van", "von", "le", "da", "dos") else nm[-1]).lower()
+            abbr = ((p.get("position") or {}).get("abbreviation")
+                    or (ath.get("position", {}) or {}).get("abbreviation") or "")
+            if abbr:
+                positions[sur] = abbr.upper()
+
+        out[key] = {"positions": positions,
+                    "formation": side.get("formation") or "4-3-3",
                     "players": players, "bench": bench}
     return out
 

@@ -296,6 +296,49 @@ async def recent_starts(club_key: str, matches: int = 4) -> tuple[dict, str | No
     return counts, formation
 
 
+async def recent_positions(club_key: str, matches: int = 4) -> dict:
+    """{surname: ESPN position abbreviation} from recent real team sheets.
+
+    Separate from recent_starts() rather than bolted onto its return value,
+    because four callers unpack that as a two-tuple and a third element would
+    break every one of them.
+
+    This is the ONLY source of side information in the pipeline. The squad
+    cache from Wikipedia/ESPN says "DF" for Monyane and "DF" for Mmodi, so a
+    predicted XI built from it cannot tell a right back from a left back - it
+    put whoever the sort ranked higher on whichever flank came first. The match
+    feed is explicit: Monyane RB/RM, Mmodi LB/LM, Macheke CD-R.
+
+    Most recent match wins, so a player who has switched flanks is placed where
+    he last actually played rather than where he once did.
+    """
+    tid = ESPN_TEAMS.get(club_key)
+    if not tid:
+        return {}
+    try:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            r = await client.get(SCHEDULE.format(tid=tid))
+            events = r.json().get("events", [])
+    except Exception as e:
+        print(f"[Squads] schedule fetch failed for positions: {e}")
+        return {}
+    done = [e for e in events
+            if (e.get("competitions") or [{}])[0].get("status", {})
+            .get("type", {}).get("completed")]
+    done.sort(key=lambda e: e.get("date", ""), reverse=True)
+
+    from modules.psl_fixtures import official_lineups
+    out: dict = {}
+    # Oldest first so the most recent sheet overwrites, not the other way round.
+    for e in reversed(done[:matches]):
+        sheet = (await official_lineups(str(e["id"]))).get(club_key)
+        if sheet and sheet.get("positions"):
+            out.update(sheet["positions"])
+    if out:
+        print(f"[Squads] {club_key}: side data for {len(out)} players from real sheets")
+    return out
+
+
 async def predict_xi(club_key: str, formation: str | None = None,
                      force_refresh: bool = False) -> list[str]:
     players, _f = await predict_xi2(club_key, formation, force_refresh)
@@ -311,6 +354,7 @@ async def predict_xi2(club_key: str, formation: str | None = None,
     players are excluded. formation=None auto-uses the club's latest real
     formation. Returns (["32 Petersen", ...], formation).
     """
+    from modules.psl_fixtures import side_of as _side_of
     squad = await get_squad(club_key, force_refresh=force_refresh)
     if not squad:
         return [], formation or "4-3-3"
@@ -319,6 +363,7 @@ async def predict_xi2(club_key: str, formation: str | None = None,
         squad = [p for p in squad if p["name"] not in hurt]
 
     starts, recent_formation = await recent_starts(club_key)
+    sides = await recent_positions(club_key)
     if not formation:
         formation = recent_formation or "4-3-3"
 
@@ -351,6 +396,8 @@ async def predict_xi2(club_key: str, formation: str | None = None,
     else:
         need.update({"DF": 4, "MF": 3, "FW": 3})
 
+    _side = {k: _side_of(v) for k, v in sides.items()}
+
     def surname(n: str) -> str:
         w = n.split()
         if len(w) >= 2 and w[-2].lower() in ("du", "de", "van", "von", "le", "da", "dos"):
@@ -374,6 +421,15 @@ async def predict_xi2(club_key: str, formation: str | None = None,
             extra = sorted([p for p in squad if p["pos"] != pos and p not in xi
                             and p not in take], key=_key)
             take += extra[:need[pos] - len(take)]
+
+        # Lay the line out ACROSS the pitch before adding it. The card draws a
+        # row in list order, so this ordering IS the player's position on the
+        # graphic - until now the line came out in form order, which is why a
+        # right back could appear at left back. Men with no published side sit
+        # in the middle (0) and keep their form order, which is right: an
+        # unknown is a centre-back or a central midfielder far more often
+        # than a full-back.
+        take.sort(key=lambda q: _side.get(surname(q["name"]).lower(), 0))
         xi += take
     xi = xi[:11]
     return [f"{p['no']} {surname(p['name'])}".strip() for p in xi], formation
