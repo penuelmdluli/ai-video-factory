@@ -72,9 +72,10 @@ DEBATE_GROUPS = ["forwards", "midfield", "defence"]
 # "love" joined on 2026-09-02 (owner: "fans love to send love for the love of
 # the club"). It earns its slot like everything else - format_intel gives an
 # unproven format exactly 1.0, so it competes without being handed the week.
-FREE_FORMATS = ("rollcall", "xi", "debate", "fancall", "love", "role", "news")
+FREE_FORMATS = ("rollcall", "xi", "debate", "fancall", "love", "role",
+                "sim", "news")
 
-ONCE_PER_DAY = ("debate", "fancall", "rollcall", "xi", "love", "role")
+ONCE_PER_DAY = ("debate", "fancall", "rollcall", "xi", "love", "role", "sim")
 
 # The last hours before kickoff belong to the confirmed XI reel, which
 # matchday.py posts off the real team sheet ~75 minutes out. The same
@@ -440,6 +441,18 @@ async def _slot(a):
             _log(f"gaps verdict skipped: {str(e)[:80]}")
         rc = _run(["py", "build_fill_the_gaps.py", "--club", CLUB, "--video"]
                   + post)
+    elif fmt == "sim":
+        # THE SIMULATION: Chiefs play the upcoming fixture before it happens -
+        # three goals, a scoreline, crowd and crests from the first frame. It
+        # needs a fixture to simulate and exits non-zero without one, which is
+        # correct and not a failure; the slot falls through to another format
+        # on the next run rather than posting a match against nobody.
+        rc = _run(["py", "build_match_sim.py", "--club", CLUB,
+                   "--goals", "3"] + post)
+        if rc != 0:
+            _log("simulation skipped (no upcoming fixture?) - trying the role reel")
+            rc = _run(["py", "build_role_analysis.py", "--club", CLUB,
+                       "--players", "2"] + post)
     elif fmt == "role":
         # THE ROLE: teach a position, then name the Chiefs man who plays it.
         # Two players per edition by default - different roles, so the viewer
