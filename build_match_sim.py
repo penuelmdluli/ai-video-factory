@@ -754,7 +754,11 @@ async def main(a) -> int:
                     tracks.append(AudioFileClip(kick)
                                   .with_effects([afx.MultiplyVolume(0.34)])
                                   .with_start(min(k, dd - 0.6)))
-            roar = (get_sfx_sync("sa_goal_roar", force=True)
+            # Celebration first, roar only as a fallback. It is longer and
+            # flatter, so it can sit a little higher without swallowing the
+            # line that names the scorer.
+            roar = (get_sfx_sync("sa_fans_celebrate", force=True)
+                    or get_sfx_sync("sa_goal_roar", force=True)
                     or get_sfx_sync("goal_roar", force=True))
             if roar:
                 for g in goal_times:
@@ -762,10 +766,11 @@ async def main(a) -> int:
                     # it names the scorer - the one line in the chapter that
                     # carries information. A roar is a reaction, not the event.
                     tracks.append(AudioFileClip(roar)
-                                  .with_effects([afx.MultiplyVolume(0.14)])
+                                  .with_effects([afx.MultiplyVolume(0.20)])
                                   .with_start(min(g, dd - 1.0)))
             _log(f"music: {mp.name} at {a.music_vol} + "
-                 f"{len(kick_times)} kicks + {len(goal_times)} roars "
+                 f"{len(kick_times)} kicks + {len(goal_times)} "
+                 f"celebrations "
                  f"(crowd bed off — the music is the room)")
         except Exception as ex:
             _log(f"music failed ({str(ex)[:80]}) — falling back to silence "

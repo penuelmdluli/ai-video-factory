@@ -257,6 +257,18 @@ SFX_LIBRARY = {
                   "no music",
         "duration": 4.0,
     },
+    # CELEBRATION, not a roar. Owner 2026-09-03: "we rather have the fans
+    # celebrating the goal sound." A roar is one explosive peak - it spikes,
+    # buries the line naming the scorer, and is gone. Supporters CELEBRATING is
+    # a sustained thing: singing, ululating, the horns picking up. It sits
+    # under a voice instead of fighting it, and it is what a goal at a PSL
+    # ground actually sounds like in the twenty seconds afterwards.
+    "sa_fans_celebrate": {
+        "prompt": "South African football supporters celebrating a goal, "
+                  "singing together and ululating, vuvuzelas rising, joyful "
+                  "sustained crowd celebration in a packed stadium, no music",
+        "duration": 6.0,
+    },
     "crowd_gasp": {
         "prompt": "Audience crowd gasping in shock, surprised reaction",
         "duration": 1.2,
