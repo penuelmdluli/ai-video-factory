@@ -419,6 +419,22 @@ async def _slot(a):
             args += ["--start", ",".join(calls)]
         rc = _run(args + post)
     elif fmt == "fancall":
+        # ANSWER THE LAST ONE FIRST.
+        #
+        # Every gaps caption promises "we will read the most-backed eleven back
+        # to you before kickoff" and nothing ever did - a promise made on every
+        # one of these posts and kept none of them. The verdict runs BEFORE the
+        # next question so the page never asks a second time while the first is
+        # still unanswered, which is the version supporters would notice.
+        #
+        # It refuses on its own when there is no open ask or too few voters, so
+        # a non-zero exit here is normal and must not block the new question.
+        try:
+            vrc = _run(["py", "build_gaps_verdict.py", "--club", CLUB] + post)
+            _log("gaps verdict posted" if vrc == 0 else
+                 "no gaps verdict due (no open ask, or too few voters)")
+        except Exception as e:
+            _log(f"gaps verdict skipped: {str(e)[:80]}")
         rc = _run(["py", "build_fill_the_gaps.py", "--club", CLUB, "--video"]
                   + post)
     elif fmt == "debate":

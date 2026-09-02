@@ -331,6 +331,23 @@ async def main():
             except Exception as e:
                 _log(f"first comment failed: {str(e)[:90]}")
 
+            # Remember WHICH post asked the question.
+            #
+            # Every one of these captions promises "we will read the most
+            # backed eleven back to you before kickoff" and "we will count
+            # them". Nothing in the repo ever did - no module reads these
+            # comments, and the manifest is written before the post exists, so
+            # the post id was logged to the console and thrown away. The page
+            # has been making a promise to supporters on every gaps post and
+            # keeping it zero times. build_gaps_verdict.py answers it, and it
+            # needs this id to find the answers.
+            try:
+                from modules.gaps_ledger import record_asked
+                record_asked(a.club, target, fid, gaps, missing, xi,
+                             formation, mode, kickoff)
+            except Exception as e:
+                _log(f"gaps ledger not updated: {str(e)[:90]}")
+
     # A two-way argument is better WATCHED than read — the shirt flicking
     # between the names is the question. The other two are better read: a
     # still card is taken in during the half second it takes to scroll past.
