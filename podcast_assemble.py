@@ -60,7 +60,11 @@ def assemble_podcast(clips, music, out_dir, W, H, FPS, title="Podcast"):
 
     final = CompositeVideoClip([video] + overlays)
     out = out_dir / "podcast_final.mp4"
+    # Temp audio beside this build, not in the repo root - this script imports
+    # no modules.*, so modules/safe_render.py is not live here and it has to
+    # scope the temp file itself. See the 2026-09-02 role-slot failure.
     final.write_videofile(str(out), fps=FPS, codec="libx264", audio_codec="aac", bitrate="6000k",
                           threads=4, preset="medium",
+                          temp_audiofile_path=str(out.parent),
                           ffmpeg_params=["-pix_fmt", "yuv420p", "-movflags", "+faststart"])
     return out

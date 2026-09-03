@@ -80,6 +80,17 @@ def _runs_today():
     return sum(1 for e in _log_read() if e.get("at", "").startswith(today))
 
 
+def _healed_at(problem: str) -> str:
+    """When a run for `problem` last SUCCEEDED, as 'YYYY-MM-DD HH:MM'.
+
+    Empty string if it never has. Entries record the moment the run started,
+    which is the conservative end to compare an alert against.
+    """
+    done = [e.get("at", "") for e in _log_read()
+            if e.get("problem") == problem and e.get("ok")]
+    return max(done) if done else ""
+
+
 # ---------------------------------------------------------------- detectors
 
 async def detect_async() -> list:
@@ -127,6 +138,23 @@ async def detect_async() -> list:
                                              ).strftime("%Y-%m-%d %H:%M")]
             if live_checks_passing:
                 recent = [a for a in recent if a.get("check") != "psl_facts"]
+            # An alert that has already been healed is history too. The filter
+            # above can only speak for psl_facts, because that check re-runs
+            # live; a slot builder that died last night cannot be re-run here
+            # (it posts). So the heal log stands in as the evidence: if a
+            # build_failures run has already succeeded SINCE the alert was
+            # written, the alert has had its agent.
+            #
+            # Without this the 2026-09-02 21:54 slot failure would have kept
+            # firing for a full 24 hours after it was fixed, spending the
+            # remaining daily runs re-diagnosing a repaired factory - and
+            # handing each of those agents a brief asserting something is
+            # broken when it is not. That is not merely wasteful: the
+            # 2026-08-30 run shows where a confident false brief leads, having
+            # come one --delete away from destroying a correct comment.
+            healed = _healed_at("build_failures")
+            if healed:
+                recent = [a for a in recent if a.get("at", "") > healed]
             if recent:
                 found.append({
                     "name": "build_failures",

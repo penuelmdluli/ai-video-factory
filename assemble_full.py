@@ -370,7 +370,14 @@ def assemble(clip_paths, narration_wav, music_wav, words, text, out_dir, W, H, F
 
     final = CompositeVideoClip([video] + overlays)
     out = out_dir / "final_30s.mp4"
+    # Temp audio beside this build, not in the repo root. Every other renderer
+    # gets this from modules/safe_render.py via modules/__init__.py, but this
+    # script imports no modules.* at all, so it has to say so itself. See the
+    # 2026-09-02 role-slot failure: MoviePy names the temp file after the
+    # OUTPUT basename and drops it in the CWD, so two builds running at once
+    # delete it out from under each other mid-encode.
     final.write_videofile(str(out), fps=FPS, codec="libx264", audio_codec="aac",
                           bitrate="6000k", threads=4, preset="medium",
+                          temp_audiofile_path=str(out.parent),
                           ffmpeg_params=["-pix_fmt", "yuv420p", "-movflags", "+faststart"])
     return out
