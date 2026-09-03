@@ -762,23 +762,20 @@ async def main(a) -> int:
                     tracks.append(AudioFileClip(kick)
                                   .with_effects([afx.MultiplyVolume(0.34)])
                                   .with_start(min(k, dd - 0.6)))
-            # Celebration first, roar only as a fallback. It is longer and
-            # flatter, so it can sit a little higher without swallowing the
-            # line that names the scorer.
-            roar = (get_sfx_sync("sa_fans_celebrate", force=True)
-                    or get_sfx_sync("sa_goal_roar", force=True)
-                    or get_sfx_sync("goal_roar", force=True))
-            if roar:
-                for g in goal_times:
-                    # 0.26 still swamped the commentary at the exact moment
-                    # it names the scorer - the one line in the chapter that
-                    # carries information. A roar is a reaction, not the event.
-                    tracks.append(AudioFileClip(roar)
-                                  .with_effects([afx.MultiplyVolume(0.20)])
-                                  .with_start(min(g, dd - 1.0)))
+            # NO CROWD ON THE GOAL. Owner 2026-09-03: "remove the fan sound
+            # or goal sound, we must post a clean video."
+            #
+            # Three attempts tonight and none worked: a roar at 0.55, the same
+            # roar at 0.26, then a longer celebration at 0.20. Every version
+            # landed on the line naming the scorer, because that is precisely
+            # when a crowd reacts - the clash is structural, not a level, and
+            # no volume fixes a collision of timing.
+            #
+            # The music and the boot on the ball stay. The goal is carried by
+            # the card, the slow motion and the commentary, which were always
+            # the parts doing the work.
             _log(f"music: {mp.name} at {a.music_vol} + "
-                 f"{len(kick_times)} kicks + {len(goal_times)} "
-                 f"celebrations "
+                 f"{len(kick_times)} kicks, no crowd "
                  f"(crowd bed off — the music is the room)")
         except Exception as ex:
             _log(f"music failed ({str(ex)[:80]}) — falling back to silence "
@@ -838,16 +835,9 @@ async def main(a) -> int:
                 tracks.append(AudioFileClip(kick)
                               .with_effects([afx.MultiplyVolume(0.42)])
                               .with_start(min(t, dd - 0.6)))
-        roar = (get_sfx_sync("sa_goal_roar", force=True)
-                or get_sfx_sync("goal_roar", force=True))
-        if roar:
-            for t in goal_times:
-                # 0.55 was too loud against the narration - the roar buried
-                # the line naming the scorer, which is the one fact in the
-                # chapter. It sits under the voice now, not over it.
-                tracks.append(AudioFileClip(roar)
-                              .with_effects([afx.MultiplyVolume(0.14)])
-                              .with_start(min(t, dd - 1.0)))
+        # No crowd on the goal here either. This is the fallback path used
+        # when there is no music track, and the two mixes must not disagree
+        # about whether a goal has a crowd on it.
         _log(f"match sound: {len(tracks) - 1} layers, crowd from 0s")
     except Exception as ex:
         _log(f"match sound skipped: {str(ex)[:90]}")
