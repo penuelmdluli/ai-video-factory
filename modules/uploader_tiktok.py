@@ -208,6 +208,29 @@ def _patched_set_interactivity(page, comment=True, stitch=True, duet=True,
 _tu._set_interactivity = _patched_set_interactivity
 
 
+# CAPTURE THE REAL REASON. complete_upload_form runs _go_to_upload,
+# _set_video, _remove_split_window, _set_interactivity and _post_video in a
+# chain, and the library catches ANY exception from it, appends the video to
+# `failed`, and moves on. Our layer then reported a flat "post button click
+# failed" - which named the last step in the chain rather than the one that
+# actually broke, and was wrong every time the failure was earlier.
+#
+# This wrapper lets the step run, records what really went wrong, and re-raises
+# so the library still behaves normally.
+_REAL_ERROR = {"why": ""}
+_orig_complete = _tu.complete_upload_form
+
+
+def _complete_with_reason(*args, **kwargs):
+    try:
+        return _orig_complete(*args, **kwargs)
+    except Exception as e:
+        _REAL_ERROR["why"] = f"{type(e).__name__}: {str(e)[:200]}"
+        raise
+
+
+_tu.complete_upload_form = _complete_with_reason
+
 from tiktok_uploader.upload import upload_video
 
 # Parse schedule time if provided
@@ -229,7 +252,21 @@ try:
     if schedule_dt:
         upload_kwargs["schedule"] = schedule_dt
 
+    # ONE FRESH ATTEMPT ON FAILURE. num_retries inside the library retries
+    # within the SAME page state, so a stuck overlay or a half-loaded form is
+    # retried in the condition that caused it. This throws the browser away and
+    # starts again, which is the difference that matters: the roll call failed
+    # at 16:20 and the role analysis went through minutes later on identical
+    # code, so the fault is transient page state, not our video.
     failed = upload_video(**upload_kwargs)
+    if failed:
+        why1 = _REAL_ERROR.get("why") or "unknown"
+        print("[TikTok] attempt 1 failed (%s) - retrying with a fresh session"
+              % why1, flush=True)
+        _REAL_ERROR["why"] = ""
+        time.sleep(4)
+        failed = upload_video(**upload_kwargs)
+
     if not failed:
         status_msg = "scheduled" if schedule_dt else "uploaded"
         result = {"status": status_msg}
@@ -237,7 +274,10 @@ try:
             result["scheduled_for"] = schedule_iso
         print(json.dumps(result))
     else:
-        print(json.dumps({"status": "failed", "error": "post button click failed"}))
+        # Name the step that broke, not the last step in the chain.
+        print(json.dumps({"status": "failed",
+                          "error": _REAL_ERROR.get("why")
+                                   or "upload failed with no captured reason"}))
 except Exception as e:
     print(json.dumps({"status": "failed", "error": str(e)}))
 '''
