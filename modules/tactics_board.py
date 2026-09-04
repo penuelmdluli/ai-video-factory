@@ -426,6 +426,52 @@ class Board:
         return (min(0.97, max(0.03, xy[0] + dx)),
                 min(0.97, max(0.03, xy[1] + dy)))
 
+    @staticmethod
+    def _separate(pos: dict, rounds: int = 3) -> dict:
+        """Push overlapping tokens apart.
+
+        Owner 2026-09-04: "why does the analysis, as we move and analyse, get
+        one player placed on top of another player?"
+
+        Because the role beats move a man to FIXED coordinates out of the role
+        library - the overlap ends at (0.88, 0.26) whoever else happens to be
+        standing there - and those coordinates know nothing about the other ten
+        players. On a 4-4-2 it is fine; on a 3-4-3 the winger is already in
+        that spot and the two tokens stack into one unreadable blob.
+
+        A few rounds of gentle relaxation fixes it without a layout engine:
+        any pair closer than a token's width gets pushed apart along the line
+        between them, half each. Three rounds is enough to resolve a stack
+        without the shape visibly drifting, and it runs on the FINAL positions
+        so it protects every format at once - role beats, off-ball runs and
+        the balance drift alike.
+        """
+        import math
+        MIN = 0.095          # a token is ~0.088 wide in x; this clears it
+        out = {k: list(v) for k, v in pos.items()}
+        keys = list(out)
+        for _ in range(rounds):
+            moved = False
+            for i in range(len(keys)):
+                for j in range(i + 1, len(keys)):
+                    a, b = out[keys[i]], out[keys[j]]
+                    dx, dy = b[0] - a[0], b[1] - a[1]
+                    d = math.hypot(dx, dy)
+                    if d >= MIN:
+                        continue
+                    moved = True
+                    if d < 1e-6:            # exactly on top: split sideways
+                        dx, dy, d = 0.01, 0.0, 0.01
+                    push = (MIN - d) / 2
+                    ux, uy = dx / d, dy / d
+                    a[0] = min(0.97, max(0.03, a[0] - ux * push))
+                    a[1] = min(0.97, max(0.03, a[1] - uy * push))
+                    b[0] = min(0.97, max(0.03, b[0] + ux * push))
+                    b[1] = min(0.97, max(0.03, b[1] + uy * push))
+            if not moved:
+                break
+        return {k: tuple(v) for k, v in out.items()}
+
     def _pos_at(self, t: float) -> dict:
         ks = self.keys
         if not ks:
@@ -437,8 +483,9 @@ class Board:
             if not d:
                 return d
             gk = max(d.items(), key=lambda kv: kv[1][1])[0]
-            return {pid: self._alive(pid, xy, t, keeper=(pid == gk))
-                    for pid, xy in d.items()}
+            alive = {pid: self._alive(pid, xy, t, keeper=(pid == gk))
+                     for pid, xy in d.items()}
+            return self._separate(alive)
 
         if t <= ks[0][0]:
             return live(ks[0][1])
