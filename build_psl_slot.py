@@ -72,10 +72,26 @@ DEBATE_GROUPS = ["forwards", "midfield", "defence"]
 # "love" joined on 2026-09-02 (owner: "fans love to send love for the love of
 # the club"). It earns its slot like everything else - format_intel gives an
 # unproven format exactly 1.0, so it competes without being handed the week.
-FREE_FORMATS = ("rollcall", "xi", "debate", "fancall", "love", "role",
-                "sim", "news")
+# THREE KINDS OF POST, and nothing else. Owner call 2026-09-04, reading the
+# page's own numbers:
+#
+#   ROLL CALL / LOVE   72 likes, 16 comments   - love and pride, Khosi style
+#   FILL THE GAPS      35 likes, 12 comments   - who is missing, you pick
+#   ROLE ANALYSIS                              - position and style of play
+#   THE SIMULATOR       1-9 likes, 1-4 comments
+#
+# "The analysis works even better than the game simulation. Stop posting the
+# simulation." The simulator was the most elaborate thing built for this page
+# and it is beaten roughly ten to one by a crest and a question. It stays in
+# the repo and can be run by hand, but it is out of the rotation: a slot spent
+# on it is a slot taken from a format the audience has already voted for.
+#
+# xi, debate and news are out for the same reason - the owner asked for these
+# three and only these three, posted more often, and a rotation of eight
+# competing formats spreads the page thin.
+FREE_FORMATS = ("rollcall", "love", "role", "fancall")
 
-ONCE_PER_DAY = ("debate", "fancall", "rollcall", "xi", "love", "role", "sim")
+ONCE_PER_DAY = ("rollcall", "love", "role", "fancall")
 
 # The last hours before kickoff belong to the confirmed XI reel, which
 # matchday.py posts off the real team sheet ~75 minutes out. The same
@@ -239,18 +255,25 @@ async def decide() -> tuple[str, dict]:
     # earns; the same volume in a quiet gap earns nothing and trains the
     # audience to scroll past us. So the quota tightens as the fixture
     # recedes, and the slots that would have run simply stand down.
+    # Raised 2026-09-04 (owner: "post this both more, more analysis... more
+    # day to day"). Moderately, not freely. The 25 Aug collapse above was 43
+    # posts of MIXED quality in a fixture-free day; the rotation has since been
+    # cut to the three formats the audience actually votes for - roll call,
+    # fill-the-gaps and role analysis - so more of those is a different
+    # proposition from more of everything. If engagement per post starts
+    # sliding, this is the first number to put back.
     today_count = len(_posted_today(st))
     if hours <= 48:
-        quota, why = 6, "matchday window"
+        quota, why = 8, "matchday window"
     elif hours <= 96:
-        quota, why = 4, "fixture is close"
+        quota, why = 6, "fixture is close"
     else:
         # Owner call 2026-08-28: 3 was too quiet for a nine-day gap. The
         # 25 Aug evidence is against 43 posts in a fixture-free day, not
         # against 5 — the collapse there was volume far past anything the
         # audience would absorb, and standing two slots down every quiet day
         # leaves the page silent from lunchtime onward.
-        quota, why = 3, "quiet week"
+        quota, why = 4, "quiet week"
     if today_count >= quota:
         _log(f"{today_count} posted today, quota {quota} ({why}) — "
              f"standing this slot down")
