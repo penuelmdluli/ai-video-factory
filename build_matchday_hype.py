@@ -70,15 +70,34 @@ def _ease(u):
 
 
 def _embers(d, t, accent, n=46):
-    """Slow upward drift. Deterministic from the index so it never flickers."""
+    """Slow upward drift, and every third one is a HEART.
+
+    Owner 2026-09-03, looking at the numbers: this format took 72 likes and 16
+    comments while the tactics simulator took 1 to 9 - "we can always show the
+    heart emojis from start, middle and end, as the fans respond with love and
+    pride."
+
+    The embers already run the whole length of the reel, which is exactly the
+    "start, middle and end" he is asking for, so the hearts ride the same drift
+    rather than being a new effect bolted on at the goal. One in three, in club
+    gold and a warmer red, so it reads as affection rather than confetti.
+
+    Deterministic from the index so it never flickers between frames.
+    """
+    from modules.tactics_board import _heart
     for i in range(n):
         seed = (i * 9301 + 49297) % 233280 / 233280.0
         x = (seed * 1.7 % 1.0) * W
         speed = 34 + (seed * 60)
         y = (H + 80) - ((t * speed + seed * H * 1.6) % (H + 160))
-        r = 2 + (seed * 5)
         a = int(70 + 120 * (0.5 + 0.5 * math.sin(t * 1.6 + i)))
-        d.ellipse([x - r, y - r, x + r, y + r], fill=accent + (a,))
+        if i % 3 == 0:
+            sz = 26 + seed * 30
+            col = accent + (a,) if i % 6 else (232, 74, 92, a)
+            _heart(d, x, y, sz, col)
+        else:
+            r = 2 + (seed * 5)
+            d.ellipse([x - r, y - r, x + r, y + r], fill=accent + (a,))
 
 
 def frame(t, ctx):
