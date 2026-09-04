@@ -89,9 +89,15 @@ DEBATE_GROUPS = ["forwards", "midfield", "defence"]
 # xi, debate and news are out for the same reason - the owner asked for these
 # three and only these three, posted more often, and a rotation of eight
 # competing formats spreads the page thin.
-FREE_FORMATS = ("rollcall", "love", "role", "fancall")
+# "love" is GONE as a separate format. It posted flat cards - no crest, no
+# motion, no hearts - to ask the same questions the roll call asks as a
+# reel, and the owner's verdict on one was "that is not our standard of
+# post, it is bad, we need to post the reels". Its four prompts moved into
+# modules/rollcall_asks.py, so they now arrive in the format that took 1371
+# likes rather than the one that took three.
+FREE_FORMATS = ("rollcall", "role", "fancall")
 
-ONCE_PER_DAY = ("rollcall", "love", "role", "fancall")
+ONCE_PER_DAY = ("rollcall", "role", "fancall")
 
 # The last hours before kickoff belong to the confirmed XI reel, which
 # matchday.py posts off the real team sheet ~75 minutes out. The same

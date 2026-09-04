@@ -57,6 +57,34 @@ ASKS = [
     (["AMAKHOSI", "FOR LIFE.", "WHO IS WITH ME?"],
      "COMMENT  ·  AMAKHOSI 4 LIFE",
      "Amakhosi for life. Who is with me? Say it below."),
+
+    # Merged in from build_love_post on 2026-09-04. Those ran as flat cards -
+    # no crest, no motion, no hearts - and the owner's verdict was blunt: "that
+    # is not our standard of post, it is bad, we need to post the reels." He is
+    # right, and the deeper point is that two formats were asking the same
+    # thing in two qualities. There is one now, and it is the good one.
+    #
+    # These four ask for something SPECIFIC rather than a tap, which is the
+    # only reason to add to a list this proven: a year or a city is a better
+    # answer than a heart, and it is an answer only a real supporter can give.
+    (["HOW LONG", "HAVE YOU", "BEEN KHOSI?"],
+     "DROP THE YEAR  ·  JUST THE YEAR",
+     "How long have you been Khosi? Drop the year you started supporting "
+     "Amakhosi. Just the year."),
+
+    (["ONE WORD", "FOR", "AMAKHOSI"],
+     "ONE WORD  ·  NOT TWO",
+     "One word for Amakhosi. Not two. What is this club to you?"),
+
+    (["WHERE DO YOU", "WATCH", "FROM?"],
+     "DROP YOUR CITY  ·  OR YOUR TOWNSHIP",
+     "Where do you watch from? Drop your city or your township, and let us "
+     "see how far Khosi Nation reaches."),
+
+    (["WHO MADE YOU", "LOVE", "THIS CLUB?"],
+     "SAY WHO  ·  AND SAY WHY",
+     "Who made you love this club? A parent, a neighbour, a player? Say who, "
+     "and say why."),
 ]
 
 

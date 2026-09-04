@@ -56,15 +56,46 @@ NOT_LOVE = re.compile(
 )
 
 # Long enough to be a sentence, short enough to read on a card at a glance.
-MIN_QUOTE_CHARS = 12
+# 12 was written for sentences. "1984" is four characters and is a better
+# answer than most sentences this page will ever get, so the floor drops and
+# the length rule moves to where it belongs: rejecting empty noise, not short
+# answers.
+MIN_QUOTE_CHARS = 3
 MAX_QUOTE_CHARS = 90
 
 
+# A DIRECT ANSWER TO THE PROMPT. The ask says "drop the year you started
+# supporting Amakhosi, JUST THE YEAR" - and nine people did exactly that on
+# 3 Sep: 1984, 1990, 1982, 1996, "10 years", "9yrs". Every one scored zero,
+# because the scorer wanted the word "love" or "till I die", so the wall
+# reported "0 supporters sent love" about nine supporters who had answered
+# perfectly. The format asked a specific question and then refused the
+# specific answer.
+#
+# A bare year is the STRONGEST answer this prompt can get. It is personal, it
+# is verifiable to the man who typed it, and forty years of following a club
+# says more than the word "love" ever does.
+ANSWER_YEAR = re.compile(r"^\s*(19[2-9]\d|20[0-2]\d)\s*$")
+ANSWER_SPAN = re.compile(r"^\s*\d{1,2}\s*[+]?\s*(years?|yrs?|yr)",
+                         re.IGNORECASE)
+ANSWER_SINCE = re.compile(r"(since|from)\s+(19[2-9]\d|20[0-2]\d)",
+                          re.IGNORECASE)
+ANSWER_SINCE = re.compile(r"(since|from)\s+(19[2-9]\d|20[0-2]\d)",
+                          re.IGNORECASE)
+
+
 def love_score(text: str) -> int:
-    """How much affection one comment carries. 0 means it does not belong."""
+    """How much affection one comment carries. 0 means it does not belong.
+
+    A direct answer to the prompt counts as affection, because it IS one -
+    somebody typing "1984" is telling you he has followed this club for forty
+    years.
+    """
     t = str(text or "").strip()
     if not t or NOT_LOVE.search(t):
         return 0
+    if ANSWER_YEAR.match(t) or ANSWER_SPAN.match(t) or ANSWER_SINCE.search(t):
+        return 9
     return sum(w for rx, w in LOVE_PATTERNS if rx.search(t))
 
 
