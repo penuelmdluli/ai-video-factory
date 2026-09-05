@@ -34,6 +34,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from dotenv import load_dotenv
 load_dotenv()
+from modules.render_spec import FPS
 
 ROOT = Path(__file__).parent
 NICHE = "sa_pulse"
@@ -281,7 +282,7 @@ async def main():
 
     from modules.motion_kit import _render, attach_voice
     silent = work / "hype_silent.mp4"
-    _render(lambda t: frame(t, ctx), silent, duration=dur, fps=30)
+    _render(lambda t: frame(t, ctx), silent, duration=dur, fps=FPS)
     _log(f"video: {dur:.1f}s at 30fps")
     voiced = await attach_voice(silent, text, work / "voiced.mp4")
 

@@ -102,11 +102,38 @@ def next_prompt() -> dict:
                                        [x["key"] for x in PROMPTS].index(p["key"])))
 
 
-def _card(out_path: Path, club: str, headline: str, lines: list,
-          footer: str, count_line: str = "") -> Path | None:
-    """A 1080x1350 card in club colours. Quotes if given, else the question."""
+async def _card(out_path: Path, club: str, headline: str, lines: list,
+                footer: str, count_line: str = "") -> Path | None:
+    """A 1080x1350 card in club colours. Quotes if given, else the question.
+
+    Rendered by Chromium (modules/love_card_html) so the card can carry the
+    crest, a gradient ground and raised quote panels - the owner's note on the
+    last one was "no crest no nothing", which was a fair description of what
+    ImageDraw is able to produce.
+
+    The PIL card stays as the fallback and is not dead code. This runs at
+    night on a scheduler; if the browser fails to launch the page still gets
+    its post in the old design rather than nothing at all.
+    """
+    try:
+        from modules.love_card_html import render_love_card
+        await render_love_card(out_path, club, headline, lines, footer,
+                               count_line)
+        print("[Love] card rendered in browser")
+        return out_path
+    except Exception as e:
+        print(f"[Love] browser card failed ({str(e)[:110]}) - drawing it")
+    return _card_pil(out_path, club, headline, lines, footer, count_line)
+
+
+def _card_pil(out_path: Path, club: str, headline: str, lines: list,
+              footer: str, count_line: str = "") -> Path | None:
+    """The original hand-drawn card. Fallback only."""
     from PIL import Image, ImageDraw
-    from modules.thumbnail_pro import _font
+    from modules.typeface import font as _tf
+
+    def _font(size, _kind="news"):
+        return _tf(size)
     from modules.club_brand import CLUB_BRAND
 
     brand = CLUB_BRAND.get(club, {})
@@ -191,7 +218,7 @@ async def do_ask(a) -> int:
     _log(f"prompt: {p['key']} — {p['headline']}")
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     work = ROOT / "output" / f"love_ask_{a.club}_{stamp}"
-    card = _card(work / "ask.png", a.club, p["headline"], [p["ask"]],
+    card = await _card(work / "ask.png", a.club, p["headline"], [p["ask"]],
                  "COMMENT BELOW · KHOSI NATION")
     if not card:
         _log("card failed")
@@ -256,7 +283,7 @@ async def do_wall(a) -> int:
 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     work = ROOT / "output" / f"love_wall_{a.club}_{stamp}"
-    card = _card(work / "wall.png", a.club, "KHOSI NATION",
+    card = await _card(work / "wall.png", a.club, "KHOSI NATION",
                  res["quotes"], "YOUR WORDS · GENESIS NEWS",
                  count_line=f"{res['supporters']} supporters answered")
     if not card:

@@ -41,6 +41,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from dotenv import load_dotenv
 load_dotenv()
+from modules.render_spec import FPS
 
 ROOT = Path(__file__).parent
 
@@ -783,7 +784,7 @@ async def main(a) -> int:
         video = CompositeVideoClip(layers, size=(W, H)).with_duration(dd)
         video = video.with_audio(CompositeAudioClip(tracks).with_duration(dd))
         out = work / "final.mp4"
-        video.write_videofile(str(out), fps=30, codec="libx264",
+        video.write_videofile(str(out), fps=FPS, codec="libx264",
                               audio_codec="aac", logger=None,
                               preset="medium", threads=4)
         cover = work / "cover.png"
@@ -845,7 +846,7 @@ async def main(a) -> int:
     video = CompositeVideoClip(layers, size=(W, H)).with_duration(dd)
     video = video.with_audio(CompositeAudioClip(tracks).with_duration(dd))
     out = work / "final.mp4"
-    video.write_videofile(str(out), fps=30, codec="libx264",
+    video.write_videofile(str(out), fps=FPS, codec="libx264",
                           audio_codec="aac", logger=None,
                           preset="medium", threads=4)
 

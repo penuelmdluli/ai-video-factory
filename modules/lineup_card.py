@@ -33,14 +33,9 @@ LOGO = Path(__file__).parent.parent / "assets" / "youtube_branding" / "logo_sa_p
 
 
 def _font(size: int, bold: bool = True):
-    paths = (["C:/Windows/Fonts/arialbd.ttf", "C:/Windows/Fonts/segoeuib.ttf"]
-             if bold else ["C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/segoeui.ttf"])
-    for p in paths:
-        try:
-            return ImageFont.truetype(p, size)
-        except (OSError, IOError):
-            continue
-    return ImageFont.load_default()
+    """The house face, cached - see modules/typeface."""
+    from modules.typeface import font
+    return font(max(6, int(size)), weight="bold" if bold else "regular")
 
 
 def _fit(img: Image.Image, box: int) -> Image.Image:

@@ -12,7 +12,12 @@ Every renderer returns a vertical 1080x1920 mp4 in the house style:
 
 All pure PIL + MoviePy VideoClip(make_frame) — no external tools.
 """
+try:
+    from modules.render_spec import FPS
+except ImportError:                       # imported as a bare module
+    from render_spec import FPS
 import math
+from functools import lru_cache
 from pathlib import Path
 
 W, H = 1080, 1920
@@ -38,10 +43,8 @@ def _font(sz, bold=True):
     0 on the first frame — and PIL raises on size 0, which crashed a whole
     scheduled build. A 1px first frame is invisible anyway.
     """
-    from PIL import ImageFont
-    return ImageFont.truetype(
-        f"C:/Windows/Fonts/{'arialbd.ttf' if bold else 'arial.ttf'}",
-        max(1, int(sz)))
+    from modules.typeface import font
+    return font(max(6, int(sz)), weight="bold" if bold else "regular")
 
 
 ICONS = Path(__file__).parent.parent / "assets" / "motion_icons"
@@ -61,7 +64,8 @@ def icon(name, size=120):
     return im.resize((size, size))
 
 
-def _crest(club, size=260):
+@lru_cache(maxsize=64)
+def _crest_cached(club, size):
     from PIL import Image
     from modules.club_brand import official_badge
     p = official_badge(club)
@@ -70,6 +74,19 @@ def _crest(club, size=260):
     im = Image.open(p).convert("RGBA")
     r = min(size / im.width, size / im.height)
     return im.resize((int(im.width * r), int(im.height * r)))
+
+
+def _crest(club, size=260):
+    """A club badge at `size`, decoded once.
+
+    This used to open the PNG off disk and resize it on EVERY call, and the
+    tactics board asks for two badges per frame - so a single reel performed
+    thousands of file reads and resamples to paste the same two images. The
+    decode is cached; the copy is because PIL images are mutable and a caller
+    pasting onto a shared instance would corrupt every later frame.
+    """
+    im = _crest_cached(club, int(size))
+    return im.copy() if im is not None else None
 
 
 def _base(d):
@@ -178,7 +195,7 @@ async def attach_voice(video_path, text: str, out_path=None) -> str:
         except Exception as e:
             print(f"[MotionKit] captions skipped: {str(e)[:90]}")
 
-        clip.write_videofile(str(out_path), fps=30, codec="libx264",
+        clip.write_videofile(str(out_path), fps=FPS, codec="libx264",
                              audio_codec="aac", logger=None,
                              preset="medium")
         return str(out_path)
@@ -187,7 +204,7 @@ async def attach_voice(video_path, text: str, out_path=None) -> str:
         return str(video_path)
 
 
-def _render(frame_fn, out_path, duration, fps=30):
+def _render(frame_fn, out_path, duration, fps=FPS):
     import numpy as np
     from moviepy import VideoClip
     clip = VideoClip(lambda t: np.array(frame_fn(t)), duration=duration)
@@ -365,7 +382,7 @@ def goal_reel(out, club="pirates", scorer="LUNGU", minute="60'",
                 CompositeAudioClip([voice]).with_duration(final.duration))
         except Exception as e:
             print(f"[GoalReel] audio skipped: {e}")
-    final.write_videofile(str(out), fps=30, codec="libx264",
+    final.write_videofile(str(out), fps=FPS, codec="libx264",
                           audio_codec="aac" if narration_audio else None,
                           audio=bool(narration_audio),
                           logger=None, preset="medium")

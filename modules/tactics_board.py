@@ -21,15 +21,67 @@ W, H = 1080, 1920
 PITCH_TOP, PITCH_BOT = 260, 1720
 
 
+# SUPERSAMPLING — the reason the tokens had stair-stepped edges.
+#
+# PIL's ImageDraw antialiases NOTHING. Text comes out smooth because FreeType
+# rasterises it, but every ellipse, line and polygon in this module is drawn
+# with hard pixels - so the player tokens, the ball, the arrows and the shape
+# lines all carry visible jaggies. That is the single clearest "made at home"
+# tell on the finished reel, and no amount of colour or layout work hides it.
+#
+# The fix is the one every renderer uses: draw the frame larger, then shrink it
+# with a proper resampling filter. Averaging four drawn pixels into one output
+# pixel IS antialiasing.
+#
+# HOW IT IS APPLIED WITHOUT REWRITING THE MODULE. Roughly two hundred draw
+# calls in this file are written in 1080x1920 coordinates, mixed with hard
+# pixel literals (`y = 108`, `width=3`). Scaling those by hand would mean
+# touching every one and getting every one right. Instead the DRAW HANDLE is
+# wrapped: _ScaledDraw multiplies coordinates on their way to the real canvas,
+# so all the layout maths above it stays in the base 1080x1920 system and
+# nothing else in the module has to know the canvas got bigger.
+#
+# Text measurement runs the other way - textlength divides back down - because
+# every shrink-to-fit loop here compares a measured width against a literal
+# like `W - 44`. If measurement returned supersampled pixels those comparisons
+# would silently mis-fit at every title.
+from modules.render_spec import SUPERSAMPLE as _SS
+
+
+# The scaling proxy that makes the above work now lives in modules/aa_draw,
+# because the lineup card needs exactly the same treatment and a second copy
+# would drift from this one.
+from modules.aa_draw import scaled_draw as _scaled_draw, canvas as _aa_canvas
+from modules.aa_draw import resolve as _aa_resolve
+
+
+def _draw(img):
+    """The wrapped RGBA draw handle every frame path should use."""
+    return _scaled_draw(img, _SS)
+
+
+def _canvas(fill=(10, 30, 16)):
+    return _aa_canvas(W, H, _SS, fill)
+
+
 def _ease(u: float) -> float:
     u = max(0.0, min(1.0, u))
     return u * u * (3 - 2 * u)          # smoothstep — broadcast-glide feel
 
 
 def _font(sz, bold=True):
-    from PIL import ImageFont
-    return ImageFont.truetype(
-        f"C:/Windows/Fonts/{'arialbd.ttf' if bold else 'arial.ttf'}", sz)
+    """The house face, cached.
+
+    Was Arial, loaded fresh from disk on every single call - and this module
+    calls it dozens of times per frame across thousands of frames, so one reel
+    re-parsed the font file tens of thousands of times for no reason.
+    modules/typeface.font is memoised, so it is read once per size.
+    """
+    from modules.typeface import font
+    # Built at the SUPERSAMPLED size: the glyphs must be rasterised large and
+    # shrunk with everything else, or the text would be the one soft element
+    # on an otherwise crisp frame.
+    return font(max(6, int(sz)) * _SS, weight="bold" if bold else "regular")
 
 
 def _heart(d, cx: float, cy: float, size: float, fill):
@@ -543,11 +595,12 @@ class Board:
         except Exception:
             return
         if self.club:
-            big = _crest(self.club, 520)
+            big = _crest(self.club, 520 * _SS)  # badge decoded at render scale
             if big:
                 ghost = big.copy()
                 ghost.putalpha(ghost.getchannel("A").point(lambda v: int(v * 0.10)))
                 cx, cy = self._px(0.5, 0.5)
+                cx, cy = cx * _SS, cy * _SS
                 img.paste(ghost, (int(cx - ghost.width / 2),
                                   int(cy - ghost.height / 2)), ghost)
 
@@ -567,7 +620,7 @@ class Board:
             return
         if not (self.club and self.opponent):
             return
-        a, b = _crest(self.club, 74), _crest(self.opponent, 74)
+        a, b = _crest(self.club, 74 * _SS), _crest(self.opponent, 74 * _SS)
         if not (a and b):
             return
         # Sit in the middle of the header, not against the right edge. At
@@ -577,9 +630,11 @@ class Board:
         # below and the crests keep to their own.
         y = 108
         self._crest_right = int(W / 2 + 90)
-        img.paste(a, (int(W / 2 - 70 - a.width / 2), int(y - a.height / 2)), a)
-        img.paste(b, (int(W / 2 + 50 - b.width / 2), int(y - b.height / 2)), b)
-        dd = ImageDraw.Draw(img, "RGBA")
+        img.paste(a, (int((W / 2 - 70) * _SS - a.width / 2),
+                      int(y * _SS - a.height / 2)), a)
+        img.paste(b, (int((W / 2 + 50) * _SS - b.width / 2),
+                      int(y * _SS - b.height / 2)), b)
+        dd = _draw(img)
         f = _font(34)
         w = dd.textlength("V", font=f)
         dd.text((W / 2 - 10 - w / 2, y - 20), "V", font=f,
@@ -623,21 +678,36 @@ class Board:
                          W // 2 + 110, max(gy, gy + s * 70)],
                         outline=ln, width=3)
 
+    def _pitch_base(self):
+        """The empty pitch, drawn once and copied thereafter.
+
+        Every mow stripe, touchline, centre circle, penalty box and both net
+        meshes are a pure function of the frame size - nothing in _draw_pitch
+        reads the clock. They were nevertheless being redrawn for every frame
+        of every reel, which at 60fps is the same few hundred vector calls
+        repeated over three thousand times. Drawn once, copied per frame.
+        """
+        cached = getattr(self, "_pitch_cache", None)
+        if cached is None or getattr(self, "_pitch_ss", 0) != _SS:
+            cached = _canvas()
+            self._draw_pitch(_draw(cached))
+            self._pitch_cache, self._pitch_ss = cached, _SS
+        return cached.copy()
+
     def _frame(self, t: float):
         from PIL import Image, ImageDraw
         import math
-        im = Image.new("RGB", (W, H), (10, 30, 16))
-        d = ImageDraw.Draw(im, "RGBA")
-        self._draw_pitch(d)
+        im = self._pitch_base()
+        d = _draw(im)
         self._crests(im)
-        d = ImageDraw.Draw(im, "RGBA")   # paste() invalidates the old handle
+        d = _draw(im)   # paste() invalidates the old handle
 
         # header
         d.rectangle([0, 0, W, 200], fill=(10, 10, 12))
         d.text((44, 44), "GENESIS NEWS", font=_font(40),
                fill=(255, 200, 0))
         self._matchup(im)
-        d = ImageDraw.Draw(im, "RGBA")
+        d = _draw(im)
         d.text((44, 100), "TACTICS BOARD", font=_font(26, False),
                fill=(200, 205, 210))
         if self.title:
@@ -1070,12 +1140,29 @@ class Board:
         rate = (dur - at_t1) / (dur - t1)
         return at_t1 + (t - t1) * rate
 
-    def render(self, out_path, duration: float, fps: int = 30) -> str:
+    def _frame_out(self, t: float):
+        """One finished frame at delivery size.
+
+        The frame is drawn on a canvas _SS times larger and comes back down
+        through LANCZOS, which is where the antialiasing actually happens:
+        four drawn pixels average into one output pixel, so a token edge that
+        was a staircase becomes a gradient.
+        """
+        return _aa_resolve(self._frame(self._warp(t)), W, H, _SS)
+
+    def render(self, out_path, duration: float, fps: int = 60) -> str:
+        """Render at 60fps by default.
+
+        Broadcast sports graphics run at 50 or 60. At 30 the ball crossing the
+        box and the tokens gliding between keyframes both strobe slightly -
+        it reads as a slideshow of positions rather than movement, which is
+        the exact impression this format is trying not to give.
+        """
         import numpy as np
         from moviepy import VideoClip
         self._dur = float(duration)
         clip = VideoClip(
-            lambda t: np.array(self._frame(self._warp(t))), duration=duration)
+            lambda t: np.array(self._frame_out(t)), duration=duration)
         clip.write_videofile(str(out_path), fps=fps, codec="libx264",
                              audio=False, logger=None, preset="medium")
         return str(out_path)
