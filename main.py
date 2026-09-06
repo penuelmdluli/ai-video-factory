@@ -451,7 +451,8 @@ async def create_video(
             "duration": assembly_result["duration"],
         }
         manifest_path = work_dir / "upload_manifest.json"
-        manifest_path.write_text(json.dumps(manifest, indent=2))
+        manifest_path.write_text(json.dumps(manifest, indent=2),
+                                 encoding="utf-8")
 
         if build_only:
             print(f"[BUILD COMPLETE] Video ready for deferred upload: {video_path.name}")
@@ -729,7 +730,7 @@ async def upload_prebuilt_videos(
         latest: dict[tuple, tuple] = {}
         for mp in manifests:
             try:
-                m = json.loads(mp.read_text())
+                m = json.loads(mp.read_text(encoding="utf-8"))
             except Exception:
                 continue
             ba = m.get("built_at", "")
@@ -747,7 +748,7 @@ async def upload_prebuilt_videos(
 
     for manifest_path in manifests:
         try:
-            manifest = json.loads(manifest_path.read_text())
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except Exception:
             continue
 
@@ -933,7 +934,8 @@ async def upload_prebuilt_videos(
             {"platform": u.get("platform"), "status": u.get("status")}
             for u in uploads
         ]
-        manifest_path.write_text(json.dumps(manifest, indent=2))
+        manifest_path.write_text(json.dumps(manifest, indent=2),
+                                 encoding="utf-8")
 
         results.append({
             "niche": niche,

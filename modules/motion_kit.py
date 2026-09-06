@@ -223,6 +223,8 @@ def goal_alert(out, club="pirates", scorer="LUNGU", minute="60'",
         im = Image.new("RGB", (W, H), DARK)
         d = ImageDraw.Draw(im, "RGBA")
         _base(d)
+        if club == "chiefs":
+            _love_drift(d, t, GOLD)
         d.text((46, 96), "GOAL ALERT", font=_font(28, False), fill=GOLD)
         # pulsing rays
         for k in range(12):
@@ -266,6 +268,42 @@ def goal_alert(out, club="pirates", scorer="LUNGU", minute="60'",
 
 
 # ── 1b. GOAL REEL — alert slam + LIVE pitch replay + closing stamp ─────────
+def _love_drift(d, t, accent, n=44):
+    """Rising embers where every third one is a HEART.
+
+    Owner 2026-09-06: "goal for Kaizer Chiefs must also have the hearts."
+
+    The hearts came from the roll-call reel, which took 72 likes and 16
+    comments against the tactics simulator's 1 to 9, and the owner asked for
+    them "from start, middle and end". A goal is the loudest moment this page
+    ever posts and it was the one place they were missing.
+
+    CHIEFS ONLY, and that is not favouritism. Love and Peace is Kaizer Chiefs'
+    own motto, so a heart on their goal is the club quoting itself; the same
+    heart over a Pirates or Sundowns goal is just decoration, and this page
+    covering all three now (see matchday.py) makes that distinction matter.
+
+    Deterministic from the index so nothing flickers between frames - the
+    same reason build_matchday_hype._embers is written this way, and this is
+    deliberately the same drift so the two formats look related.
+    """
+    import math as _m
+    for i in range(n):
+        seed = (i * 9301 + 49297) % 233280 / 233280.0
+        x = (seed * 1.7 % 1.0) * W
+        speed = 34 + (seed * 60)
+        y = (H + 80) - ((t * speed + seed * H * 1.6) % (H + 160))
+        a = int(70 + 120 * (0.5 + 0.5 * _m.sin(t * 1.6 + i)))
+        if i % 3 == 0:
+            from modules.tactics_board import _heart
+            sz = 26 + seed * 30
+            col = tuple(accent) + (a,) if i % 6 else (232, 74, 92, a)
+            _heart(d, x, y, sz, col)
+        else:
+            r = 2 + (seed * 5)
+            d.ellipse([x - r, y - r, x + r, y + r], fill=tuple(accent) + (a,))
+
+
 def goal_reel(out, club="pirates", scorer="LUNGU", minute="60'",
               score="1-0", vs="Chippa United",
               replay=None, duration_replay=6.5,
@@ -290,6 +328,10 @@ def goal_reel(out, club="pirates", scorer="LUNGU", minute="60'",
         im = Image.new("RGB", (W, H), DARK)
         d = ImageDraw.Draw(im, "RGBA")
         _base(d)
+        # The slam is the loudest frame this page posts; the hearts belong
+        # here most of all, not only on the closing stamp.
+        if club == "chiefs":
+            _love_drift(d, t, GOLD)
         d.text((46, 96), "GOAL ALERT", font=_font(28, False), fill=GOLD)
         for k in range(12):
             ang = k * math.pi / 6 + t * 0.8
@@ -355,6 +397,10 @@ def goal_reel(out, club="pirates", scorer="LUNGU", minute="60'",
         im = Image.new("RGB", (W, H), DARK)
         d = ImageDraw.Draw(im, "RGBA")
         _base(d)
+        # Hearts on the closing stamp too, so they run start-to-end across the
+        # reel rather than flashing once at the goal.
+        if club == "chiefs":
+            _love_drift(d, t, GOLD)
         if crest:
             im.paste(crest, (W // 2 - crest.width // 2, 480), crest)
         if fire_ic:

@@ -618,19 +618,26 @@ async def cmd_auto(a):
     except Exception:
         state = {}
 
-    # CHIEFS ONLY (owner call 2026-08-26). This used to cover every PSL
-    # fixture on the reasoning that a football news page reports every score.
-    # It is not a football news page, it is a Kaizer Chiefs page — and on
-    # 25 Aug that reasoning filled the feed with Marumo Gallants, TS Galaxy,
-    # Durban City, Chippa and Kruger United while Chiefs were not playing.
+    # BIG THREE (owner call 2026-09-06): "this need to be posted for the
+    # chiefs game and pirate and sundowns game, this 3 teams."
+    #
+    # This is the middle ground between the two failures either side of it.
+    # Originally auto mode covered EVERY PSL fixture, and on 25 Aug that
+    # filled the feed with Marumo Gallants, TS Galaxy, Durban City, Chippa and
+    # Kruger United on a day Chiefs were not playing. The correction on 26 Aug
+    # went all the way to Chiefs only, which is why Sundowns kicked off at
+    # 15:00 today with nothing posted at all.
+    #
+    # BIG_THREE is Chiefs, Pirates and Sundowns - the three clubs this page
+    # was pointed at - so it restores those two while still keeping Gallants
+    # and Kruger United out. Chiefs remains the lead club everywhere else;
+    # this changes only which MATCHES get live coverage.
     fixtures = [f for f in await todays_fixtures()
-                if "chiefs" in (f.get("home_key"), f.get("away_key"))]
+                if {f.get("home_key"), f.get("away_key")} & set(BIG_THREE)]
     if not fixtures:
-        print("[Auto] no Kaizer Chiefs fixture today - nothing to cover")
+        print("[Auto] no Chiefs, Pirates or Sundowns fixture today "
+              "- nothing to cover")
         _release()
-        return
-    if not fixtures:
-        print("[Auto] no qualifying fixtures today — normal cadence")
         return
     now = _dt.now(SAST)
 
@@ -871,7 +878,7 @@ async def cmd_live(a):
     5 min otherwise. Run 24/7 under PM2; the 5-min scheduled task stays as a
     backup for when this process is down.
     """
-    from modules.psl_fixtures import todays_fixtures
+    from modules.psl_fixtures import todays_fixtures, BIG_THREE
 
     # REAP OLDER SELVES. pm2 restart spawns a new watcher but does not always
     # kill the old one: on 26 Aug a process from 07:39 was still alive at
@@ -951,12 +958,15 @@ async def cmd_live(a):
             nap = 45
         else:
             try:
-                chiefs_today = any(
-                    "chiefs" in (f.get("home_key"), f.get("away_key"))
+                # Same widening as the fixture filter above: a Sundowns or
+                # Pirates match now needs the fast 5-minute loop too, or the
+                # goals and the result would land long after the game.
+                big_three_today = any(
+                    {f.get("home_key"), f.get("away_key")} & set(BIG_THREE)
                     for f in await todays_fixtures())
             except Exception:
-                chiefs_today = True          # unsure: stay alert
-            nap = 300 if chiefs_today else 1800
+                big_three_today = True       # unsure: stay alert
+            nap = 300 if big_three_today else 1800
             if nap == 1800:
                 print("[Live] no Chiefs fixture today — idling 30 min")
         await asyncio.sleep(nap)

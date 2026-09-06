@@ -119,4 +119,42 @@ async def publish(video_path, title: str, caption: str, cover_path=None,
 
     live = [k for k, v in out.items() if (v or {}).get("status") == "uploaded"]
     print(f"[Publish] live on: {', '.join(live) if live else 'NOTHING'}")
+    if live:
+        _claim_manifest(video_path)
     return out
+
+
+def _claim_manifest(video_path) -> None:
+    """Mark this build's manifest as already posted.
+
+    THE DUPLICATE-POST BUG, 6 Sep 2026. Every Genesis builder writes an
+    upload_manifest.json next to its video BEFORE posting, and none of them
+    ever came back to update it. main.py sweeps output/*/upload_manifest.json
+    and uploads anything built today whose `uploaded` flag is falsy - so the
+    MATCHDAY reel went out at 06:36 from build_matchday_hype and AGAIN at
+    07:11 from the sweeper, because as far as the manifest was concerned it
+    had never been posted.
+
+    The second copy was also the one with the broken emoji, since the sweeper
+    read the manifest with the wrong codec (fixed separately in main.py). So
+    the page got the same reel twice, and the duplicate was the ugly one.
+
+    Claiming the manifest here rather than in each builder means every caller
+    of publish() is covered by one change, including the ones written next.
+    Best-effort by design: failing to write this flag must never take down a
+    post that has already gone live.
+    """
+    try:
+        import json
+        from pathlib import Path
+        mp = Path(video_path).parent / "upload_manifest.json"
+        if not mp.exists():
+            return
+        m = json.loads(mp.read_text(encoding="utf-8"))
+        m["uploaded"] = True
+        m["uploaded_by"] = "publish_reel"
+        mp.write_text(json.dumps(m, indent=2, ensure_ascii=False),
+                      encoding="utf-8")
+        print(f"[Publish] manifest claimed - the sweeper will skip {mp.parent.name}")
+    except Exception as e:
+        print(f"[Publish] could not claim manifest: {str(e)[:100]}")
