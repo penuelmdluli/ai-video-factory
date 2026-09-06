@@ -553,9 +553,22 @@ async def _post_motm(f, sh: list[str], sa: list[str], post: bool) -> bool:
 #
 # Hence a mutex rather than more state. Whoever holds it posts; anyone else
 # returns immediately and tries again on its next tick. A lock whose owner has
-# died is stolen after LOCK_STALE_S so a crash can never mute the page.
+# died is stolen immediately, so a crash can never mute the page.
 _LOCK = Path("data/matchday.lock")
-LOCK_STALE_S = 600
+
+# AGE ALONE MUST NOT STEAL THE LOCK. 6 Sep 2026: the age cut-off was 600s and
+# a lineup build takes longer than that, so `matchday.py live` took the lock
+# at 13:29, was still rendering the Sundowns eleven at 13:41, and the auto
+# tick robbed it mid-build purely because ten minutes had passed. Both then
+# built the same fixture and both would have posted it - the exact duplicate
+# this mutex exists to prevent, caused by the mutex.
+#
+# _pid_alive already covers the case the comment above is worried about: a
+# crashed owner is detected and stolen from IMMEDIATELY, whatever the age. So
+# the age test is only a backstop for the one thing liveness cannot see - a
+# dead owner whose PID has since been recycled onto some unrelated process -
+# and for that an hour is generous where ten minutes was actively harmful.
+LOCK_HARD_S = 3600          # only an hour-old lock is stolen from a LIVE pid
 
 
 def _pid_alive(pid: int) -> bool:
@@ -575,12 +588,15 @@ def _acquire() -> bool:
                 owner = int((_LOCK.read_text(encoding="utf-8") or "0").split(",")[0])
             except Exception:
                 owner = 0
-            if owner != os.getpid() and age < LOCK_STALE_S and _pid_alive(owner):
+            alive = _pid_alive(owner)
+            if owner != os.getpid() and alive and age < LOCK_HARD_S:
                 print(f"[Auto] another poster holds the lock (pid {owner}, "
-                      f"{age:.0f}s) - skipping this tick")
+                      f"{age:.0f}s, still running) - skipping this tick")
                 return False
-            if age >= LOCK_STALE_S or not _pid_alive(owner):
-                print(f"[Auto] stealing stale lock from pid {owner}")
+            if owner != os.getpid():
+                why = ("owner is gone" if not alive
+                       else f"held {age:.0f}s, past the {LOCK_HARD_S}s limit")
+                print(f"[Auto] stealing lock from pid {owner} ({why})")
         _LOCK.write_text(f"{os.getpid()},{time.time()}", encoding="utf-8")
         return True
     except Exception as e:
