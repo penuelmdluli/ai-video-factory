@@ -227,17 +227,90 @@ with sync_playwright() as pw:
             # One of those neighbours SPENDS MONEY and another silently saves a
             # draft, so a loose selector here is worse than no selector.
             # aria-label='Post' resolves to exactly 1.
+            # A VIDEO COMPOSER IS THREE STEPS, NOT TWO.
+            #
+            # Attaching a video turns the flow into compose -> video options
+            # (Trim, Closed captions, Audio descriptions) -> publish, so the
+            # second screen carries another 'Next' and no 'Post' at all. This
+            # used to give up there and report nothing published, which is
+            # exactly what it did on 2026-08-31.
+            #
+            # SCOPE cannot be reused past step one either: it anchors on the
+            # caption textbox, and once that screen is gone the selector
+            # matches nothing, so even a correct Post button was invisible to
+            # it. The close control is present on every step, so anchor there.
+            #
+            # Exact aria-labels only, still. The neighbours on these screens
+            # include 'Boost post', which SPENDS MONEY, and 'Save post as
+            # draft', which silently swallows the post - see the note above.
+            STEP_SCOPE = ("div[role='dialog']:has(div[role='button']"
+                          "[aria-label='Close composer dialogue'])")
+
+            # .first IS NOT THE ONE ON SCREEN.
+            #
+            # Playwright returns matches in DOM order, and the earlier steps of
+            # the composer stay in the DOM behind the current one. So .first
+            # resolved to step one's Next - present, enabled, and permanently
+            # invisible - and the click sat there until it timed out twice,
+            # once at 30s and once at 120s, on 2026-08-31. Take the first
+            # VISIBLE match rather than the first match.
+            def visible_button(label):
+                loc = page.locator("%s div[role='button'][aria-label='%s']"
+                                   % (STEP_SCOPE, label))
+                for i in range(loc.count()):
+                    b = loc.nth(i)
+                    try:
+                        if b.is_visible():
+                            return b
+                    except Exception:
+                        pass
+                return None
+
             posted_btn = None
-            for _ in range(10):
-                loc = page.locator(
-                    "%s div[role='button'][aria-label='Post']" % SCOPE)
-                if loc.count():
-                    posted_btn = loc.first
+            for step in range(4):
+                found = None
+                for _ in range(10):
+                    b = visible_button("Post")
+                    if b is not None:
+                        found = ("Post", b)
+                        break
+                    b = visible_button("Next")
+                    if b is not None:
+                        found = ("Next", b)
+                        break
+                    time.sleep(1.5)
+
+                if found is None:
                     break
-                time.sleep(1.5)
+                if found[0] == "Post":
+                    posted_btn = found[1]
+                    break
+
+                # THE BUTTON EXISTS BEFORE IT WORKS.
+                #
+                # Facebook renders the video-options step immediately but keeps
+                # its Next inert until the upload finishes transcoding, and a
+                # 25MB clip takes far longer than the flat 15s sleep above. A
+                # plain click there just burns Playwright's 30s actionability
+                # timeout and reports a failure that is really a "not yet" -
+                # which is what happened on 2026-08-31. Wait for the control to
+                # report itself enabled instead of guessing at a sleep.
+                log("step %d: another Next, waiting for it to enable"
+                    % (step + 2))
+                for _ in range(80):          # up to ~4 min of transcoding
+                    disabled = found[1].get_attribute("aria-disabled")
+                    if disabled != "true":
+                        break
+                    time.sleep(3)
+
+                log("step %d: advancing" % (step + 2))
+                found[1].click(timeout=120000)
+                time.sleep(4)
+
             if posted_btn is None:
-                out("failed", error=("clicked Next but no Post button "
-                                     "appeared - nothing was published"))
+                out("failed", error=("walked the composer steps but never "
+                                     "reached a Post button - nothing was "
+                                     "published"))
                 browser.close(); sys.exit(0)
             log("clicking Post")
             posted_btn.click()
