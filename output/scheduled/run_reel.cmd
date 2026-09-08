@@ -18,3 +18,12 @@ echo. >> "output\scheduled\reel_cron.log"
 echo ===== %DATE% %TIME% ===== >> "output\scheduled\reel_cron.log"
 python make_dance_reel.py --post --show >> "output\scheduled\reel_cron.log" 2>&1
 echo exit=%ERRORLEVEL% >> "output\scheduled\reel_cron.log"
+
+REM Read view counts back off the profile AFTER the post, never before: a
+REM scrape that hangs, or breaks on a Facebook layout change, must not be able
+REM to delay or block publishing. The numbers feed dance_cast.pick(), which
+REM only judges a setting once three posts have actually been measured for it
+REM — so a run that collects nothing simply leaves the rotation on its
+REM fairness order, which is what it did before any of this existed.
+python -X utf8 -m modules.profile_stats >> "output\scheduled\reel_cron.log" 2>&1
+echo stats_exit=%ERRORLEVEL% >> "output\scheduled\reel_cron.log"

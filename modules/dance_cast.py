@@ -403,6 +403,62 @@ def motion_characters() -> list:
             if v.get("motion_safe", True) and v.get("active", True)]
 
 
+# HOW MUCH EVIDENCE BEFORE A NUMBER GETS A VOTE.
+#
+# Owner 2026-09-08: "can we prioritise the videos that work." Yes - but on
+# 8 Sep the answer was 17 scored posts, and the two that mattered were single
+# reels: lwazi|crowd_reaction|sandton took 149,000 while lwazi|walk_in|sandton
+# took 2,000. A median over two posts that far apart is not a measurement, and
+# ranking settings on it would have chased one lucky reel around the roster.
+#
+# So a setting only gets promoted or demoted once MIN_EVIDENCE posts have
+# actually been measured for it. Below that it sits in the middle tier with
+# everything unknown, and the fairness rotation decides - which is exactly
+# what this picker did before. The bias turns itself on, per setting, as the
+# posts accumulate. Nothing to remember to enable.
+MIN_EVIDENCE = 3     # measured posts before a setting is judged
+MIN_RANKED = 3       # settings that must qualify before any are
+
+
+def _setting_tier():
+    """A function setting -> 0 proven good, 1 unproven, 2 proven weak.
+
+    Ranked against the MEDIAN of the settings that have enough evidence, so
+    "good" means better than a typical post rather than better than zero.
+    Returns an all-unproven ranking if the stats module or its ledger is
+    missing, which keeps this picker working on a machine that has never
+    scraped anything.
+    """
+    try:
+        from modules.profile_stats import scores, _runs, _reel_id, _perf
+        perf = _perf()
+        counts = {}
+        for row in _runs():
+            if not row.get("posted") or _reel_id(row) not in perf:
+                continue
+            parts = (row.get("combo") or "").split("|")
+            if len(parts) == 3:
+                counts[parts[2]] = counts.get(parts[2], 0) + 1
+        med = scores().get("setting", {})
+        ranked = {k: v for k, v in med.items()
+                  if counts.get(k, 0) >= MIN_EVIDENCE}
+        # A COMPARISON NEEDS SOMETHING TO COMPARE AGAINST. With one qualifying
+        # setting the median IS that setting, so it scores at-or-above itself
+        # and gets promoted for no reason. On 8 Sep that was stadium - the
+        # only setting with three measured posts and, at a 2,100 median, one
+        # of the WEAKEST on the profile. The first version of this promoted it
+        # and the picker started steering there, which is the exact opposite
+        # of what was asked for. Rank nothing until a real field exists.
+        if len(ranked) < MIN_RANKED:
+            return lambda s: 1
+        vals = sorted(ranked.values())
+        mid = vals[len(vals) // 2]
+        return lambda s: (1 if s not in ranked
+                          else (0 if ranked[s] >= mid else 2))
+    except Exception:
+        return lambda s: 1
+
+
 def pick(motion_only: bool = False) -> tuple:
     """Return (character, template, setting) that has not been posted yet.
 
@@ -419,6 +475,7 @@ def pick(motion_only: bool = False) -> tuple:
     cast_ok = motion_characters() if motion_only else list(CAST)
     pool = [c for c in combinations() if c[1] in allowed and c[0] in cast_ok]
     fresh = [c for c in pool if _key(*c) not in spent]
+    tier = _setting_tier()
     if fresh:
         # Spread across ALL THREE axes, not just the character. Ranking on
         # character and template alone put the first twenty posts at the same
@@ -426,7 +483,12 @@ def pick(motion_only: bool = False) -> tuple:
         # stuck in one backyard for a week. The setting is the axis a viewer
         # actually notices, so it is weighted first.
         counts = st.get("counts", {})
-        return min(fresh, key=lambda c: (counts.get(c[2], 0),      # setting
+        # Proven settings first, then the same fairness order INSIDE each
+        # tier. Rotation still does the work of spreading posts around; the
+        # tier only decides which group gets spread through first, so the
+        # profile cannot get stuck in one location the way it did in August.
+        return min(fresh, key=lambda c: (tier(c[2]),               # evidence
+                                         counts.get(c[2], 0),      # setting
                                          counts.get(c[0], 0),      # character
                                          counts.get(c[1], 0)))     # template
     counts = st.get("counts", {})
