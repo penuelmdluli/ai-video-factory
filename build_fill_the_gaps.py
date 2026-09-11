@@ -359,8 +359,15 @@ async def main():
     # page's own numbers say otherwise — today's reels ran into the thousands
     # of views while the fill card sat on zero. Facebook surfaces reels and
     # buries photos, so every fan question goes out as video there now.
-    if a.video:
-        a.as_reel = True
+    #
+    # REVERSED 2026-09-11, owner: "keep the photo only". --video used to flip
+    # as_reel on AFTER the photo had already posted, so Facebook got every
+    # question twice - a photo and a reel of the same ask, a minute apart,
+    # splitting one crowd across two comment boxes. Over six pairs the photos
+    # drew 98 comments and the reels 20. So --video now means what its help
+    # text says: the photo stays the one Facebook post, and the short goes to
+    # YouTube and TikTok only (the branch below). --as-reel still exists for
+    # a deliberate reel-instead-of-card run.
 
     if a.post and a.as_reel and video and Path(video).exists():
         # One question, one piece of media, everywhere. Used when the ask is

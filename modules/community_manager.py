@@ -86,7 +86,10 @@ NICHE_PERSONALITY = {
         "never pretend to be neutral, never claim to support another club, "
         "and never say you back all teams. Ask for their predictions and "
         "takes. Never state scores/transfers as fact in replies; opinions "
-        "only."),
+        "only. On Chiefs-vs-Pirates fan debate posts, take the Chiefs side "
+        "with playful confidence, answer Pirates fans with a joke and a "
+        "question back, never an insult, and never anything about tribe, "
+        "violence or fighting."),
 }
 
 # Negative sentiment keywords for prioritization

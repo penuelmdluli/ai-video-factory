@@ -47,7 +47,15 @@ W_COMMENT, W_SHARE, W_LIKE = 3.0, 5.0, 1.0
 # actually write, so a post can be scored without us having tagged it at
 # publish time - which matters because the back catalogue was never tagged.
 SIGNATURES = [
-    ("fancall", re.compile(r"who starts here|one shirt, two names", re.I)),
+    # The three reels build_matchday_hype makes, by the header each caption
+    # opens with. Until 2026-09-11 none of these had a signature, so the
+    # page's best post ever (a roll call, 3,332 likes) was scored as "other"
+    # and the router could not see the format it was supposed to favour.
+    ("rivalry", re.compile(r"FAN DEBATE")),
+    ("hopes", re.compile(r"THE BIG QUESTION")),
+    ("rollcall", re.compile(r"ROLL CALL|🟡 MATCHDAY 🟡")),
+    ("fancall", re.compile(r"who starts here|one shirt, two names|"
+                           r"who replaces|you pick the rest", re.I)),
     ("debate", re.compile(r"midfielders|defenders|forwards|keepers"
                           r".{0,40}(who starts|for one shirt)", re.I)),
     ("countdown", re.compile(r"\bdays? to go\b|\bkick-?off in\b|countdown", re.I)),
@@ -115,6 +123,7 @@ async def collect(niche: str, limit: int = 100) -> int:
              engagement_rate, collected_at)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(post_id) DO UPDATE SET
+              content_type=excluded.content_type,
               likes=excluded.likes, comments=excluded.comments,
               shares=excluded.shares, engagement=excluded.engagement,
               collected_at=excluded.collected_at""",

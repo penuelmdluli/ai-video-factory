@@ -95,9 +95,42 @@ DEBATE_GROUPS = ["forwards", "midfield", "defence"]
 # post, it is bad, we need to post the reels". Its four prompts moved into
 # modules/rollcall_asks.py, so they now arrive in the format that took 1371
 # likes rather than the one that took three.
-FREE_FORMATS = ("rollcall", "role", "fancall")
+#
+# PRIDE AND THE ARGUMENT, and nothing else. Owner call 2026-09-11, reading the
+# page's own numbers from the week before:
+#
+#   ROLL CALL  "HOW LONG HAVE YOU BEEN KHOSI?"   3,332 likes  1,025 comments
+#   FAN CALL   "WHO STARTS HERE? VILAKAZI..."      133 likes     71 comments
+#   ROLL CALL  (other asks)                         7-64 likes   7-19 comments
+#   ROLE ANALYSIS                                  20-37 likes    3-7 comments
+#   NEWS REEL                                       3-26 likes    3-4 comments
+#
+# "The fans pride works better... add more that will cause Pirates fans and
+# Kaizer Chiefs debate... we need to fully shift to this style... go with what
+# works now." So the between-games rotation is the roll call, the new
+# Chiefs-vs-Pirates FAN DEBATE, THE BIG QUESTION on trophies and hopes, and the
+# fan call - every one of them a question a supporter answers in one line.
+# Role analysis leaves the rotation (it still runs by hand).
+#
+# Pride and rivalry may run TWICE a day; the others once. The words inside
+# each change every run (modules/rollcall_asks), so two roll calls in a day
+# are two different questions, never the same post twice. No format runs in
+# two slots back to back.
+FREE_FORMATS = ("rollcall", "rivalry", "hopes", "fancall")
+DAILY_CAP = {"rollcall": 2, "rivalry": 2, "hopes": 1, "fancall": 1}
 
-ONCE_PER_DAY = ("rollcall", "role", "fancall")
+# A format the owner has asked for gets a fair trial before the numbers can
+# bury it: an unmeasured format sits at weight 1.0, which loses every ranking
+# to a proven one, so "rivalry" would only ever run once the proven formats
+# were spent. The boost holds only until format_intel has MIN_POSTS mature
+# posts of it; after that it earns its slot like everything else.
+TRIAL_BOOST = {"rivalry": 1.8, "hopes": 1.2}
+
+# Everything the router posts goes in the day's ledger, so the quota counts
+# what actually reached the page. debate and xi were missing, which meant a
+# debate never counted towards the daily quota and "debate not in today_done"
+# could never be true.
+ONCE_PER_DAY = FREE_FORMATS + ("role", "debate", "xi", "hype", "sim")
 
 # The last hours before kickoff belong to the confirmed XI reel, which
 # matchday.py posts off the real team sheet ~75 minutes out. The same
@@ -176,7 +209,48 @@ def _fatigued(st: dict, fmt: str) -> bool:
     idea. Two days in a row is a run; a third is a rut. Deliberately not a
     ban on the format itself - it steps aside for one day and comes back.
     """
+    # Pride and rivalry are the page now and are meant to run every day; their
+    # variety lives in the rotating ask, so a "run" of them is not a rut.
+    if DAILY_CAP.get(fmt, 1) > 1:
+        return False
     return fmt in _posted_on(st, 1) and fmt in _posted_on(st, 2)
+
+
+def _weight(fmt: str) -> float:
+    """Measured pull, with an owner-requested format given a fair trial."""
+    try:
+        from modules.format_intel import weight_for, WEIGHTS, MIN_POSTS
+        w = weight_for("sa_pulse", fmt)
+        if fmt in TRIAL_BOOST:
+            detail = (json.loads(WEIGHTS.read_text(encoding="utf-8"))
+                      .get("sa_pulse", {}).get("detail", {}).get(fmt, {}))
+            if detail.get("posts", 0) < MIN_POSTS:
+                w = max(w, TRIAL_BOOST[fmt])
+        return w
+    except Exception:
+        return TRIAL_BOOST.get(fmt, 1.0)
+
+
+async def _refresh_weights() -> None:
+    """Re-measure the page once a day before the router trusts the weights.
+
+    format_weights.json was last written on 27 Aug: brain.py writes it and
+    nothing schedules brain.py, so for a fortnight every "learned pick" was
+    ranked on numbers from before the roll call ever went viral.
+    """
+    try:
+        from modules.format_intel import WEIGHTS, collect, save_weights
+        at = (json.loads(WEIGHTS.read_text(encoding="utf-8"))
+              .get("sa_pulse", {}).get("at", ""))
+        if at and datetime.now() - datetime.fromisoformat(at).replace(
+                tzinfo=None) < timedelta(hours=20):
+            return
+        if await collect("sa_pulse", 100):
+            w = save_weights("sa_pulse")
+            _log("weights refreshed: " + ", ".join(
+                f"{k} {v}" for k, v in sorted(w.items(), key=lambda x: -x[1])))
+    except Exception as e:
+        _log(f"weights not refreshed ({str(e)[:60]}) - using the last ones")
 
 
 def _rank_free(st: dict, options: list, day: str = "") -> list:
@@ -199,14 +273,9 @@ def _rank_free(st: dict, options: list, day: str = "") -> list:
     _r.Random(f"genesis-{day}").shuffle(shuffled)
 
     def key(f):
-        try:
-            from modules.format_intel import weight_for
-            w = weight_for("sa_pulse", f)
-        except Exception:
-            w = 1.0
         # round the weight so near-equal formats tie and the shuffle decides,
         # rather than a 0.01 difference pinning the order for weeks
-        return (1 if _fatigued(st, f) else 0, -round(w, 1))
+        return (1 if _fatigued(st, f) else 0, -round(_weight(f), 1))
     return sorted(shuffled, key=key)
 
 
@@ -279,7 +348,10 @@ async def decide() -> tuple[str, dict]:
         # against 5 — the collapse there was volume far past anything the
         # audience would absorb, and standing two slots down every quiet day
         # leaves the page silent from lunchtime onward.
-        quota, why = 4, "quiet week"
+        # 4 -> 5 on 2026-09-11 (owner: "increase the post of the fan pride").
+        # The fifth slot goes to pride or the fan debate - the two kinds the
+        # page's numbers put far ahead - not to a news reel.
+        quota, why = 5, "quiet week"
     if today_count >= quota:
         _log(f"{today_count} posted today, quota {quota} ({why}) — "
              f"standing this slot down")
@@ -363,7 +435,14 @@ async def decide() -> tuple[str, dict]:
     # regular could predict; with six, ranked by measured pull and with
     # anything that ran two days straight pushed to the back, the run order
     # stops being guessable while still favouring what works.
-    free = [f for f in FREE_FORMATS if f not in today_done]
+    await _refresh_weights()
+    free = [f for f in FREE_FORMATS
+            if today_done.count(f) < DAILY_CAP.get(f, 1)]
+    # Never the same kind in two slots running. Two roll calls three hours
+    # apart split the same supporters across two comment boxes; with another
+    # kind in between, each one gets the room to itself.
+    if len(free) > 1 and today_done and today_done[-1] in free:
+        free.remove(today_done[-1])
     if free:
         ranked = _rank_free(st, free)
         if len(free) > 1:
@@ -516,10 +595,13 @@ async def _slot(a):
             _log("reveal build failed - falling back to the card debate")
             rc = _run(["py", "build_debate_video.py", "--club", CLUB,
                        "--group", ctx["group"]] + post)
-    elif fmt == "rollcall":
-        # The single best-performing post this page has ever made.
+    elif fmt in ("rollcall", "rivalry", "hopes"):
+        # The single best-performing post this page has ever made, in its
+        # three kinds: pride, the Chiefs-vs-Pirates fan debate, and the big
+        # question on trophies and hopes. Same reel engine, rotating words.
+        kind = {"rollcall": "pride"}.get(fmt, fmt)
         rc = _run(["py", "build_matchday_hype.py", "--club", CLUB,
-                   "--force"] + post)
+                   "--force", "--kind", kind] + post)
     else:
         rc = _run(["py", "build_psl_news.py"] + post)
 
@@ -527,9 +609,9 @@ async def _slot(a):
     # not silently marked done and skipped for the rest of the fixture week.
     if rc == 0 and a.post and fmt in ONCE_PER_DAY:
         st = _state()
-        st.setdefault("daily", {}).setdefault(_today(), [])
-        if fmt not in st["daily"][_today()]:
-            st["daily"][_today()].append(fmt)
+        # Every post is appended, repeats included: pride and rivalry may run
+        # twice a day now, and the daily cap and quota both count this list.
+        st.setdefault("daily", {}).setdefault(_today(), []).append(fmt)
         # keep the ledger small — nothing older than a fortnight matters
         for k in sorted(st["daily"])[:-14]:
             st["daily"].pop(k, None)

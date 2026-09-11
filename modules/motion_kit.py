@@ -169,23 +169,27 @@ async def attach_voice(video_path, text: str, out_path=None) -> str:
                 # notices, and we already hold the correct text - we wrote it.
                 # So the timings are kept and the words are replaced, position
                 # by position, whenever the counts line up.
+                #
+                # Counting words was not enough. The voice is fed PHONETIC
+                # respellings (sa_phonetics), so whisper hears "Kye-zer" and
+                # "Ah-mah-koh" and times more words than the script has. Past
+                # a 10% difference the old code gave up and burned whisper's
+                # text, and a FAN DEBATE test reel on 2026-09-11 read "KYE -ZER
+                # CHIEFS" on screen - on the format carrying the whole page.
+                # caption_align matches the two word lists by sequence, so a
+                # respelled name maps back onto the script's spelling however
+                # many pieces the transcriber split it into.
                 script_words = text.split()
-                if len(script_words) == len(segs):
-                    for seg, w in zip(segs, script_words):
-                        seg["text"] = w
-                elif abs(len(script_words) - len(segs)) <= max(
-                        2, len(script_words) // 10):
-                    # near miss: stretch our words across whisper's timings
+                try:
+                    from modules.caption_align import align_captions
+                    segs = align_captions(text, segs)
+                except Exception as e:
+                    print(f"[MotionKit] caption align failed ({str(e)[:60]}) "
+                          f"- stretching the script over whisper's timings")
                     for i, seg in enumerate(segs):
                         j = min(len(script_words) - 1,
                                 round(i * len(script_words) / max(1, len(segs))))
                         seg["text"] = script_words[j]
-                    print("[MotionKit] caption words realigned to the script "
-                          f"({len(segs)} timings, {len(script_words)} words)")
-                else:
-                    print(f"[MotionKit] script has {len(script_words)} words "
-                          f"but whisper timed {len(segs)} - keeping whisper's "
-                          f"text, spellings may differ")
                 phrases = group_words_into_phrases(segs, max_words=4)
                 caps = _caption_clips(phrases, clip.w, vwork)
                 if caps:
