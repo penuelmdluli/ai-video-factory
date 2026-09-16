@@ -16,8 +16,26 @@ channel instead of as one pass/fail.
     await publish(video, title, caption, cover, niche="sa_pulse",
                   tags=["PSL", "KaizerChiefs"])
 """
+import hashlib
+import json
 import os
+from datetime import datetime, timedelta
 from pathlib import Path
+
+ROOT = Path(__file__).parent.parent
+
+# THE SAME WORDS TWICE, 27 Aug 2026. An identical fancall caption went out to
+# the page twice inside a minute — two renders, two posts, one question. It
+# costs twice to make and post, and it splits the format's engagement across
+# two rows, so format_intel reads the fancall as half as good as it was.
+#
+# _claim_manifest below stops the sweeper re-posting a BUILD. This stops the
+# same MESSAGE going out twice no matter which builder wrote it: a fingerprint
+# of page + format + words, kept for the lookback window and checked before
+# anything is uploaded. Thirty minutes is well short of the gap between our own
+# slots, so a genuine repeat of a format later in the day still posts.
+DEDUPE_LOG = ROOT / "data" / "publish_dedupe.json"
+DEDUPE_WINDOW_MIN = 30
 
 # First comment on every reel. The news builder has always seeded one; the
 # line-up, debate and versus formats added on 2026-08-24 did not, so the three
@@ -28,6 +46,58 @@ FOLLOW_COMMENT = (
     "📲 Follow GENESIS NEWS for the team sheets before kickoff, full-time "
     "results and every big Amakhosi call." + chr(10) +
     "▶️ More on YouTube: https://www.youtube.com/@GenesisNewsPSL")
+
+
+def _content_type(caption: str) -> str:
+    """The format this caption belongs to, by format_intel's own signatures —
+    the same labels the metrics table is keyed on ("fancall", "rollcall", ...).
+    Best-effort: an unclassifiable caption still dedupes on page + words."""
+    try:
+        from modules.format_intel import classify
+        return classify(caption)
+    except Exception:
+        return "other"
+
+
+def _dupe_key(niche: str, content_type: str, message: str) -> str:
+    """One post's fingerprint. Whitespace is collapsed so a caption rebuilt
+    with a different line wrap is still recognised as the same message."""
+    raw = f"{niche}|{content_type}|{' '.join((message or '').split())}"
+    return hashlib.md5(raw.encode("utf-8")).hexdigest()[:16]
+
+
+def _recent_keys() -> dict:
+    """Fingerprints published inside the lookback window. Anything older is
+    dropped on read, so the file never grows past half an hour of posts."""
+    try:
+        posted = json.loads(DEDUPE_LOG.read_text(encoding="utf-8")).get("posted", {})
+        entries = list(posted.items())          # a mangled file reads as empty
+    except Exception:
+        return {}
+    cutoff = datetime.now() - timedelta(minutes=DEDUPE_WINDOW_MIN)
+    fresh = {}
+    for key, ts in entries:
+        try:
+            if datetime.fromisoformat(ts) > cutoff:
+                fresh[key] = ts
+        except (TypeError, ValueError):
+            continue
+    return fresh
+
+
+def _record_published(key: str) -> None:
+    """Remember a post that actually went live. Recorded AFTER the upload, not
+    before, so a failed post can be retried straight away — only something the
+    page really carries can block the next attempt. Best-effort by design:
+    failing to write this must never take down a post that is already live."""
+    try:
+        fresh = _recent_keys()
+        fresh[key] = datetime.now().isoformat()
+        DEDUPE_LOG.parent.mkdir(parents=True, exist_ok=True)
+        DEDUPE_LOG.write_text(json.dumps({"posted": fresh}, indent=2),
+                              encoding="utf-8")
+    except Exception as e:
+        print(f"[Publish] dedupe log not updated: {str(e)[:100]}")
 
 
 async def _seed_and_pin(video_id: str, niche: str, message: str) -> str:
@@ -64,6 +134,16 @@ async def publish(video_path, title: str, caption: str, cover_path=None,
     tags = tags or []
     video_path, cover_path = str(video_path), (str(cover_path) if cover_path else None)
     out = {}
+
+    # Same page, same format, same words in the last half hour — refuse before
+    # a single channel is touched, so nothing is half-posted.
+    content_type = _content_type(caption)
+    dupe_key = _dupe_key(niche, content_type, caption)
+    if dupe_key in _recent_keys():
+        print(f"[Publish] DUPLICATE — this {content_type} caption already went "
+              f"out on {niche} within {DEDUPE_WINDOW_MIN} min, not posting again")
+        return {ch: {"status": "skipped", "error": "duplicate"}
+                for ch in ("facebook", "youtube", "tiktok")}
 
     # ── Facebook ────────────────────────────────────────────────────────
     try:
@@ -120,6 +200,7 @@ async def publish(video_path, title: str, caption: str, cover_path=None,
     live = [k for k, v in out.items() if (v or {}).get("status") == "uploaded"]
     print(f"[Publish] live on: {', '.join(live) if live else 'NOTHING'}")
     if live:
+        _record_published(dupe_key)
         _claim_manifest(video_path)
     return out
 
