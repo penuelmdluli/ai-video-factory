@@ -133,11 +133,21 @@ def build_move(positions: dict, players: dict, subject_pids: list,
             if room > best_room:
                 best_room, carry_idx = room, i
 
+    # THE SHOT TRAVELS AT PASSING PACE.
+    #
+    # Owner 2026-09-03: "the goal speed is too much, let it move live as they
+    # pass." The passes were spread over 0.80 of the chapter and the finish
+    # squeezed into the 0.06 after it, so the ball moved at one speed all the
+    # way up the pitch and then THREE TIMES faster into the net - the one
+    # moment that should be the most readable was the least. Passes now take
+    # 0.72 and the shot gets a full gap of its own after them, so every touch
+    # in the move travels at the same pace.
     wps = []
     n = len(chain)
+    gap = 0.72 / max(1, n - 1)
     carry_end = {}
     for i, pid in enumerate(chain):
-        t_here = 0.80 * i / max(1, n - 1)
+        t_here = 0.72 * i / max(1, n - 1)
         wps.append((t_here, positions[pid]))
         if i == carry_idx:
             # He drives forward before he plays it: ball and man together.
@@ -146,7 +156,7 @@ def build_move(positions: dict, players: dict, subject_pids: list,
             dx, dy = nxt[0] - here[0], nxt[1] - here[1]
             dist = math.hypot(dx, dy) or 1.0
             drive = (here[0] + dx / dist * 0.07, here[1] + dy / dist * 0.07)
-            t_next = 0.80 * (i + 1) / max(1, n - 1)
+            t_next = 0.72 * (i + 1) / max(1, n - 1)
             wps.append((t_here + (t_next - t_here) * 0.45, drive))
             carry_end[pid] = (t_here + (t_next - t_here) * 0.45, drive)
     # The finish: INTO their net. 0.03 stopped the ball 40px inside the
@@ -155,7 +165,10 @@ def build_move(positions: dict, players: dict, subject_pids: list,
     # centre so it beats the keeper rather than hitting him.
     from modules.tactics_board import Board as _B
     side = 0.38 if positions[scorer_pid][0] > 0.5 else 0.62
-    wps.append((0.92, (side, _B.net(top=True))))
+    # 0.86, not 0.92. The goal card has to fire AFTER the ball is in and
+    # still have time on screen; at 0.92 the ball arrived so late that the
+    # card had almost none.
+    wps.append((0.72 + gap, (side, _B.net(top=True))))
 
     # THE MEN MOVE WITH IT.
     #
@@ -183,7 +196,7 @@ def build_move(positions: dict, players: dict, subject_pids: list,
         a, b = positions[a_pid], positions[b_pid]
         d = math.hypot(b[0] - a[0], b[1] - a[1]) or 1.0
         ux, uy = (b[0] - a[0]) / d, (b[1] - a[1]) / d
-        t_pass = 0.80 * i / max(1, n - 1)
+        t_pass = 0.72 * i / max(1, n - 1)
         # passer strides into it just before he plays it — unless he is the
         # man carrying, who has already moved and must not be yanked back.
         if a_pid not in carry_end:

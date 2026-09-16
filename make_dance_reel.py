@@ -48,7 +48,7 @@ sys.path.insert(0, str(ROOT))
 load_dotenv()
 
 from modules import dance_cast, dance_drivers          # noqa: E402
-from modules.brand import watermark_video               # noqa: E402
+from modules.brand import watermark_video, add_end_card  # noqa: E402
 from modules.overlays import add_hook_text              # noqa: E402
 
 WS_BASE = "https://api.wavespeed.ai/api/v3"
@@ -149,10 +149,14 @@ def finish(raw: Path, stem: str) -> Path:
                     "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
                     "-movflags", "+faststart", str(small)], check=True)
     branded = watermark_video(str(small), str(OUT_DIR / f"{stem}_branded.mp4"))
-    final = add_hook_text(branded, str(OUT_DIR / f"{stem}.mp4"),
-                          text=HOOK_TEXT, emoji=HOOK_EMOJI)
+    hooked = add_hook_text(branded, str(OUT_DIR / f"{stem}_hooked.mp4"),
+                           text=HOOK_TEXT, emoji=HOOK_EMOJI)
+    # The iVideo Studio end card closes every reel (owner call 2026-09-14).
+    final = add_end_card(hooked, OUT_DIR / f"{stem}.mp4")
     for tmp in (small, Path(branded)):
         tmp.unlink(missing_ok=True)
+    if Path(final) != Path(hooked):
+        Path(hooked).unlink(missing_ok=True)
     return Path(final)
 
 
@@ -160,7 +164,10 @@ def caption_for(character: str, template: str, setting: str) -> str:
     name = dance_cast.CAST[character]["name"]
     line = random.choice(CAPTIONS.get(template, CAPTIONS["walk_in"]))
     body = line.format(name=name, where=WHERE.get(setting, ""))
-    return f"{HOOK_TEXT} {HOOK_EMOJI} {body} \U0001F62D\U0001F64C"
+    # Every reel markets iVideo Studio (owner call 2026-09-14).
+    return (f"{HOOK_TEXT} {HOOK_EMOJI} {body} \U0001F62D\U0001F64C\n\n"
+            f"\U0001F3AC Made with AI. Create your own dance reels, movies and cartoons "
+            f"free at https://ivideostudio.ai\n\n#AI #AIVideo #iVideoStudio #Mzansi #Dance")
 
 
 def _pending_manifests() -> list:
@@ -225,6 +232,11 @@ def pick_driver_unqueued() -> str | None:
         return None
     claimed = pending_drivers()
     free = [d for d in ready if d not in claimed]
+    # New lead videos first, newest first (owner call 2026-09-14).
+    new = dance_drivers.fresh_leads(free)
+    if new:
+        print(f"[Reel] using new lead video {new[0]}")
+        return new[0]
     if not free:
         print("[Reel] every driver is already queued; allowing a repeat")
         return dance_drivers.pick()
@@ -372,6 +384,14 @@ async def main() -> int:
              "caption": caption, "posted": ok, "from_pending": True,
              "result": result})
         return 0 if ok else 1
+
+    # Pull any lead videos added on iVideo Studio since the last run.
+    try:
+        leads = dance_drivers.refresh_leads(sync=True)
+        if leads:
+            print(f"[Reel] {len(leads)} lead video(s) in the library")
+    except Exception as e:
+        print(f"[Reel] lead sync skipped: {str(e)[:160]}")
 
     c, t, s = pick_unqueued()
     undo_rollback()

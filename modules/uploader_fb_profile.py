@@ -391,6 +391,12 @@ async def post_to_profile(
         return {"platform": "fb_profile", "status": "failed",
                 "error": f"media not found: {media_path}"}
 
+    # Every post on the timeline markets iVideo Studio: end card on videos,
+    # call to action in the text (modules.brand.market_post).
+    if not check_only:
+        from modules.brand import market_post
+        message, media_path = market_post(message, media_path)
+
     mode = ("check" if check_only else "POST" if post else "dry")
     print(f"[FBProfile] {mode} | {len(message)} chars"
           + (f" | {Path(media_path).name}" if media_path else ""))

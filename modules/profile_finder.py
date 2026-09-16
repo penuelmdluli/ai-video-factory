@@ -138,12 +138,11 @@ async def find_recent_post(match: str = "", headless: bool = True,
 # open a thread and give the algorithm an early interaction; a link in that
 # position suppresses reach, which is the opposite of why it is there.
 DANCE_SEED_COMMENTS = [
-    "Who did it better, them or the original? \U0001F440",
-    "Tag someone who dances like this \U0001F602",
-    "Watch it twice — the ending gets better \U0001F525",
-    "Drop a \U0001F525 if this made your day",
-    "Which one should we do next? \U0001F447",
-    "The crowd's reaction says it all \U0001F602\U0001F64C",
+    # Owner call 2026-09-14: the first comment markets iVideo Studio.
+    "This whole reel was made with AI \U0001F92F Make yours free at https://ivideostudio.ai",
+    "No dancer, no camera, just AI \U0001F3AC Try it free: https://ivideostudio.ai",
+    "Want your own AI dance reel? \U0001F447 Start free at https://ivideostudio.ai",
+    "Made in minutes with iVideo Studio \U0001F525 https://ivideostudio.ai",
 ]
 
 

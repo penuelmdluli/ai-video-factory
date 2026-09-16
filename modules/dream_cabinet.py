@@ -107,6 +107,17 @@ NOT_A_PERSON = {
     "holdings", "limited", "africa's", "sofa", "cash-in",
     # Named for a metro, a street and an airport, not a candidate.
     "mandela", "tambo", "sisulu", "biko", "luthuli",
+    # Descriptors that precede a name in headline case and get swallowed with
+    # it: "Billionaire Christo" was nominated for cabinet, which is a job title
+    # plus a first name, not a person.
+    "billionaire", "businessman", "businesswoman", "tycoon", "magnate",
+    "activist", "advocate", "professor", "doctor", "pastor", "bishop",
+    "reverend", "chief", "king", "queen", "prince", "mister", "madam",
+    "comrade", "councillor", "mayor", "commissioner", "spokesperson",
+    "analyst", "economist", "lawyer", "attorney", "prosecutor", "captain",
+    "general", "colonel", "sergeant", "officer", "coach", "star", "singer",
+    "actor", "rapper", "musician", "influencer", "former", "ex", "late",
+    "acting", "outgoing", "incoming", "veteran", "young", "senior", "junior",
 }
 
 # A person can be the MOST-covered name in the country for reasons that make

@@ -182,6 +182,28 @@ DRIVERS = {
 }
 
 
+# LEAD VIDEOS from iVideo Studio (modules/lead_drivers.py) join the library at
+# run time. They are registered in data/lead_drivers.json; retired ones (archived
+# or deleted on the site) are skipped.
+def refresh_leads(sync: bool = False) -> list:
+    """Merge lead drivers into DRIVERS. sync=True pulls new leads from the site."""
+    from modules import lead_drivers
+    reg = lead_drivers.sync(DRIVER_DIR) if sync else lead_drivers.load_registry()
+    for key in [k for k in DRIVERS if k.startswith("lead_")]:
+        DRIVERS.pop(key)
+    for key, d in reg.items():
+        if not d.get("retired"):
+            DRIVERS[key] = d
+    return [k for k in DRIVERS if k.startswith("lead_")]
+
+
+def fresh_leads(ready: list) -> list:
+    """Leads never used in a reel, newest first. These go before everything."""
+    counts = _load().get("counts", {})
+    leads = [k for k in ready if k.startswith("lead_") and counts.get(k, 0) == 0]
+    return sorted(leads, key=lambda k: DRIVERS[k].get("added", ""), reverse=True)
+
+
 def _load() -> dict:
     try:
         d = json.loads(STATE.read_text(encoding="utf-8"))
@@ -260,6 +282,12 @@ def pick() -> str | None:
     if not ready:
         return None
 
+    # A lead the owner just added is the next reel (owner call 2026-09-14).
+    new = fresh_leads(ready)
+    if new:
+        print(f"[Drivers] using new lead video {new[0]}")
+        return new[0]
+
     st = _load()
     counts = st.get("counts", {})
     last = st.get("last")
@@ -283,6 +311,10 @@ def record_used(key: str) -> None:
     counts[key] = counts.get(key, 0) + 1
     st["last"] = key
     _save(st)
+    lead_id = DRIVERS.get(key, {}).get("lead_id")
+    if lead_id:
+        from modules import lead_drivers
+        lead_drivers.mark_used(lead_id)
 
 
 def prepare(src: str | Path, key: str, crop: str, start: float = 0,
@@ -314,6 +346,13 @@ def prepare(src: str | Path, key: str, crop: str, start: float = 0,
         return None
     print(f"[Drivers] {key} -> {out.name}")
     return out
+
+
+# Registered lead videos are part of the library for every importer.
+try:
+    refresh_leads(sync=False)
+except Exception as _e:  # never let the lead registry break the rotation
+    print(f"[Drivers] lead registry unavailable: {str(_e)[:120]}")
 
 
 if __name__ == "__main__":

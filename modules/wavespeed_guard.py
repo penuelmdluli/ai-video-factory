@@ -40,8 +40,10 @@ how to lift it.
 """
 import os
 
-# The only purpose permitted to spend WaveSpeed credit right now.
-ALLOWED = {"dance"}
+# Owner call 2026-09-14: WaveSpeed credit is for iVideo Studio customer
+# spending only. No local pipeline may spend it, the dance reel included.
+# Restore {"dance"} to re-enable the profile pipeline.
+ALLOWED = set()
 
 ENV_VAR = "WAVESPEED_PURPOSE"
 

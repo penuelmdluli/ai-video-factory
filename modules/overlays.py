@@ -248,3 +248,104 @@ def add_sfx(in_path, out_path, specs, audio=True):
                                     "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", str(out_path)]
     subprocess.run(cmd, capture_output=True, text=True)
     return str(out_path) if Path(out_path).exists() and Path(out_path).stat().st_size > 10000 else None
+
+# ── Dance-reel hook ──────────────────────────────────────────
+
+# THE HOOK IS THE PRODUCT.
+#
+# The reels this format is built on all carry "Wait for it 🔥👀" burned across
+# the top, and it is doing real work: it tells the viewer that the payoff is
+# later, which is the whole reason they stay past second three. When the
+# driving clip was cropped on 2026-08-31 the original hook was cropped off with
+# it, and two videos went out with nothing telling anyone to wait.
+#
+# Rendered as a PNG and overlaid rather than drawn with ffmpeg's drawtext,
+# because drawtext cannot do colour emoji - it renders 🔥 as a hollow glyph or
+# drops it. PIL can, via seguiemj and embedded_color.
+def _first_font(*paths):
+    """First font that exists: Windows locally, Noto on the Linux cloud server."""
+    from pathlib import Path as _P
+    for f in paths:
+        if _P(f).exists():
+            return f
+    return paths[0]
+
+
+HOOK_TEXT_FONT = _first_font(r"C:\Windows\Fonts\seguibl.ttf",           # Segoe UI Black
+                             "/usr/share/fonts/truetype/noto/NotoSans-Black.ttf",
+                             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
+HOOK_EMOJI_FONT = _first_font(r"C:\Windows\Fonts\seguiemj.ttf",         # Segoe UI Emoji (colour)
+                              "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf")
+
+
+def _hook_png(text: str, emoji: str, W: int, H: int, out: str):
+    """Transparent overlay: bold outlined text plus colour emoji, centred."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+
+    size = max(34, int(W * 0.085))
+    try:
+        tf = ImageFont.truetype(HOOK_TEXT_FONT, size)
+    except Exception:
+        tf = ImageFont.load_default()
+
+    # Segoe UI Emoji only renders colour glyphs at 109px, then we scale down.
+    # Asking it for an arbitrary size silently gives monochrome boxes.
+    ef_size = 109
+    try:
+        ef = ImageFont.truetype(HOOK_EMOJI_FONT, ef_size)
+    except Exception:
+        ef = None
+
+    tw = d.textlength(text, font=tf)
+    em_draw = int(size * 1.05)
+    gap = int(size * 0.22)
+    ew = (em_draw + gap // 2) * len(emoji) if (ef and emoji) else 0
+
+    x = (W - (tw + gap + ew)) / 2
+    y = int(H * 0.085)
+
+    # Heavy outline so it survives any background — these are busy street scenes.
+    ow = max(3, size // 12)
+    for dx in range(-ow, ow + 1):
+        for dy in range(-ow, ow + 1):
+            if dx * dx + dy * dy <= ow * ow:
+                d.text((x + dx, y + dy), text, font=tf, fill=(0, 0, 0, 235))
+    d.text((x, y), text, font=tf, fill=(255, 255, 255, 255))
+
+    if ef and emoji:
+        ex = x + tw + gap
+        for ch in emoji:
+            tile = Image.new("RGBA", (ef_size + 20, ef_size + 20), (0, 0, 0, 0))
+            ImageDraw.Draw(tile).text((0, 0), ch, font=ef, embedded_color=True)
+            tile = tile.crop(tile.getbbox() or (0, 0, 1, 1))
+            scale = em_draw / max(tile.height, 1)
+            tile = tile.resize((max(1, int(tile.width * scale)), em_draw),
+                               Image.LANCZOS)
+            img.alpha_composite(tile, (int(ex), int(y + size * 0.12)))
+            ex += tile.width + gap // 2
+
+    img.save(out)
+    return out
+
+
+def add_hook_text(in_path, out_path, text="Wait for it...", emoji="🔥👀",
+                  audio=True):
+    """Burn a hook across the top of a video for its whole duration."""
+    import subprocess
+    import tempfile
+
+    W, H = _size(in_path)
+    png = str(Path(tempfile.gettempdir()) / "dance_hook.png")
+    _hook_png(text, emoji, W, H, png)
+
+    cmd = [_ff(), "-y", "-v", "error", "-i", str(in_path), "-i", png,
+           "-filter_complex", "[0:v][1:v]overlay=0:0[v]",
+           "-map", "[v]"]
+    cmd += (["-map", "0:a?", "-c:a", "copy"] if audio else ["-an"])
+    cmd += ["-c:v", "libx264", "-preset", "slow", "-crf", "22",
+            "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out_path)]
+    subprocess.run(cmd, check=True)
+    return out_path

@@ -270,17 +270,28 @@ def build_camera(target_arm, meshes, shot):
         aim.parent_bone = hips.name
         aim.location = (0, -0.15, 0)
 
-    # 'street' pulls back and swings ACROSS the road rather than standing on
-    # the pavement beside the actors. The first street render framed a
-    # building wall from four metres - the traffic, the lamps and the whole
-    # reason for the set were behind the lens.
+    # Camera placed RELATIVE TO THE ACTOR, not at a world position.
+    #
+    # This is why the street shots had ant-sized characters. The distances
+    # below were being used as absolute coordinates while the cast stood at
+    # x = -7.6 on the pavement, so a "9.5m" street shot was actually filming
+    # from about twenty-two metres away. Anchoring to the actor's own position
+    # means a number here is the distance it claims to be, at any location in
+    # the set.
     dist, height, lens, swing = {
         "wide":   (7.0, 2.0, 38, 0.50),
-        "medium": (4.4, 1.55, 50, 0.50),
-        "close":  (2.5, 1.5, 75, 0.50),
-        "street": (9.5, 2.6, 40, 1.05),
+        "medium": (4.0, 1.55, 50, 0.55),
+        "close":  (2.3, 1.5, 75, 0.55),
+        "street": (5.2, 1.9, 42, 1.00),
     }[shot]
-    bpy.ops.object.camera_add(location=(dist * swing, dist, height))
+    # NEGATIVE Y is in front of a Mixamo character. Placing the camera at
+    # +Y put it behind him in every street render - we were filming a
+    # backpack while the face, the eyeline and the lip sync all played to
+    # nobody.
+    bpy.context.view_layer.update()
+    ax, ay, _ = target_arm.matrix_world.translation
+    bpy.ops.object.camera_add(
+        location=(ax + dist * swing, ay - dist, height))
     cam = bpy.context.object
     cam.data.lens = lens
     c = cam.constraints.new("TRACK_TO")
