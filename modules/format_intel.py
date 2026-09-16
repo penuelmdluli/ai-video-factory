@@ -43,6 +43,16 @@ MIN_AGE_H = 12      # below this a post has not finished earning engagement
 MIN_POSTS = 3       # below this a format's average is noise
 W_COMMENT, W_SHARE, W_LIKE = 3.0, 5.0, 1.0
 
+# Reach says how far a post travelled past the people who already follow us.
+# It is not a plain post field - it only comes off the insights edge, and that
+# edge needs read_insights on the page token. Until 2026-09-16 this collector
+# wrote a literal 0 into the reach column on every row, so the whole table read
+# as "nobody saw anything" while the same posts were pulling comments.
+BASE_FIELDS = ("id,message,created_time,shares,"
+               "comments.summary(true),likes.summary(true)")
+REACH_FIELDS = (BASE_FIELDS
+                + ",insights.metric(post_impressions_unique,post_impressions)")
+
 # Format fingerprints, most specific first. These match what our own builders
 # actually write, so a post can be scored without us having tagged it at
 # publish time - which matters because the back catalogue was never tagged.
@@ -77,6 +87,19 @@ def classify(message: str) -> str:
     return "other"
 
 
+def _insight(post: dict, name: str) -> int:
+    """One insights value off a post, 0 if that metric was not returned."""
+    for m in ((post.get("insights") or {}).get("data") or []):
+        if m.get("name") == name:
+            vals = m.get("values") or []
+            if vals:
+                try:
+                    return int(vals[0].get("value") or 0)
+                except (TypeError, ValueError):
+                    return 0
+    return 0
+
+
 def _conn():
     c = sqlite3.connect(str(DB), timeout=10)
     c.execute("""CREATE TABLE IF NOT EXISTS post_metrics (
@@ -97,13 +120,20 @@ async def collect(niche: str, limit: int = 100) -> int:
     if not (pid and tok):
         return 0
 
-    fields = ("id,message,created_time,shares,"
-              "comments.summary(true),likes.summary(true)")
+    params = {"fields": REACH_FIELDS, "limit": limit, "access_token": tok}
     async with httpx.AsyncClient(timeout=40) as cl:
-        r = await cl.get(GRAPH + "/" + pid + "/posts",
-                         params={"fields": fields, "limit": limit,
-                                 "access_token": tok})
+        r = await cl.get(GRAPH + "/" + pid + "/posts", params=params)
         data = r.json()
+        if "error" in data:
+            # A token missing read_insights fails the whole page of posts, not
+            # just the reach field. Retry plain so we still keep the engagement
+            # numbers, and say why reach is missing instead of writing a
+            # silent 0 that looks like a real measurement.
+            print("[Intel] " + niche + ": reach unavailable - "
+                  + str(data["error"].get("message")))
+            params["fields"] = BASE_FIELDS
+            r = await cl.get(GRAPH + "/" + pid + "/posts", params=params)
+            data = r.json()
     if "error" in data:
         print("[Intel] " + niche + ": " + str(data["error"].get("message")))
         return 0
@@ -117,6 +147,11 @@ async def collect(niche: str, limit: int = 100) -> int:
         comments = ((p.get("comments") or {}).get("summary") or {}).get("total_count", 0)
         shares = (p.get("shares") or {}).get("count", 0)
         eng = likes + comments + shares
+        reach = _insight(p, "post_impressions_unique")
+        impressions = _insight(p, "post_impressions")
+        # max() on update: reach only ever grows over a post's life, so a run
+        # that came back without insights can never wipe a number we already
+        # measured.
         c.execute("""INSERT INTO post_metrics
             (post_id, niche, content_type, message, created_at, reach,
              impressions, engagement, likes, comments, shares,
@@ -124,12 +159,15 @@ async def collect(niche: str, limit: int = 100) -> int:
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(post_id) DO UPDATE SET
               content_type=excluded.content_type,
+              reach=max(excluded.reach, coalesce(post_metrics.reach, 0)),
+              impressions=max(excluded.impressions,
+                              coalesce(post_metrics.impressions, 0)),
               likes=excluded.likes, comments=excluded.comments,
               shares=excluded.shares, engagement=excluded.engagement,
               collected_at=excluded.collected_at""",
                   (p["id"], niche, classify(msg), msg[:500],
-                   p.get("created_time", ""), 0, 0, eng, likes, comments,
-                   shares, 0.0, now))
+                   p.get("created_time", ""), reach, impressions, eng, likes,
+                   comments, shares, 0.0, now))
         rows += 1
     c.commit()
     c.close()
