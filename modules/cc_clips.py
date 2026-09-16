@@ -16,8 +16,10 @@ Usage:
     # -> {"path", "credit", "title", "video_id"} or None
 """
 import asyncio
+import json
 import os
 import re
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -91,8 +93,68 @@ async def search_cc_videos(query: str, limit: int = 5, days: int = 14,
         return []
 
 
+SKIPS = Path(__file__).parent.parent / "data" / "clip_skips.json"
+SKIP_AFTER = 2            # consecutive failures before an id is benched
+SKIP_HOURS = 24
+# the two failures that never fix themselves on the next run: a 403 on the
+# stream URL (the video is gone to us) and ffmpeg bailing on the cut. Retrying
+# those every sweep just burns bandwidth. Anything else may be transient.
+_HARD_FAIL = re.compile(r"(403|forbidden|ffmpeg exit)", re.IGNORECASE)
+
+
+def _load_skips() -> dict:
+    try:
+        return json.loads(SKIPS.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_skips(skips: dict):
+    SKIPS.parent.mkdir(parents=True, exist_ok=True)
+    SKIPS.write_text(json.dumps(skips, indent=2), encoding="utf-8")
+
+
+def _skipped(video_id: str) -> bool:
+    """True while a benched video is still inside its cool-off."""
+    e = _load_skips().get(video_id)
+    if not e or time.time() >= e.get("until", 0):
+        return False
+    hours_left = (e["until"] - time.time()) / 3600
+    print(f"[CCClips] skipping {video_id} — {e.get('fails', 0)} failed downloads, "
+          f"retry in {hours_left:.1f}h ({e.get('reason', '')[:60]})")
+    return True
+
+
+def _note_failure(video_id: str, reason: str):
+    """Count a hard download failure; bench the id once it hits SKIP_AFTER."""
+    if not _HARD_FAIL.search(reason or ""):
+        return
+    skips = _load_skips()
+    # keep the file small — drop ids nothing has touched in a week
+    cutoff = time.time() - 7 * 86400
+    skips = {k: v for k, v in skips.items() if v.get("last", 0) >= cutoff}
+    fails = skips.get(video_id, {}).get("fails", 0) + 1
+    entry = {"fails": fails, "reason": reason.strip()[:200], "last": time.time(),
+             "until": 0}
+    if fails >= SKIP_AFTER:
+        entry["until"] = time.time() + SKIP_HOURS * 3600
+        print(f"[CCClips] benched {video_id} for {SKIP_HOURS}h after {fails} "
+              f"consecutive failures")
+    skips[video_id] = entry
+    _save_skips(skips)
+
+
+def _clear_failure(video_id: str):
+    """A download worked — the run of failures is broken."""
+    skips = _load_skips()
+    if skips.pop(video_id, None):
+        _save_skips(skips)
+
+
 def _download(video_id: str, dest: Path) -> str | None:
     import yt_dlp
+    if _skipped(video_id):
+        return None
     dest.parent.mkdir(parents=True, exist_ok=True)
 
     def _section(info, ydl):
@@ -109,12 +171,15 @@ def _download(video_id: str, dest: Path) -> str | None:
         "download_ranges": _section,
         "force_keyframes_at_cuts": True,
     }
+    hard = ""                 # failure reason carried to the circuit breaker
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
         if dest.exists():
+            _clear_failure(video_id)
             return str(dest)
     except Exception as e:
+        hard = str(e)
         print(f"[CCClips] section download failed for {video_id}: {e}")
     # fallback: full download, trim locally — the section cutter's ffmpeg
     # invocation fails on some streams
@@ -126,6 +191,7 @@ def _download(video_id: str, dest: Path) -> str | None:
         with yt_dlp.YoutubeDL(opts2) as ydl:
             ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
         if not full.exists():
+            _note_failure(video_id, hard)
             return None
         probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
                                 "format=duration", "-of", "csv=p=0", str(full)],
@@ -137,9 +203,14 @@ def _download(video_id: str, dest: Path) -> str | None:
                             "-t", str(MAX_SECONDS), "-c:v", "libx264",
                             "-c:a", "aac", str(dest)], capture_output=True)
         full.unlink(missing_ok=True)
-        return str(dest) if r.returncode == 0 and dest.exists() else None
+        if r.returncode == 0 and dest.exists():
+            _clear_failure(video_id)
+            return str(dest)
+        _note_failure(video_id, f"ffmpeg exit {r.returncode}")
+        return None
     except Exception as e:
         print(f"[CCClips] fallback download failed for {video_id}: {e}")
+        _note_failure(video_id, f"{hard} {e}")
         return None
 
 
