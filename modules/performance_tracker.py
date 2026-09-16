@@ -90,6 +90,11 @@ async def fetch_facebook_insights(post_id: str, niche: str) -> dict | None:
                 return None
 
         data = resp.json()
+        if not isinstance(data, dict):
+            print(f"[PerfTracker] Unexpected payload for {post_id} "
+                  f"({type(data).__name__}) — skipping")
+            return None
+
         metrics = {
             "platform": "facebook",
             "views": 0,
@@ -102,9 +107,21 @@ async def fetch_facebook_insights(post_id: str, niche: str) -> dict | None:
             "impressions": 0,
         }
 
-        # Extract from insights
-        insights = data.get("insights", {}).get("data", [])
+        # Extract from insights. Graph does not always send the
+        # {"data": [...]} envelope — an empty or refused edge comes back as a
+        # bare list, and .get() on that raised AttributeError, which cost the
+        # post every metric (reach included) instead of just the insights.
+        edge = data.get("insights")
+        if isinstance(edge, dict):
+            insights = edge.get("data") or []
+        else:
+            if edge is not None:
+                print(f"[PerfTracker] Malformed insights for {post_id} "
+                      f"({type(edge).__name__}) — engagement only")
+            insights = []
         for insight in insights:
+            if not isinstance(insight, dict):
+                continue
             name = insight.get("name", "")
             values = insight.get("values", [])
             value = values[0].get("value", 0) if values else 0
