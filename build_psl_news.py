@@ -1298,6 +1298,21 @@ async def post_to_page(work: Path) -> dict | None:
     manifest["fb_post_id"] = post_id
     manifest["youtube_id"] = yt_id
     mp.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    # Leave a receipt, same as modules/publish_reel does for the other
+    # formats. build_psl_slot reads these to tell "the builder died before it
+    # posted" apart from "the builder posted and then died on the way out" -
+    # a distinction that cost a duplicate roll call and five false self-heal
+    # runs while it was being guessed from the exit code. This builder posts
+    # directly rather than through publish_reel, so without this line it is the
+    # one path still relying on the guess.
+    try:
+        from modules.publish_reel import _record_receipt
+        _record_receipt(NICHE, "news",
+                        ["facebook"] + (["youtube"] if yt_id else []))
+    except Exception as e:
+        _log(f"receipt not written: {str(e)[:80]}")
+
     _log(f"posted + 2 comments: {post_id}")
     return fb
 

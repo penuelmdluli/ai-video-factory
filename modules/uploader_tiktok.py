@@ -261,6 +261,39 @@ try:
     failed = upload_video(**upload_kwargs)
     if failed:
         why1 = _REAL_ERROR.get("why") or "unknown"
+
+        # A DEAD SESSION IS NOT TRANSIENT PAGE STATE.
+        #
+        # The retry above exists for a half-loaded form, and for that it is the
+        # right move. An expired sessionid is the opposite kind of failure:
+        # TikTok bounces the upload page to /login, and it will bounce the
+        # second browser to /login too. Retrying it cost three things every
+        # run, 171 runs between 27 Aug and 06 Oct:
+        #
+        #   * another headless Chrome and another 60s selector timeout;
+        #   * the REAL diagnosis. Attempt 2 died with "you are using Playwright
+        #     Sync API inside the asyncio loop", which overwrote the login
+        #     redirect as the reported reason - so the logs named a Playwright
+        #     misuse for weeks while the actual fault was a cookie nobody had
+        #     refreshed, and the "Session expired" hint in the parent never
+        #     fired because that message contains neither "login" nor
+        #     "session";
+        #   * process stability. All three slot crashes traced in this repo
+        #     (27 Sep, 02 Oct, 05 Oct, 06 Oct) carry that second-browser
+        #     signature immediately before a 0xC0000409 shutdown fault.
+        #
+        # So: bounced to the login page means the credential is dead. Say so,
+        # once, and stop.
+        if "/login" in why1 or "login?redirect_url" in why1:
+            print(json.dumps({
+                "status": "failed",
+                "error": ("TikTok session expired - the upload page redirected "
+                          "to the login screen. Refresh TIKTOK_SESSION_ID in "
+                          ".env (tiktok.com logged in > F12 > Application > "
+                          "Cookies > sessionid). Not retrying: a dead cookie "
+                          "fails the same way twice.")}))
+            raise SystemExit(0)
+
         print("[TikTok] attempt 1 failed (%s) - retrying with a fresh session"
               % why1, flush=True)
         _REAL_ERROR["why"] = ""

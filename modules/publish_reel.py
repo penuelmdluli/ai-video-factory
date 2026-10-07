@@ -19,6 +19,7 @@ channel instead of as one pass/fail.
 import hashlib
 import json
 import os
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -36,6 +37,30 @@ ROOT = Path(__file__).parent.parent
 # slots, so a genuine repeat of a format later in the day still posts.
 DEDUPE_LOG = ROOT / "data" / "publish_dedupe.json"
 DEDUPE_WINDOW_MIN = 30
+
+# A RECEIPT FOR WORK THAT IS ALREADY LIVE.
+#
+# The dedupe log answers "have these exact words gone out recently", and its
+# keys are md5 fingerprints - opaque, so nobody downstream can ask the one
+# question that actually matters when a build dies badly: did THIS page post
+# anything in the last few minutes?
+#
+# That question needed an answer on 2026-10-06. build_matchday_hype published a
+# roll call to Facebook AND YouTube at 11:35, then the process died during
+# interpreter shutdown - after the work was done - with Windows exit code
+# 3221226505 (0xC0000409, STATUS_STACK_BUFFER_OVERRUN). build_psl_slot saw a
+# non-zero exit, called it "the slot posted nothing", skipped the daily ledger
+# and raised a build-failure alert. Both conclusions were false, and both cost
+# something: the unrecorded roll call let a THIRD one go out past a cap of two
+# (same again on 05 Oct), and the false alert woke the self-heal agent to
+# diagnose a page that had posted perfectly - five times since 28 Sep.
+#
+# An exit code describes how a process ENDED. It cannot describe what that
+# process already did. So the publisher now leaves a receipt the moment a reel
+# is live, and a caller that wants the truth reads the receipt instead of
+# guessing from the corpse.
+RECEIPTS = ROOT / "data" / "publish_receipts.json"
+RECEIPTS_KEEP = 200
 
 # First comment on every reel. The news builder has always seeded one; the
 # line-up, debate and versus formats added on 2026-08-24 did not, so the three
@@ -98,6 +123,63 @@ def _record_published(key: str) -> None:
                               encoding="utf-8")
     except Exception as e:
         print(f"[Publish] dedupe log not updated: {str(e)[:100]}")
+
+
+def _record_receipt(niche: str, content_type: str, live: list) -> None:
+    """Note that a reel for `niche` went live, with the channels that took it.
+
+    Written AFTER the uploads, like the dedupe log, so a receipt can only ever
+    describe something the page really carries. Best-effort for the same reason
+    as everything else on this path: a bookkeeping failure must not be allowed
+    to matter more than the post it is bookkeeping for.
+    """
+    try:
+        try:
+            old = json.loads(RECEIPTS.read_text(encoding="utf-8"))
+            if not isinstance(old, list):
+                old = []
+        except Exception:
+            old = []
+        old.append({"id": uuid.uuid4().hex[:12],
+                    "at": datetime.now().isoformat(), "niche": niche,
+                    "content_type": content_type, "channels": sorted(live)})
+        RECEIPTS.parent.mkdir(parents=True, exist_ok=True)
+        RECEIPTS.write_text(json.dumps(old[-RECEIPTS_KEEP:], indent=2),
+                            encoding="utf-8")
+    except Exception as e:
+        print(f"[Publish] receipt not written: {str(e)[:100]}")
+
+
+def _all_receipts() -> list:
+    try:
+        data = json.loads(RECEIPTS.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except Exception:
+        # A receipt that cannot be read is not a receipt. Unreadable must mean
+        # "no evidence of a post", never "a post happened" - this value decides
+        # whether a silent page gets reported, and the safe error is the noisy
+        # one.
+        return []
+
+
+def receipt_ids() -> set:
+    """Snapshot of every receipt on file. Take this BEFORE running a builder."""
+    return {r.get("id") for r in _all_receipts() if r.get("id")}
+
+
+def receipts_added(known: set, niche: str = "") -> list:
+    """Receipts that appeared since `known` was taken, oldest first.
+
+    Identity, not a clock. The first version of this asked "written in the last
+    N seconds", which needed slack for the gap between two clock reads - and
+    that slack let a build that posted NOTHING inherit the previous build's
+    receipt. The test for it failed on the first run. Each receipt now carries
+    its own id, so "did THIS run post" is an exact set difference with no
+    window to tune and nothing to get wrong when two runs land close together.
+    """
+    return [r for r in _all_receipts()
+            if r.get("id") and r["id"] not in known
+            and (not niche or r.get("niche") == niche)]
 
 
 async def _seed_and_pin(video_id: str, niche: str, message: str) -> str:
@@ -202,6 +284,7 @@ async def publish(video_path, title: str, caption: str, cover_path=None,
     if live:
         _record_published(dupe_key)
         _claim_manifest(video_path)
+        _record_receipt(niche, content_type, live)
     return out
 
 

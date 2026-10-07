@@ -471,8 +471,60 @@ async def decide() -> tuple[str, dict]:
 
 
 def _run(cmd: list[str]) -> int:
+    """Run a builder and report whether the SLOT succeeded â€” not whether the
+    process exited cleanly. Those are different questions.
+
+    A builder that posts does its real work minutes before it returns, and on
+    Windows it can still die on the way out. build_matchday_hype published a
+    roll call to Facebook and YouTube at 11:35 on 2026-10-06 and then fell over
+    during interpreter shutdown with exit code 3221226505 (0xC0000409,
+    STATUS_STACK_BUFFER_OVERRUN) - a native fault with no traceback, raised
+    after the last line of main() had already run. Three times before that
+    (27 Sep, 02 Oct, 05 Oct) the same thing, always the same shape: every
+    channel reported "uploaded", then the corpse carried a failure code.
+
+    Trusting that code cost real things:
+      * the format was never written to the daily ledger, so the cap stopped
+        counting - a roll call capped at two went out THREE times on 05 and
+        06 Oct;
+      * _alert() told the self-heal sweep the slot "posted nothing", which woke
+        an agent to repair a page that had just posted perfectly, five times
+        since 28 Sep;
+      * the debate branch below reads rc != 0 as "nothing went out" and builds
+        a SECOND, different post as a fallback.
+    All three follow from reading an exit code as a statement about the page.
+
+    So the exit code is now checked against the publisher's receipt. If a reel
+    for this page went live while this builder was running, the slot succeeded;
+    the bad exit is logged as what it is - a dirty shutdown after a good run -
+    and the caller is told the truth.
+    """
     _log("running: " + " ".join(cmd[1:]))
-    return subprocess.run([sys.executable, "-X", "utf8"] + cmd[1:], cwd=str(ROOT)).returncode
+    try:
+        from modules.publish_reel import receipt_ids, receipts_added
+        before = receipt_ids()
+    except Exception as e:
+        _log(f"publish receipts unavailable ({str(e)[:60]}) - "
+             f"the exit code is all we have this run")
+        receipts_added, before = None, set()
+
+    rc = subprocess.run([sys.executable, "-X", "utf8"] + cmd[1:],
+                        cwd=str(ROOT)).returncode
+    if rc == 0 or receipts_added is None:
+        return rc
+    try:
+        live = receipts_added(before, "sa_pulse")
+    except Exception as e:
+        _log(f"could not read publish receipts ({str(e)[:60]}) - "
+             f"treating exit {rc} at face value")
+        return rc
+    if not live:
+        return rc
+    chans = ", ".join(sorted({c for r in live for c in r.get("channels", [])}))
+    _log(f"builder exited {rc} AFTER publishing to {chans or 'nothing named'} "
+         f"â€” the post is live; treating the slot as a success and the exit "
+         f"code as a dirty shutdown")
+    return 0
 
 
 async def main():
