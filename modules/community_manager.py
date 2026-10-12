@@ -748,6 +748,36 @@ def is_already_replied(comment_id: str) -> bool:
         conn.close()
 
 
+def _reply_counts(niche: str) -> tuple[int, int]:
+    """(real replies posted on this niche, of which carried the TradeRadar line) - drives the mention cadence."""
+    conn = _get_db()
+    try:
+        n = conn.execute("SELECT COUNT(*) FROM replied_comments WHERE niche = ? AND reply_text NOT LIKE '[%'",
+                         (niche,)).fetchone()[0]
+        m = conn.execute("SELECT COUNT(*) FROM replied_comments WHERE niche = ? AND reply_text LIKE '%gettraderadar.com%'",
+                         (niche,)).fetchone()[0]
+        return int(n or 0), int(m or 0)
+    except Exception:
+        return 0, 0
+    finally:
+        conn.close()
+
+
+def with_traderadar(reply_text: str, niche: str, sentiment: str) -> str:
+    """Owner 2026-10-12: replies promote TradeRadar, naturally. The genuine answer comes first; every 2nd-3rd
+    reply (tr_promo.mention_due, never every reply) gets one rotating line + a UTM link + "Analysis, not advice".
+    Never on negative / complaint / escalation comments. COMMUNITY_TR_MENTION=0 turns it off."""
+    if os.getenv("COMMUNITY_TR_MENTION", "1").strip().lower() in ("0", "false", "off", "no"):
+        return reply_text
+    if sentiment not in ("positive", "neutral") or "gettraderadar" in reply_text or "http" in reply_text:
+        return reply_text
+    from modules import tr_promo
+    n, m = _reply_counts(niche)
+    if not tr_promo.mention_due(n):
+        return reply_text
+    return f"{reply_text.rstrip()} {tr_promo.reply_mention(niche, m)}"
+
+
 def mark_as_replied(comment_id: str, niche: str, comment_text: str, reply_text: str, sentiment: str):
     conn = _get_db()
     try:
@@ -923,6 +953,9 @@ async def run_community_round(niches: list[str] | None = None) -> dict:
                 mark_as_replied(comment["id"], niche,
                                 comment.get("message", ""), "[NO_REPLY]", sentiment)
                 continue
+
+            # TradeRadar line on every 2nd-3rd positive/neutral reply (never on unhappy comments)
+            reply_text = with_traderadar(reply_text, niche, sentiment)
 
             # Post reply
             result = await post_reply(comment["id"], reply_text, niche)
