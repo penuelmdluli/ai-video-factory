@@ -186,6 +186,15 @@ async def upload_to_facebook(
             "error": f"Video file not found: {video_path}",
         }
 
+    # TradeRadar end card on every page video (owner 2026-10-12/13, same as the newsclips engine).
+    # Off switch: FB_END_CARD=0. Idempotent (has_end_card), never blocks the upload.
+    if os.getenv("FB_END_CARD", "1").strip().lower() not in ("0", "false", "off", "no"):
+        try:
+            from modules.brand import page_end_card
+            video_file = Path(page_end_card(video_file, niche))
+        except Exception as e:
+            print(f"[Facebook] end card skipped (non-critical): {str(e)[:120]}")
+
     # Build description with engagement CTA and hashtags
     full_desc = _build_engagement_description(niche, description)
     if hashtags:
@@ -218,6 +227,9 @@ async def upload_to_facebook(
             except Exception as te:
                 print(f"[Facebook] Thumbnail set failed (non-critical): {te}")
 
+        if result.get("status") == "uploaded":
+            _post_cta_comment(result, niche, page_token)
+
         return result
 
     except Exception as e:
@@ -227,6 +239,41 @@ async def upload_to_facebook(
             "status": "failed",
             "error": str(e),
         }
+
+
+# ── TradeRadar call-to-action comment (owner 2026-10-12; was iVideo Studio) ──
+# Every video on every page gets one first comment from the page: a hook matched
+# to the page's audience + the benefit + one UTM-tagged gettraderadar.com link +
+# "Analysis, not advice" (modules/tr_promo.py). TradeRadar is the only product.
+# Off switch: FB_CTA_COMMENT=0 in .env. Never fails or delays the upload.
+
+
+def cta_comment_text(niche: str) -> str:
+    from modules import tr_promo
+    # FB_CTA_CAMPAIGN (e.g. chiefs_gameday, set by matchday.py on a Chiefs game day) overrides the campaign tag
+    return tr_promo.cta_comment(niche, "comment", os.getenv("FB_CTA_CAMPAIGN") or niche)
+
+
+def _post_cta_comment(result: dict, niche: str, page_token: str) -> None:
+    if os.getenv("FB_CTA_COMMENT", "1").strip().lower() in ("0", "false", "off", "no"):
+        return
+    # Reels must be commented on by video_id (post_id 400s for reels).
+    target = result.get("video_id") or result.get("post_id")
+    if not target or not page_token:
+        return
+    try:
+        resp = requests.post(
+            f"{GRAPH_API_BASE}/{target}/comments",
+            data={"message": cta_comment_text(niche), "access_token": page_token},
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            result["cta_comment_id"] = resp.json().get("id", "")
+            print(f"[Facebook] TradeRadar CTA comment posted on {target}")
+        else:
+            print(f"[Facebook] CTA comment not posted ({resp.status_code}): {resp.text[:150]}")
+    except Exception as e:
+        print(f"[Facebook] CTA comment error (non-critical): {e}")
 
 
 def _set_video_thumbnail(video_id: str, page_token: str, thumbnail_path: str):
@@ -493,8 +540,11 @@ async def upload_photo(image_path: str, caption: str, niche: str) -> dict:
         if resp.status_code == 200:
             j = resp.json()
             print(f"[Facebook] Photo posted: {j.get('post_id') or j.get('id')}")
-            return {"platform": "facebook", "status": "uploaded",
-                    "photo_id": j.get("id"), "post_id": j.get("post_id") or j.get("id")}
+            out = {"platform": "facebook", "status": "uploaded",
+                   "photo_id": j.get("id"), "post_id": j.get("post_id") or j.get("id")}
+            # Photos (matchday XI / result / hype cards) get the TradeRadar CTA comment too (owner 2026-10-13).
+            _post_cta_comment({"video_id": out["photo_id"], "post_id": out["post_id"]}, niche, cfg["page_token"])
+            return out
         print(f"[Facebook] Photo failed ({resp.status_code}): {resp.text[:200]}")
         return {"platform": "facebook", "status": "failed", "error": resp.text[:200]}
     except Exception as e:

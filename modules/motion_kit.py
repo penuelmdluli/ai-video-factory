@@ -774,9 +774,39 @@ def quote_kinetic(out, quote="WE FEAR NOBODY IN THIS LEAGUE",
 # ── 7. COUNTDOWN ───────────────────────────────────────────────────────────
 def countdown(out, title="SUNDOWNS v GALLANTS", when="WEDNESDAY 19:30",
               clubs=("sundowns", "gallants"), start_secs=3 * 3600 + 254,
-              duration=7.0):
+              duration=7.0, hook=None, captions=None):
+    """hook: fan question shown big in the first 3 s, then as a slim banner (owner 2026-10-13, newsclips standard).
+    captions: [(start, end, text)] burned word-group captions timed to the narration."""
     from PIL import Image, ImageDraw
     ca, cb = _crest(clubs[0], 240), _crest(clubs[1], 240)
+    caps = list(captions or [])
+
+    def _hook_and_caps(im, d, t):
+        if hook:
+            if t < 3.0:  # big hook card across the top third
+                a = min(1.0, t / 0.25)
+                hf = 64
+                while hf > 34 and d.textlength(hook, font=_font(hf)) > W - 120:
+                    hf -= 2
+                d.rounded_rectangle([40, 170, W - 40, 330], radius=28, fill=(*GOLD, int(235 * a)))
+                hw = d.textlength(hook, font=_font(hf))
+                d.text(((W - hw) / 2, 250 - hf * 0.62), hook, font=_font(hf), fill=(12, 12, 14, int(255 * a)))
+            else:
+                bf = _font(34)
+                bw = d.textlength(hook, font=bf)
+                d.rounded_rectangle([(W - bw) / 2 - 28, 176, (W + bw) / 2 + 28, 236], radius=20,
+                                    fill=(10, 10, 12, 210), outline=(*GOLD, 200), width=2)
+                d.text(((W - bw) / 2, 186), hook, font=bf, fill=GOLD)
+        for (a0, a1, txt) in caps:
+            if a0 <= t < a1:
+                cs = 62
+                while d.textlength(txt, font=_font(cs)) > W - 100 and cs > 36:
+                    cs -= 4
+                cf = _font(cs)
+                tw = d.textlength(txt, font=cf)
+                d.text(((W - tw) / 2, 1440), txt, font=cf, fill=(255, 255, 255),
+                       stroke_width=6, stroke_fill=(0, 0, 0))
+                break
 
     def frame(t):
         im = Image.new("RGB", (W, H), DARK)
@@ -830,8 +860,34 @@ def countdown(out, title="SUNDOWNS v GALLANTS", when="WEDNESDAY 19:30",
         bar_w = int((W - 200) * pulse)
         d.rounded_rectangle([(W - bar_w) / 2, 1320, (W + bar_w) / 2, 1336],
                             radius=8, fill=(*GOLD, 160))
+        _hook_and_caps(im, d, t)
         return im
     return _render(frame, out, duration)
+
+
+def srt_caption_groups(srt_path, n=3):
+    """Word-level SRT (voice_generator) -> [(start, end, 'THREE WORD GROUP')] for countdown(captions=...)."""
+    import re as _re
+    try:
+        txt = Path(srt_path).read_text(encoding="utf-8")
+    except Exception:
+        return []
+    def _s(ts):
+        h, m, rest = ts.split(":")
+        sec, ms = rest.split(",")
+        return int(h) * 3600 + int(m) * 60 + int(sec) + int(ms) / 1000
+    words = []
+    for blk in _re.split(r"\n\s*\n", txt.strip()):
+        ln = blk.strip().splitlines()
+        if len(ln) >= 3 and "-->" in ln[1]:
+            a, b = [x.strip() for x in ln[1].split("-->")]
+            words.append((_s(a), _s(b), " ".join(ln[2:]).strip()))
+    out = []
+    for i in range(0, len(words), n):
+        g = words[i:i + n]
+        out.append((g[0][0], (words[i + n][0] if i + n < len(words) else g[-1][1] + 0.4),
+                    " ".join(w[2] for w in g).upper()))
+    return out
 
 
 # ── 9. THE CLASH ───────────────────────────────────────────────────────────

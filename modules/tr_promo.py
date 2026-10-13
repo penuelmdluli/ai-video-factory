@@ -38,7 +38,12 @@ def topic(niche: str | None) -> str:
     return NICHE_TOPIC.get(niche or "", "general")
 
 
-def url(niche: str | None, medium: str, campaign: str, source: str = "facebook") -> str:
+# utm_source per page (matches traderadar-ai pages.json utm_source so GA groups both pipelines per page)
+NICHE_SOURCE = {"sa_pulse": "genesis_news", "genesis": "genesis_news", "tech_news": "tech_pulse_africa"}
+
+
+def url(niche: str | None, medium: str, campaign: str, source: str | None = None) -> str:
+    source = source or NICHE_SOURCE.get(niche or "", "facebook")
     path = "/lens" if topic(niche) == "money" else "/"
     return (f"{BASE}{path}?utm_source={source}&utm_medium={medium}&utm_campaign={campaign[:60]}"
             f"&utm_content={niche or 'page'}")

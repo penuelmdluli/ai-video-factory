@@ -32,43 +32,91 @@ ROOT = Path(__file__).parent.parent
 # Set BRAND to the handle you want burned in. Kept as one constant so the
 # whole system renames in one edit.
 #
-# Owner call 2026-09-14: the reels market iVideo Studio now, not the personal
-# handle. Every reel carries the site mark, a mid-video "Made with AI" banner
-# and the iVideo Studio end card (add_end_card below).
-BRAND = "ivideostudio.ai"
-SITE = "ivideostudio.ai"
-ICON = ROOT / "assets" / "ivideostudio" / "icon.png"
-CARD_TAG = "ivideostudio-endcard"
-CTA = ("\U0001F3AC Made with AI. Create your own videos free at https://ivideostudio.ai\n"
-       "#AI #AIVideo #iVideoStudio")
+# Owner call 2026-10-12: every video now markets TradeRadar and NOTHING else
+# (was iVideo Studio since 2026-09-14). The site mark, the end card and the
+# caption call to action all point to gettraderadar.com. Copy lives in
+# modules/tr_promo.py. The mid-video banner stays dropped (2026-09-25 note in
+# watermark_video()).
+BRAND = "gettraderadar.com"
+SITE = "gettraderadar.com"
+ICON = ROOT / "assets" / "traderadar" / "icon.png"
+CARD_TAG = "traderadar-endcard"
+OLD_CARD_TAGS = ("ivideostudio-endcard",)   # retired cards: swapped for the TradeRadar card in market_post
+OLD_CARD_SECONDS = 3.5                      # add_end_card's default length when those were made
 
 
-def has_end_card(path) -> bool:
-    """True when the video already carries the iVideo Studio end card."""
+def _cta():
+    from modules import tr_promo
+    return tr_promo.caption_cta("profile", "profile", "brand")
+
+
+CTA = _cta()
+
+
+def _card_tag(path) -> str:
     try:
         r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format_tags=comment",
                             "-of", "default=nw=1:nk=1", str(path)],
                            capture_output=True, text=True, timeout=60)
-        return CARD_TAG in r.stdout
+        return r.stdout
     except Exception:
-        return False
+        return ""
+
+
+def has_end_card(path) -> bool:
+    """True when the video already carries the TradeRadar end card."""
+    return CARD_TAG in _card_tag(path)
+
+
+def _strip_old_card(src: Path) -> Path:
+    """Cut the retired iVideo Studio end card (the last OLD_CARD_SECONDS) off a video. Returns the trimmed file,
+    or src unchanged when it has no old card or anything fails."""
+    if not any(t in _card_tag(src) for t in OLD_CARD_TAGS):
+        return src
+    try:
+        dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                                    "-of", "default=nw=1:nk=1", str(src)],
+                                   capture_output=True, text=True, timeout=60).stdout.strip())
+        out = src.with_name(src.stem + "_nocard.mp4")
+        subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(src), "-t", f"{dur - OLD_CARD_SECONDS:.3f}",
+                        "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
+                        "-map_metadata", "-1", "-movflags", "+faststart", str(out)],
+                       check=True, capture_output=True, timeout=900)
+        print(f"[Brand] removed the old iVideo Studio end card from {src.name}")
+        return out
+    except Exception as e:
+        print(f"[Brand] old end card not removed: {str(e)[:150]}")
+        return src
+
+
+def _strip_old_cta(message: str) -> str:
+    """Drop iVideo Studio lines / hashtags from a caption (owner 2026-10-12: TradeRadar only)."""
+    import re
+    message = re.sub(r"\s*#iVideoStudio\b", "", message, flags=re.I)
+    lines = [ln for ln in message.splitlines() if "ivideostudio" not in ln.lower()]
+    msg = "\n".join(lines)
+    return re.sub(r"\n{3,}", "\n\n", msg).strip()
 
 
 def market_post(message: str, media_path):
-    """Last stop before anything reaches the personal timeline.
+    """Last stop before anything reaches the personal timeline (and the repost page path).
 
-    Owner call 2026-09-14: every video posted there markets iVideo Studio.
-    Adds the end card to a video that lacks it and the call to action to a
-    caption that lacks the site. Returns (message, media_path).
+    Owner call 2026-10-12: every video posted markets TradeRadar only. Swaps a
+    retired iVideo Studio end card for the TradeRadar card, adds the card to a
+    video that lacks it, removes iVideo lines from the caption and adds the
+    TradeRadar call to action. Returns (message, media_path).
     """
     if media_path and Path(media_path).suffix.lower() in (".mp4", ".mov", ".mkv", ".webm"):
         if not has_end_card(media_path):
-            src = Path(media_path)
-            carded = add_end_card(src, src.with_name(src.stem + "_ivs.mp4"))
+            src = _strip_old_card(Path(media_path))
+            carded = add_end_card(src, Path(media_path).with_name(Path(media_path).stem + "_tr.mp4"))
             media_path = str(carded)
-    if message is not None and "ivideostudio.ai" not in message:
-        message = (message.rstrip() + "\n\n" + CTA) if message.strip() else CTA
+    if message is not None:
+        message = _strip_old_cta(message)
+        if SITE not in message:
+            message = (message.rstrip() + "\n\n" + CTA) if message.strip() else CTA
     return message, media_path
+
 
 FONT_CANDIDATES = [
     "C:/Windows/Fonts/segoeuib.ttf",
@@ -151,12 +199,20 @@ def watermark_video(src, out=None, brand: str = "", opacity: float = 0.42):
               f"shadowx=2:shadowy=2:fontsize=h/34")
     vf = (f"drawtext={common}:x=w/22:y=w/22,"
           f"drawtext={common}:x=(w-text_w)/2:y=h-w/22-text_h")
-    # During the reel: a short, clear banner so a viewer who never reaches the
-    # end card still learns where it was made. Seconds 5-9, lower third.
-    promo = "Made with AI  |  ivideostudio.ai"
-    vf += (f",drawbox=x=0:y=ih*0.70:w=iw:h=ih*0.075:color=black@0.55:t=fill:enable='between(t,5,9)'"
-           f",drawtext=fontfile='{fontfile}':text='{promo}':fontcolor=0xFFB347:fontsize=h/30"
-           f":x=(w-text_w)/2:y=h*0.70+(h*0.075-text_h)/2:enable='between(t,5,9)'")
+    # The mid-reel "Made with AI | ivideostudio.ai" banner (seconds 5-9, lower
+    # third) was removed on the owner's call 2026-09-25.
+    #
+    # It announced the one thing these reels depend on the viewer not deciding
+    # too early. The formats that travel - the arena spectacle especially -
+    # work because they read as footage somebody filmed, and a caption saying
+    # it is AI, placed exactly where the act peaks, tells the viewer to stop
+    # watching and start judging. It also landed over the middle of the frame
+    # during the strongest seconds of the clip.
+    #
+    # The product is still advertised: the persistent site mark (gettraderadar.com since 2026-10-12) stays
+    # (it is a site handle, not a disclosure), and add_end_card appends the
+    # TradeRadar end card after the reel has finished playing - which
+    # is where a call to action belongs.
 
     cmd = ["ffmpeg", "-y", "-i", str(src), "-vf", vf,
            "-c:a", "copy", "-movflags", "+faststart",
@@ -176,8 +232,11 @@ def watermark_video(src, out=None, brand: str = "", opacity: float = 0.42):
     return out
 
 
-def add_end_card(src, out=None, seconds: float = 3.5):
-    """Append the iVideo Studio end card: CREATE VIDEOS LIKE THIS.
+def add_end_card(src, out=None, seconds: float = 3.5, style: str = "default"):
+    """Append the TradeRadar end card (owner 2026-10-12; was the iVideo Studio card).
+
+    style="soft" is the news/sport outro the traderadar-ai newsclips engine uses
+    ("Protect your trading account: free tools at gettraderadar.com").
 
     Built from the reel's own last frame (blurred and darkened) so it belongs
     to the video, at the reel's exact size, fps and audio format so the join is
@@ -215,11 +274,18 @@ def add_end_card(src, out=None, seconds: float = 3.5):
         if ICON.exists():
             ic = Image.open(ICON).convert("RGBA").resize((W // 7, W // 7))
             bg.paste(ic, ((W - ic.width) // 2, int(H * 0.33) - ic.height // 2), ic)
-        centred("CREATE VIDEOS", W // 11, int(H * 0.44), (255, 255, 255))
-        centred("LIKE THIS", W // 11, int(H * 0.50), (255, 255, 255))
-        centred("Dance reels. Movies. Cartoons. Ads.", W // 26, int(H * 0.565), (205, 205, 215))
-        centred(SITE, W // 12, int(H * 0.64), (255, 179, 71))
-        centred("Start free today", W // 22, int(H * 0.70), (255, 255, 255))
+        if style == "soft":
+            centred("PROTECT YOUR", W // 13, int(H * 0.44), (255, 255, 255))
+            centred("TRADING ACCOUNT", W // 13, int(H * 0.50), (255, 255, 255))
+            centred("Free tools: loss-limit warnings, lot size from your risk %", W // 34, int(H * 0.565),
+                    (205, 205, 215))
+        else:
+            centred("TRACK GOLD, THE RAND", W // 13, int(H * 0.44), (255, 255, 255))
+            centred("AND THE MARKETS", W // 13, int(H * 0.50), (255, 255, 255))
+            centred("Read by AI, every day", W // 26, int(H * 0.565), (205, 205, 215))
+        centred(SITE, W // 13, int(H * 0.64), (46, 229, 157))
+        centred("Free to start", W // 22, int(H * 0.70), (255, 255, 255))
+        centred("Analysis, not advice", W // 34, int(H * 0.75), (170, 170, 185))
         card_png = tmp / "ivs_card.png"
         bg.save(card_png)
 
@@ -254,6 +320,27 @@ def add_end_card(src, out=None, seconds: float = 3.5):
     except Exception as e:
         print(f"[Brand] end card skipped: {str(e)[:200]}")
         return src
+
+
+# Page reels (uploader_facebook.upload_to_facebook) get the card too (owner 2026-10-13: the countdown that went
+# viral on Genesis News had no TradeRadar outro). Sport/news niches get the soft outro, like the newsclips engine.
+SOFT_NICHES = {"sa_pulse", "genesis", "tech_news", "blissful_moments", "motivation", "limitless_you",
+               "mzansi_baby", "health_wellness"}
+SPOKEN_SOFT = "And protect your trading account: free tools with TradeRadar, at gettraderadar.com."
+
+
+def page_end_card(path, niche: str):
+    """Video path with the TradeRadar end card (idempotent). Never raises; returns the input on failure."""
+    try:
+        p = Path(path)
+        if p.suffix.lower() not in (".mp4", ".mov", ".mkv", ".webm") or has_end_card(p):
+            return str(p)
+        src = _strip_old_card(p)
+        return str(add_end_card(src, p.with_name(p.stem + "_tr.mp4"),
+                                style="soft" if niche in SOFT_NICHES else "default"))
+    except Exception as e:
+        print(f"[Brand] page end card skipped: {str(e)[:150]}")
+        return str(path)
 
 
 if __name__ == "__main__":

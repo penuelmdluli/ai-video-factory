@@ -657,8 +657,18 @@ async def cmd_auto(a):
         return
     now = _dt.now(SAST)
 
+    # Game-day mode (traderadar-ai newsclips/gameday.py, owner 2026-10-13) covers the lead club's fixture with
+    # real-footage posts; the parts it owns are skipped here so no moment is posted twice on Genesis News.
+    try:
+        from modules.page_guard import gameday_owns
+    except Exception:
+        gameday_owns = lambda fid, part: False  # noqa: E731
+    if any("chiefs" in (f.get("home_key"), f.get("away_key")) for f in fixtures):
+        os.environ.setdefault("FB_CTA_CAMPAIGN", "chiefs_gameday")
+
     for f in fixtures:
         st = state.setdefault(f["id"], {})
+        own = lambda part, _id=f["id"]: gameday_owns(_id, part)  # noqa: E731
         club = f["home_key"] if f["home_key"] in BIG_THREE else \
             (f["away_key"] if f["away_key"] in BIG_THREE else f["home_key"])
         opp = f["away_key"] if club == f["home_key"] else f["home_key"]
@@ -667,7 +677,7 @@ async def cmd_auto(a):
         pri_ok = priority(f) >= 1 or a.all
         # 1) predicted XI, once, inside the 4h pre-match window (big-three)
         ko = _dt.fromisoformat(f["kickoff_iso"]) if f["kickoff_iso"] else None
-        if (pri_ok and ko and not st.get("predicted") and f["status"] == "pre"
+        if (pri_ok and ko and not st.get("predicted") and f["status"] == "pre" and not own("prematch")
                 and _td(0) < ko - now <= _td(hours=4)):
             print(f"[Auto] pre-match window: {label} — posting predicted XI")
             ns = argparse.Namespace(
@@ -683,6 +693,7 @@ async def cmd_auto(a):
         # 1b) PRE-MATCH HYPE, once, ~75 min out (big-three): badge-tower cover
         #     + kickoff caption — the "we are LIVE today" drumbeat
         if (pri_ok and ko and not st.get("hype") and f["status"] == "pre"
+                and not (own("lineup") or own("prematch"))
                 and _td(0) < ko - now <= _td(minutes=75)):
             try:
                 from modules.matchup_cover import make_matchup_cover
@@ -735,6 +746,7 @@ async def cmd_auto(a):
         # 2) OFFICIAL starting XI, once, as soon as the team sheet is published
         #    (ESPN summary feed carries it ~60-75 min before kickoff)
         if (pri_ok and ko and not st.get("lineup") and not f["completed"]
+                and not (own("lineup") or own("prematch"))
                 and _td(hours=-1) <= ko - now <= _td(hours=2)):
             from modules.psl_fixtures import official_lineups
             sheets = await official_lineups(f["id"])
@@ -809,6 +821,9 @@ async def cmd_auto(a):
             as_ = max(int(f["away_score"] or 0), len(live["sa"]))
             seen = set(st.get("events", []))
             fresh = [ev for ev in live["events"] if ev["key"] not in seen]
+            if own("live"):  # game-day mode posts these (or they give way to the covered game)
+                seen |= {ev["key"] for ev in fresh}
+                fresh = []
             for ev in fresh[:3]:
                 scorer_club = f["home_key"] if ev["side"] == "home" else f["away_key"]
                 status = (f"GOAL {ev['clock']}" if ev["kind"] == "GOAL"
@@ -855,6 +870,8 @@ async def cmd_auto(a):
             st["events"] = sorted(seen)
 
         # 3) result card, once, after full-time
+        if f["completed"] and not st.get("result") and own("result"):
+            st["result"] = st["motm"] = "gameday"
         if f["completed"] and not st.get("result") and f["home_key"] and f["away_key"]:
             print(f"[Auto] full-time: {label} {f['home_score']}-{f['away_score']}")
             sh, sa, *_ = await _scorers(f["id"], _match_day(f))
